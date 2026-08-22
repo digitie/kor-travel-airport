@@ -57,7 +57,17 @@ set +a
 export RELEASE_SHA="${CANDIDATE_SHA}"
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.yml up -d --build
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.yml ps
-health_payload="$(curl -fsS "http://127.0.0.1:${PUBLIC_API_PORT:-14000}/health")"
+health_payload=""
+for attempt in $(seq 1 30); do
+  if health_payload="$(curl -fsS "http://127.0.0.1:${PUBLIC_API_PORT:-14000}/health" 2>/dev/null)"; then
+    break
+  fi
+  if [[ "${attempt}" == "30" ]]; then
+    echo "backend did not become ready within 60 seconds" >&2
+    exit 1
+  fi
+  sleep 2
+done
 if ! grep -Fq "\"release_sha\":\"${CANDIDATE_SHA}\"" <<<"${health_payload}"; then
   echo "deployed health release_sha does not match candidate ${CANDIDATE_SHA}: ${health_payload}" >&2
   exit 1
