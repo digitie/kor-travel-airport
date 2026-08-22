@@ -308,6 +308,13 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 - [docs/architecture/collection.md](</F:/dev/parking-radar/docs/architecture/collection.md>)
 - [docs/runbooks/troubleshooting.md](</F:/dev/parking-radar/docs/runbooks/troubleshooting.md>)
 - [docs/runbooks/remote-command-safety.md](</F:/dev/parking-radar/docs/runbooks/remote-command-safety.md>)
+- [docs/test-strategy.md](</F:/dev/parking-radar/docs/test-strategy.md>)
+- [docs/dev-environment.md](</F:/dev/parking-radar/docs/dev-environment.md>)
+- [docs/adr/README.md](</F:/dev/parking-radar/docs/adr/README.md>)
+- [docs/runbooks/agent-failure-patterns.md](</F:/dev/parking-radar/docs/runbooks/agent-failure-patterns.md>)
+- [docs/runbooks/branch-protection.md](</F:/dev/parking-radar/docs/runbooks/branch-protection.md>)
+- [docs/runbooks/cross-repo-audit-checklist.md](</F:/dev/parking-radar/docs/runbooks/cross-repo-audit-checklist.md>)
+- [docs/runbooks/hostile-review.md](</F:/dev/parking-radar/docs/runbooks/hostile-review.md>)
 - [docs/tasks.md](</F:/dev/parking-radar/docs/tasks.md>)
 
 ## WSL 테스트 기준

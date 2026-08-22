@@ -46,6 +46,9 @@ frontend (Next.js) → backend API (FastAPI) → services → repositories/SQLAl
    루트는 `overflow-x: clip`으로 둔다.
 7. Hallmark 토큰 밖의 임의 색상·폰트·spacing을 CSS에 추가하지 않는다.
 8. 인증 없는 백업 UI는 내부망 전제임을 문서·운영 설정에 남긴다.
+9. `python-krairport-api` 등 형제 provider 라이브러리가 이미 있는 기능을 backend 안에
+   wrapper/adapter로 다시 만들지 않는다. 부족한 기능은 해당 라이브러리를 직접 고친다
+   ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)).
 
 ## 5. 검증 게이트
 

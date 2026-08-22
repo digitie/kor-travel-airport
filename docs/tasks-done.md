@@ -2,6 +2,42 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-08-23
+
+### `T-028` — GitHub 정본 레포 전환 + kor-travel-map 문서 구조 이식
+
+- 두 GitHub remote(`digitie/airport-parking-radar`, `digitie/parking-radar`) 상태를
+  확인해 `digitie/parking-radar`가 정본(이미 열려 있던 Draft PR #1과 일치)임을 확인하고,
+  `origin`을 `parking-radar.git`로, 구 remote를 `airport-parking-radar`로 재명명했다.
+  두 레포의 `main` 히스토리가 갈라져 보였지만 `git diff --name-only`로 파일 내용이 완전히
+  동일함을 확인해 별도 병합 없이 로컬 `main`을 새 `origin/main`으로 전환했다.
+- `kor-travel-map`(`F:/dev/kor-travel-map`)의 문서 구조를 조사해 이 저장소에 없던 항목을
+  선별 이식했다: ADR을 파일당 1개(`docs/adr/001~003-*.md`)로 분리하고 작성 규약을
+  `docs/adr/README.md`에 명문화, `docs/runbooks/agent-failure-patterns.md`(반복 실수
+  카탈로그), `docs/runbooks/branch-protection.md`(현재 `main`이 branch protection
+  미설정임을 `gh api`로 확인 후 작성), `docs/runbooks/cross-repo-audit-checklist.md`(이번
+  2-remote 상황을 재발 방지 절차로 문서화), `docs/dev-environment.md`(Windows/WSL 실행
+  경계·포트 진단), `docs/test-strategy.md`(테스트 계층 책임 경계, 커버리지 미강제 현황
+  명시)를 신규 작성했다. 사용자 확인 질문을 계기로, 이 저장소의 기존 적대적 리뷰 게이트
+  (James/Popper, T-021)가 결과만 `journal.md`/`tasks-done.md`에 기록될 뿐 절차 문서가
+  없다는 gap을 추가로 발견해 `docs/runbooks/hostile-review.md`도 T-021 실제 기록 기준으로
+  작성했다. `CLAUDE.md`/`README.md`에 전부 링크를 추가했다.
+- 멀티패키지 모노레포 전용 패턴(에이전트별 worktree/sandbox 브랜치, lint-imports 계층
+  검사, sprint 문서군, integration-map)은 단일 서비스 구조인 이 저장소에 맞지 않아
+  이식하지 않았다.
+- 사용자 요청으로 `kor-travel-map`의 `CLAUDE.md`/`AGENTS.md` 본문(Codex/Antigravity
+  entry 정책, 문서 언어 정책, 지시 우선순위, 행동 원칙 5종 — Think Before
+  Coding/Simplicity First/Surgical Changes/Goal-Driven Execution/Practical Bias,
+  작업 후 체크리스트)을 최대한 원문 그대로 `AGENTS.md`/`CLAUDE.md`에 이식했다. 식별자
+  테이블·역할·외부 경계·Provider API 세부 원칙처럼 `kortravelmap` 패키지·PostGIS·
+  멀티패키지 구조에 종속된 내용은 가져오지 않았다.
+- `python-krairport-api`(`krairport`, `F:\dev\python-krairport-api`)를 비행편 데이터
+  provider 라이브러리로 채택하기로 결정했다([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)).
+  현재 `backend/app/services/flight_status.py`는 KAC/IIAC API를 `httpx`로 직접
+  재구현하고 있어 이 결정과 어긋난다 — 실제 마이그레이션은 `docs/tasks.md`의 `T-029`로
+  등록했고 아직 시작하지 않았다. `AGENTS.md`에 "Provider 라이브러리 사용 원칙" 절을
+  추가하고 `SKILL.md` §4에 9번째 금지 항목으로 반영했다.
+
 ## 2026-08-22
 
 ### `T-027` — scheduler headroom 재조정 및 최종 검증

@@ -2,10 +2,15 @@
 
 ## 현재 상태
 
-- 기준일: 2026-08-22
+- 기준일: 2026-08-23
 - 작업 브랜치: `codex/parking-radar-postgres-migration`
 - 현재 단계: 구현·데이터 이전·14번 배포·5분 연속성 검증 완료; 두 reviewer 재리뷰 후
   `digitie/parking-radar` PR #1 최종 merge 대기
+- 2026-08-23: `origin`을 `digitie/parking-radar`(정본)로 전환하고, 구 remote는
+  `airport-parking-radar`로 재명명했다(`T-028`). `kor-travel-map` 문서 구조 이식
+  (ADR 분리, agent-failure-patterns/branch-protection/cross-repo-audit-checklist,
+  dev-environment.md, test-strategy.md)도 같은 작업에서 완료했다 — 아직 커밋되지 않은
+  working tree 변경 상태다.
 - 운영 원본: `digitie@192.168.1.13:/home/digitie/apps/parking-radar`
 - 새 운영 대상: `digitie@192.168.1.14`
 - 14번 공개 포트: API `14000`, web `14001`; live E2E 기준 URL:
