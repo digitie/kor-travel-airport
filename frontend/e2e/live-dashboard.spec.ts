@@ -27,7 +27,7 @@ test.describe("live parking-radar dashboard", () => {
     expect(collectorPayload.client_mode).toBe("live");
     expect(collectorPayload.scheduler_enabled).toBe(true);
     expect(collectorPayload.collect_interval_seconds).toBe(300);
-    expect(collectorPayload.effective_collect_interval_seconds).toBe(240);
+    expect(collectorPayload.effective_collect_interval_seconds).toBe(180);
     expect(collectorPayload.last_run?.status).toBe("success");
     expect(collectorPayload.last_run?.trigger).toBe("scheduler");
     expect(collectorPayload.last_run?.raw_response_count).toBeGreaterThan(0);

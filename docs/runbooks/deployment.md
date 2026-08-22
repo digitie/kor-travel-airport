@@ -13,7 +13,7 @@
    확인한 뒤 현재 Git `HEAD`를 candidate artifact로 만들어 14번의 `docker compose`만
    호출하며 다른 Compose project를 중지하지 않는다. 배포 직후 `/health.release_sha`가
    candidate SHA와 일치하는지도 확인한다.
-4. [migration.md](migration.md)의 prewarm → final delta → 240초 이내 cutover 검증을
+4. [migration.md](migration.md)의 prewarm → final delta → 180초 scheduler와 300초 이내 cutover 검증을
    완료한다.
 
 ```bash
@@ -23,7 +23,7 @@ REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
 ```
 
 14번의 기본 구성은 PostgreSQL 16, Alembic `0003_legacy_source_identity`,
-`COLLECT_INTERVAL_SECONDS=300`, `SCHEDULER_SAFETY_BUFFER_SECONDS=60`,
+`COLLECT_INTERVAL_SECONDS=300`, `SCHEDULER_SAFETY_BUFFER_SECONDS=120`,
 `MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300`, `ENABLE_MANUAL_COLLECT=false`이다. 백업 UI는 별도 인증이 없으므로
 인터넷에 직접 노출하지 않고 내부망/게이트웨이 접근 제어를 전제로 한다. 백업 생성·복원 명령은
 각각 최대 120초, restore 업로드는 최대 600초이며, web의 backup proxy timeout은

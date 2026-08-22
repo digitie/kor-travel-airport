@@ -2,6 +2,20 @@
 
 ## 2026-08-22
 
+- 최종 runtime candidate는 `d312c98a9143e76e348295370dfd3348c5f5cef7`이다. 14번 health와
+  `https://pr-api.digitie.mywire.org`, `https://pr.digitie.mywire.org/api/backend/health`가
+  모두 이 SHA와 `database=ready`를 반환하고, API/web 포트는 각각 `14000`/`14001`이다.
+- 14번 PostgreSQL에서 보호 백업을 만든 뒤 `migration_http`와 live source가 같은 lot·관측시각을
+  가진 157행을 제거하고 analytics cache 264행을 무효화했다. 이후 DB 중복과 history API 중복
+  timestamp는 모두 `0`이었다.
+- 백업 UI는 `EXERCISE_LIVE_BACKUP=true`를 지정한 exact live E2E에서 실제 dump 생성까지 수행해
+  `5 passed`했다. 기본 CI는 공유 운영 DB를 변경하지 않도록 backup mutation을 실행하지 않는다.
+- d312c98 runtime의 fresh strict gate는 7회 중 한 샘플에서 target freshness가 `319.7s`가 되어
+  실패했다. 원인은 240초 tick과 약 70초 외부 수집/commit 지연의 합산이었다. 5분 threshold를
+  완화하지 않고 server14 safety buffer를 120초로 늘려 effective tick을 180초로 조정한다.
+- frontend full `48 passed`, backend full `71 passed`, proxy `5 passed`와 production build를
+  확인했다. scheduler 설정 변경 후 exact live E2E와 strict gate를 다시 실행한다.
+
 - 사용자 요청으로 SQLite 기반 운영 앱을 PostgreSQL/Docker 기반으로 전환하는 작업을 시작했다.
 - `kor-travel-map`의 `docs/tasks.md`, `resume.md`, `tasks-done.md`, `tasks-rule.md` 방식과
   `AGENTS.md`/`CLAUDE.md`/`SKILL.md`/AI agent·skill 구조를 기준으로 삼았다.
@@ -11,7 +25,7 @@
   `CLAUDE.md`, `SKILL.md`, `.claude`, `.codex`, `.agents` 경로를 포함한다.
 - PostgreSQL 16/Alembic clean upgrade와 14번 runtime을 확인했다. remote status는
   Alembic `0003_legacy_source_identity (head)`, API `14000`, web `14001`, configured scheduler
-  `300s`, effective scheduler `240s`, safety buffer `60s`다.
+  `300s`, effective scheduler `180s`, safety buffer `120s`다.
 - HTTP migration은 7일 prewarm `imported_snapshots=36878`, 1일 delta
   `imported_snapshots=5192`, `source_lots=53`, `failures=0`으로 완료했고, reconciliation 후
   duplicate lot `0`을 확인했다. 2026-08-22 현재 DB query는 `parking_snapshots=38946`,

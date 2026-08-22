@@ -6,7 +6,7 @@
 - Docker Compose와 PostgreSQL은 14번에서만 실행한다.
 - 13번 수집기는 cutover 검증이 끝날 때까지 유지해 source of truth와 rollback 경로로 둔다.
 - 14번 scheduler는 `COLLECT_INTERVAL_SECONDS=300` 계약으로 시작하며, 최초 수집은 scheduler 시작
-  직후 실행된다. `SCHEDULER_SAFETY_BUFFER_SECONDS=60`으로 실제 tick 시작 간격은 240초로
+  직후 실행된다. `SCHEDULER_SAFETY_BUFFER_SECONDS=120`으로 실제 tick 시작 간격은 180초로
   예약하여 upstream 응답 지연이 있어도 관측 commit 간격이 5분을 넘지 않게 한다.
 
 ## 데이터 경로 선택
@@ -67,7 +67,7 @@ until curl -fsS http://127.0.0.1:14000/health >/dev/null; do sleep 2; done
 curl -fsS http://127.0.0.1:14000/admin/collector-status
 ```
 
-14번 backend는 scheduler 활성화 직후 collector를 한 번 실행한다. scheduler는 collection duration을 더하지 않는 monotonic deadline으로 다음 tick을 예약한다. `date -Is`부터 14번의 `last_run.finished_at`까지 240초 이내인지 측정하고, 14번 latest observed/collected가 13번 cutover marker보다 늦거나 같은지 확인한다. 5분 기준을 넘거나 latest marker가 후퇴하면 14번 scheduler를 끄고 13번을 유지한 채 원인을 조사한다.
+14번 backend는 scheduler 활성화 직후 collector를 한 번 실행한다. scheduler는 collection duration을 더하지 않는 monotonic deadline으로 다음 tick을 예약한다. `date -Is`부터 14번의 `last_run.finished_at`까지 180초 시작 간격과 300초 freshness 이내인지 측정하고, 14번 latest observed/collected가 13번 cutover marker보다 늦거나 같은지 확인한다. 5분 기준을 넘거나 latest marker가 후퇴하면 14번 scheduler를 끄고 13번을 유지한 채 원인을 조사한다.
 
 HTTP fallback의 경우 13번은 계속 실행 중이므로 source update가 중단되지 않는다. 14번이 live 수집을 시작한 뒤 두 시스템의 latest marker를 5분 동안 1분 간격으로 비교해 공백이 없는 것을 확인한다. 확인이 끝나기 전에는 13번을 중지하지 않는다.
 
@@ -105,7 +105,7 @@ TMPDIR=/tmp uv run --project backend --extra dev python scripts/observe_cutover.
 
 `scripts/cutover-empty-lots.json`은 source `/airports`와 target의 `legacy_source_lot_id`를
 대조해 실제 양쪽 무관측인 ICN lot만 기록한 검토 artifact다. 14번 scheduler의 계약은
-configured 300초이고 실제 tick 간격은 240초(`60초 safety buffer`)이며 verifier가 세 값을
+configured 300초이고 실제 tick 시작 간격은 180초(`120초 safety buffer`)이며 verifier가 세 값을
 모두 검사한다. freshness/lag/run gap 한도에는 시간 epsilon을 두지 않는다.
 마지막 출력의 `failed_samples=0`과 각 verifier 출력의 `failure_count=0`을 journal에 기록한다.
 

@@ -92,8 +92,8 @@ require_exact RUN_DB_MIGRATIONS true
 require_exact SEED_SAMPLE_DATA false
 require_exact USE_SAMPLE_CLIENT_WHEN_NO_KEY false
 require_exact COLLECT_INTERVAL_SECONDS 300
-if [[ "${SCHEDULER_SAFETY_BUFFER_SECONDS:-60}" != "60" ]]; then
-  echo "Refusing server14 deployment: SCHEDULER_SAFETY_BUFFER_SECONDS must be 60." >&2
+if [[ "${SCHEDULER_SAFETY_BUFFER_SECONDS:-120}" != "120" ]]; then
+	echo "Refusing server14 deployment: SCHEDULER_SAFETY_BUFFER_SECONDS must be 120." >&2
   exit 2
 fi
 require_exact MANUAL_COLLECT_MIN_INTERVAL_SECONDS 300

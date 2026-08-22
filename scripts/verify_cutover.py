@@ -249,13 +249,13 @@ async def verify(args: argparse.Namespace) -> int:
             failures.append("target scheduler is disabled")
         if target_status.get("collect_interval_seconds") != 300:
             failures.append(f"target interval={target_status.get('collect_interval_seconds')}s, expected 300s")
-        if target_status.get("effective_collect_interval_seconds") != 240:
+        if target_status.get("effective_collect_interval_seconds") != 180:
             failures.append(
-                f"target effective interval={target_status.get('effective_collect_interval_seconds')}s, expected 240s"
+                f"target effective interval={target_status.get('effective_collect_interval_seconds')}s, expected 180s"
             )
-        if target_status.get("scheduler_safety_buffer_seconds") != 60:
+        if target_status.get("scheduler_safety_buffer_seconds") != 120:
             failures.append(
-                f"target scheduler safety buffer={target_status.get('scheduler_safety_buffer_seconds')}s, expected 60s"
+                f"target scheduler safety buffer={target_status.get('scheduler_safety_buffer_seconds')}s, expected 120s"
             )
         last_run = target_status.get("last_run") or {}
         if last_run.get("status") != "success":

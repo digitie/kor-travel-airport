@@ -1,7 +1,7 @@
 # 트러블슈팅
 
 > 현재 운영은 192.168.1.14의 Docker/PostgreSQL이며 scheduler 계약은 300초,
-> 유효 tick은 240초다. 192.168.1.13/ODROID 관련 수치와 SQLite 항목은 historical
+> 유효 tick은 180초다. 192.168.1.13/ODROID 관련 수치와 SQLite 항목은 historical
 > reference로만 읽고, 13번에는 Docker를 실행하지 않는다.
 
 ## 프론트에서 `fetch` 에러가 보일 때

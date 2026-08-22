@@ -4,6 +4,29 @@
 
 ## 2026-08-22
 
+### `T-027` — scheduler headroom 재조정 및 최종 검증 준비
+
+- `d312c98a9143e76e348295370dfd3348c5f5cef7`에서 fresh strict gate를 실행했으나 7회 중 한 샘플의
+  target freshness가 `319.7s`가 되어 실패했다. 240초 tick과 외부 수집/commit 지연이 겹친 경계 문제로
+  확인했다.
+- 5분 threshold는 그대로 유지하고 server14 `SCHEDULER_SAFETY_BUFFER_SECONDS`를 `120`으로,
+  effective tick을 `180초`로 조정했다. 배포 guard, verifier, live E2E 기대값, 운영 문서를 함께 갱신했다.
+- 조정된 server14 배포 후 exact live E2E와 7회 strict gate를 재실행해 `failed_samples=0`을 확인한다.
+
+### `T-026` — 최종 정합성·백업 안전성·라이브 검증
+
+- runtime candidate `d312c98a9143e76e348295370dfd3348c5f5cef7`을 14번에 배포하고 API `14000`, web
+  `14001`, `BACKUP_DIR=/app/backups`, 백업 proxy `900000ms`를 확인했다. 13번에는 Docker를 실행하지 않았다.
+- HTTP migration과 live source가 겹친 migration 행 157건을 보호 백업 후 제거하고 analytics cache
+  264건을 재계산 대상으로 비웠다. PostgreSQL lot·관측시각 중복은 `0`, history API 중복 timestamp도 `0`이다.
+- backup dump password 전달, staged atomic upload, quota 사전 검사, symlink 차단, restore proxy timeout과
+  migration/cache dedupe를 보완했다. 백엔드 targeted `15 passed`, 프론트 full `48 passed`, proxy `5 passed`다.
+- `EXERCISE_LIVE_BACKUP=true E2E_BASE_URL=https://pr.digitie.mywire.org EXPECTED_RELEASE_SHA=d312c98...`
+  로 실제 백업 생성 UI를 포함한 live E2E `5 passed`를 확인했다. fresh strict gate는 `7/7`,
+- 당시 240초 scheduler의 fresh strict gate는 한 샘플에서 target freshness `319.7s`로 실패했다.
+  threshold를 완화하지 않고 scheduler headroom을 T-027에서 조정한다.
+- CI 기본 live E2E는 공유 server14를 변경하지 않으며, backup mutation은 명시적 환경 변수 실행으로 분리했다.
+
 ### `T-025` — Hallmark 후속 정리·리뷰 blocker 해소
 
 - 중복 history KPI를 제거하고 요일 x 시간 히트맵 중심으로 화면을 단순화했다. 밝은 히트맵 셀과
@@ -26,7 +49,7 @@
 
 - `192.168.1.14`에만 Docker Compose/PostgreSQL/backend/frontend를 배포했다.
 - 포트는 API `14000`, web `14001`이며, PostgreSQL은 loopback `5432`로 제한했다. configured
-  collection interval은 `300s`, effective scheduler tick은 `240s`(`60s` safety buffer)다.
+  collection interval은 `300s`, effective scheduler tick은 `180s`(`120s` safety buffer)다.
 - HTTP migration 결과: `imported_snapshots=36878`, `source_lots=53`, `failures=0`.
 - delta import 후 현재 PostgreSQL `parking_snapshots=38946`, distinct snapshot lots `44`,
   parking lots `53`, legacy IDs `53`, duplicate legacy IDs `0`이며 Alembic head는
@@ -92,7 +115,7 @@
 ### `T-003` — 데이터 이전·5분 무손실 컷오버
 
 - 7일 HTTP prewarm과 1일 delta import를 모두 실패 시 rollback하는 방식으로 수행했다.
-- target scheduler는 configured `300s`와 effective `240s` safety-buffer tick으로, source는
+- target scheduler는 configured `300s`와 effective `180s` safety-buffer tick으로, source는
   read-only 유지 상태에서 strict 5분 연속성 gate를 통과했다.
 - source/target lot은 stable legacy ID로 대조하고, 양쪽 무관측 lot은 명시 allowlist 없이는
   통과하지 않는다. lot freshness, source lag, successful run gap 모두 `300s` 한도로 검사한다.

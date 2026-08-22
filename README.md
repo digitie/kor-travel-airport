@@ -162,8 +162,9 @@ DATA_GO_KR_SERVICE_KEY=...
 - `client_mode=live`로 운영할 때는 `SEED_SAMPLE_DATA=false`를 유지한다.
 - 샘플 시계열은 `client_mode=sample`에서만 시드한다.
 - `15056803` 카탈로그에는 개발계정 `5,000` 트래픽이 보이지만, ODROID 실측에서는 `2026-04-28`에 100회 성공 후 101번째부터 `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 발생했다.
-- 현재 server14 live는 5분(`300초`) 주기로 운영하고, `SCHEDULER_SAFETY_BUFFER_SECONDS=60`에
-  따라 유효 tick 간격은 240초다. public server14 profile의 수동 수집 endpoint는 비활성화한다.
+- 현재 server14 live는 5분(`300초`) 계약을 지키며, `SCHEDULER_SAFETY_BUFFER_SECONDS=120`에
+  따라 유효 tick 시작 간격은 180초다. 외부 API 응답/DB commit 지연을 흡수하고 public server14
+  profile의 수동 수집 endpoint는 비활성화한다.
 - 현재 server14 live는 `CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY`를 처리한다.
 - 기존 13번/ODROID의 10분(`600초`) 설정은 historical reference이며 현재 배포 계약이 아니다.
 - `15056803`이 한도 초과 상태여도 인천 전용 API(`15095047`, `15095053`)가 활성화되어 있으면 인천 주차/요금 수집은 계속 시도한다.
