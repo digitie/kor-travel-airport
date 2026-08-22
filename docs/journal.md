@@ -1,5 +1,21 @@
 # journal.md — 작업 일지
 
+## 2026-08-23
+
+- GitHub remote가 `origin`(`airport-parking-radar`)과 `parking-radar` 2개로 갈라져 있던
+  것을 발견했다. `git diff --name-only`로 두 `main` tip의 파일 내용이 완전히 동일함을
+  확인한 뒤(한쪽이 다른 쪽을 squash merge한 결과), `origin`을 `parking-radar.git`로,
+  구 remote를 `airport-parking-radar`로 재명명했다. 재발 방지 절차는
+  `docs/runbooks/cross-repo-audit-checklist.md`에 남겼다.
+- `parking-radar` main(`gh api .../branches/main/protection`)에 branch protection이
+  전혀 설정되어 있지 않음을 확인했다(`404 Branch not protected`). 실제 설정값은
+  `docs/runbooks/branch-protection.md`에 남겼고, 아직 GitHub 설정 자체는 적용하지 않았다 —
+  다음에 레포 admin 권한으로 직접 적용해야 한다.
+- `kor-travel-map`(`F:/dev/kor-travel-map`)의 문서 구조를 조사해 이 저장소에 없던
+  구조/내용을 선별 이식했다(`T-028`, 상세는 `docs/tasks-done.md` 참고). 멀티패키지 모노레포
+  전용 패턴(에이전트별 worktree/sandbox 브랜치, codegraph 게이트, sprint 문서군)은 단일
+  서비스 구조에 맞지 않아 가져오지 않았다.
+
 ## 2026-08-22
 
 - 최종 runtime은 배포한 Git full SHA와 14번 `/health.release_sha`가 일치하는 상태다. 기능 코드

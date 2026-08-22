@@ -74,6 +74,10 @@
   - `RMK_KOR`
 - 주차 현황 수집과 별개로 조회하며 `parking_snapshots`에는 저장하지 않는다.
 - 백엔드는 `/flights/status`에서 응답을 정규화해 프론트에 전달한다.
+- provider 라이브러리 방향: 이 호출/파싱은 `python-krairport-api`(`krairport`)의
+  `departures()`/`arrivals()`로 대체하기로 결정했다
+  ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)). 현재
+  코드는 아직 전환 전이다.
 
 ## 7. 인천국제공항공사 여객기 운항 정보
 
@@ -95,6 +99,8 @@
 - 주의:
   - 도착편은 `airport -> 인천`, 출발편은 `인천 -> airport`로 정규화한다.
   - 비행편 API는 주차 스냅샷 수집과 별개이며 `parking_snapshots`에는 저장하지 않는다.
+  - `python-krairport-api`가 KAC/IIAC를 하나의 client로 함께 다루므로, §6과 동일하게
+    이 호출도 `krairport`로 전환할 계획이다([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)).
 
 ## 8. 한국천문연구원 특일 정보
 

@@ -3,11 +3,34 @@
 진행 중/예정(`[ ]`) task만 두는 백로그다. 완료 항목은
 [`docs/tasks-done.md`](tasks-done.md)에 이동하고, 현재 진척과 다음 작업은
 [`docs/resume.md`](resume.md)에 기록한다. 작성 규칙은 [`docs/tasks-rule.md`](tasks-rule.md)를
-따른다. 2026-08-22 기준 아래 기능·문서·검증 task는 모두 완료되어 미완료 백로그가 없다.
+따른다. 2026-08-22 기준 기능·문서·검증 task는 모두 완료됐고, 2026-08-23에 문서화 task 1건이
+추가됐다.
 
 ## 진행 중인 작업 인덱스
 
-- 현재 미완료 task 없음. 완료 이력은 [`docs/tasks-done.md`](tasks-done.md)를 참조한다.
+- [ ] `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
+
+## `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
+
+[ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)의 방향 결정에
+따른 실제 코드 마이그레이션이다. 아직 시작하지 않았다.
+
+완료 조건:
+
+- [ ] `backend/pyproject.toml`에 `krairport` 의존성을 추가하는 방식(로컬 path dependency,
+  git dependency, vendoring 중 택1)을 정하고 근거를 남긴다.
+- [ ] Docker 이미지 빌드 컨텍스트에서 선택한 의존성 방식이 실제로 동작하는지 확인한다
+  (로컬 path dependency라면 빌드 컨텍스트에 `F:\dev\python-krairport-api` 접근/복사 방법 필요).
+- [ ] `backend/app/services/flight_status.py`의 KAC(`15113771`)/IIAC(`15112968`) 직접
+  `httpx` 호출·XML/JSON 파싱을 `krairport`의 `departures()`/`arrivals()` 호출로 대체한다.
+- [ ] 전환 전후 `/flights/status` 응답 스키마가 동일한지 확인한다(프론트 `daily-flight-overlay-chart.tsx`
+  계약 변경 없음).
+- [ ] `backend/tests/test_flight_status.py`를 `krairport`의 오프라인 fixture 방식과
+  맞추거나 병행 유지한다.
+- [ ] `krairport`에 없는 endpoint/버그를 발견하면 parking-radar 안에 우회 코드를 추가하지
+  않고 `F:\dev\python-krairport-api`를 직접 수정한 뒤 그 결과를 소비한다.
+- [ ] `docs/architecture/data-sources.md` §6/§7, `docs/architecture/architecture.md`의
+  "전환 전" 문구를 제거하고 실제 전환 완료를 반영한다.
 
 ## 완료 조건
 

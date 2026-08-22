@@ -101,6 +101,12 @@
   - 주차 요금 계산
 - `backend/app/services/flight_status.py`
   - 한국공항공사 `15113771` / 인천공항공사 `15112968` 비행편 출도착 조회, 정규화, 캐시
+  - 현재는 `httpx` 직접 호출 + 수동 파싱으로 구현되어 있지만, 같은 KAC/IIAC 경계를 이미
+    타입 있는 client로 제공하는 형제 라이브러리 `python-krairport-api`(`krairport`,
+    `F:\dev\python-krairport-api`)를 provider 라이브러리로 쓰기로 결정했다
+    ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)) — 아직
+    마이그레이션 전이다. `krairport`에 필요한 기능이 없으면 이 파일 안에 우회 로직을 추가하지
+    않고 `krairport` 자체를 고친다.
 
 ## 분석 API
 

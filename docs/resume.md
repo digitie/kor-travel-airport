@@ -2,10 +2,17 @@
 
 ## 현재 상태
 
-- 기준일: 2026-08-22
-- 작업 브랜치: `codex/parking-radar-postgres-migration`
-- 현재 단계: 구현·데이터 이전·14번 배포·5분 연속성 검증 완료; 두 reviewer 재리뷰 후
-  `digitie/parking-radar` PR #1 최종 merge 대기
+- 기준일: 2026-08-23
+- 작업 브랜치: `codex/docs-krairport-provider` (origin/main 기준)
+- `digitie/parking-radar` PR [#1](https://github.com/digitie/parking-radar/pull/1)
+  (postgres/server14 마이그레이션)은 이미 **MERGED** 상태다(`481cb78`). "다음 한 작업"으로
+  더 이상 남아있지 않다.
+- 2026-08-23: `origin`을 `digitie/parking-radar`(정본)로 전환하고, 구 remote는
+  `airport-parking-radar`로 재명명했다(`T-028`). `kor-travel-map` 문서 구조 이식(ADR 분리,
+  agent-failure-patterns/branch-protection/cross-repo-audit-checklist/hostile-review,
+  dev-environment.md, test-strategy.md)과 python-krairport-api 채택 ADR-004도 같은 작업에서
+  완료해 커밋 `6601fa2`로 `codex/docs-krairport-provider` 브랜치에 반영했다. Draft PR
+  [#2](https://github.com/digitie/parking-radar/pull/2)로 열려 있다.
 - 운영 원본: `digitie@192.168.1.13:/home/digitie/apps/parking-radar`
 - 새 운영 대상: `digitie@192.168.1.14`
 - 14번 공개 포트: API `14000`, web `14001`; live E2E 기준 URL:
@@ -14,8 +21,14 @@
 
 ## 다음 한 작업
 
-PR [#1](https://github.com/digitie/parking-radar/pull/1)의 green CI와 exact live E2E
-증적을 확인한 뒤 squash merge한다.
+`T-029`(`docs/tasks.md`) — `python-krairport-api`를 실제로 backend 의존성에 추가하고
+비행편/주차현황/주차요금 수집을 그 client로 전환한다. 착수 전 조사 결과: KAC/IIAC 주차현황과
+KAC 주차요금은 krairport의 기존 typed API로 그대로 대체 가능하고, IIAC 주차요금은
+`iiac_raw_items()` 범용 escape hatch로 커버된다(krairport 자체 수정 불필요). 반면 KAC
+비행편(`15113771`, ODCloud `FlightStatusListDTL`)은 krairport가 현재 지원하지 않는 별도
+provider 도메인이라 krairport 쪽에 새 코드가 필요하다 — 이 부분은 별도 후속으로 분리한다.
+krairport로 전환하면 `RawApiResponse.body_text`가 더 이상 업스트림 원문 그대로가 아니라
+krairport가 파싱한 결과의 JSON 직렬화로 바뀐다는 점을 ADR-004/T-029에 명시해야 한다.
 
 ## 확인된 사실
 
