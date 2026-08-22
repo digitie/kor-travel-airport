@@ -2,9 +2,10 @@
 
 ## 2026-08-22
 
-- 최종 runtime candidate는 `aefaf8c5bc2efc4604135529f85c51b2c8236839`이다. 14번 health와
+- 최종 runtime은 배포한 Git full SHA와 14번 `/health.release_sha`가 일치하는 상태다. 기능 코드
+  candidate `aefaf8c5bc2efc4604135529f85c51b2c8236839`와 docs-only release에서도
   `https://pr-api.digitie.mywire.org`, `https://pr.digitie.mywire.org/api/backend/health`가
-  모두 이 SHA와 `database=ready`를 반환하고, API/web 포트는 각각 `14000`/`14001`이다.
+  `database=ready`를 반환했고, API/web 포트는 각각 `14000`/`14001`이다.
 - 14번 PostgreSQL에서 보호 백업을 만든 뒤 `migration_http`와 live source가 같은 lot·관측시각을
   가진 157행을 제거하고 analytics cache 264행을 무효화했다. 이후 DB 중복과 history API 중복
   timestamp는 모두 `0`이었다.
