@@ -28,7 +28,7 @@ PR [#1](https://github.com/digitie/parking-radar/pull/1)의 green CI와 exact li
   180초 tick과 120초 safety buffer다.
 - HTTP fallback migration은 snapshots 38,946건/lot 44개 관측, reference lot 53개/legacy ID
   53개 상태로 운영되고, duplicate legacy ID는 0개다.
-- 현재 14번 runtime candidate는 `c06ee6d63d13e39d549003e1c37a4369d94bc381`; `/health`의 release SHA와 API/web 포트 계약
+- 현재 14번 runtime candidate는 `aefaf8c5bc2efc4604135529f85c51b2c8236839`; `/health`의 release SHA와 API/web 포트 계약
   (`14000`/`14001`)이 일치한다. exact live E2E는 5개 테스트 모두 통과했다.
 
 ## 남은 운영 확인

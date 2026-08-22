@@ -4,14 +4,18 @@
 
 ## 2026-08-22
 
-### `T-027` — scheduler headroom 재조정 및 최종 검증 준비
+### `T-027` — scheduler headroom 재조정 및 최종 검증
 
 - `d312c98a9143e76e348295370dfd3348c5f5cef7`에서 fresh strict gate를 실행했으나 7회 중 한 샘플의
   target freshness가 `319.7s`가 되어 실패했다. 240초 tick과 외부 수집/commit 지연이 겹친 경계 문제로
   확인했다.
 - 5분 threshold는 그대로 유지하고 server14 `SCHEDULER_SAFETY_BUFFER_SECONDS`를 `120`으로,
   effective tick을 `180초`로 조정했다. 배포 guard, verifier, live E2E 기대값, 운영 문서를 함께 갱신했다.
-- 조정된 server14 배포 후 exact live E2E와 7회 strict gate를 재실행해 `failed_samples=0`을 확인한다.
+- `aefaf8c5bc2efc4604135529f85c51b2c8236839`을 14번에 배포하고 API `14000`, web `14001`,
+  scheduler `300/180/120` 계약과 backup proxy `900000ms`를 확인했다.
+- `EXERCISE_LIVE_BACKUP=true` exact live E2E는 실제 backup 생성 UI 포함 `5 passed (13.0s)`였고,
+  fresh strict gate는 7회 모두 `failure_count=0`, `failed_samples=0`, `gate_duration_seconds=339.9`,
+  `source_lots=53`, `target_lots_checked=53`으로 통과했다.
 
 ### `T-026` — 최종 정합성·백업 안전성·라이브 검증
 
