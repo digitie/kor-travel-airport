@@ -4,6 +4,18 @@
 
 ## 2026-08-22
 
+### `T-025` — Hallmark 후속 정리·리뷰 blocker 해소
+
+- 중복 history KPI를 제거하고 요일 x 시간 히트맵 중심으로 화면을 단순화했다. 밝은 히트맵 셀과
+  primary button의 명도 대비를 고정하고, 백업 파일 입력의 키보드 focus 및 목록 오류 상태를
+  명시했다.
+- 백업 생성은 temp dump의 파일 크기/quota를 최종 저장 전 검사하고, 복원 중 pre-restore
+  backup을 pruning 보호 목록에 넣는다. verifier는 future-dated observation을 거부한다.
+- server14 배포는 `14000`/`14001`, PostgreSQL loopback, live/scheduler/5분 계약을 검사하고
+  rsync clean artifact로 stale 파일을 제거한다. legacy 13번 Docker 경로는 fail-closed다.
+- `b7944ad`에서 backend `67 passed`, frontend `47 passed`, exact live E2E `5 passed`, strict
+  gate `7/7` 및 `failed_samples=0`, GitHub Actions push/PR CI 전부 통과를 확인했다.
+
 ### `T-024` — Hallmark UI 구조 간결화
 
 - 메인 헤더의 중복 브랜드 문구와 중복 KPI/동기화 시각을 제거하고, 공항·주차장 선택과 핵심 현재 현황을 한 흐름으로 정리했다.

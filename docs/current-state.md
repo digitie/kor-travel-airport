@@ -315,8 +315,8 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 
 마지막 확인 기준:
 
-- 백엔드: `61 passed` (SQLite/WSL 기준; CI에서는 PostgreSQL container와 `alembic check`도 통과)
-- 프론트: `45 passed` 및 TypeScript/build 통과
+- 백엔드: `67 passed` (SQLite/WSL 기준; CI에서는 PostgreSQL container와 `alembic check`도 통과)
+- 프론트: `47 passed` 및 TypeScript/build 통과
 
 관련 문서:
 - [runbooks/testing.md](</F:/dev/parking-radar/docs/runbooks/testing.md>)
