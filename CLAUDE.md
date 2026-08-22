@@ -56,7 +56,7 @@ FastAPI + Next.js 앱이다. 주차 관측(`parking_snapshots`), 공항/주차�
 1. `main` 직접 push 금지 — feature branch + Draft PR + CI + 리뷰 후 머지한다.
 2. 192.168.1.13에서 Docker stop/up/build 금지.
 3. 백업 파일·SQLite·`.env`·API key를 git에 추가하지 않는다.
-4. 인증 없는 백업 UI를 내부망 밖에 그대로 노출하지 않는다(`docs/adr/003-*.md`).
+4. 인증 없는 백업 UI는 내부망 전제임을 문서·운영 설정에 남긴다(`docs/adr/003-*.md`).
 5. `python-krairport-api` 같은 형제 provider 라이브러리 기능을 backend 안에 다시
    구현하지 않는다 — 부족하면 라이브러리 자체를 고친다(`docs/adr/004-*.md`).
 

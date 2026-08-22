@@ -18,7 +18,7 @@
 | `python -m pytest backend/tests -q` (1차) | WSL2 셸 |
 | `npm run test -- --run`, `npm run build` (1차) | WSL2 셸 |
 | `docker compose run --rm --no-deps ...` (2차) | WSL2 셸 (Docker Desktop WSL2 backend) |
-| `npm run e2e:install`, `npm run test:e2e` | WSL2 셸 기준. Chromium이 WSL2에 필요한 system lib 없이 실행되지 않으면 Windows PowerShell에서 같은 명령을 대신 실행해도 된다 — 이 프로젝트의 `test:e2e`는 항상 원격 `E2E_BASE_URL`(server14)을 호출하므로 브라우저 실행 위치가 어디든 로컬 dev server와의 포트 충돌은 발생하지 않는다. |
+| `npm run e2e:install`, `E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e` | WSL2 셸 기준. Chromium이 WSL2에 필요한 system lib 없이 실행되지 않으면 Windows PowerShell에서 같은 명령을 대신 실행해도 된다. **`E2E_BASE_URL`을 반드시 지정한다** — `frontend/playwright.config.ts`는 이 값이 없으면 `http://127.0.0.1:3000`으로 폴백하므로, 지정하지 않은 `npm run test:e2e`는 로컬 dev server를 요구하게 되고 §3의 포트 충돌 시나리오에 그대로 노출된다. |
 | `docker compose`/배포 스크립트 실행, 원격 상태 확인 | Windows PowerShell 보조 가능 (`AGENTS.md` 기준), 다만 테스트 통과 기준으로 삼지 않는다 |
 | `scripts/deploy-server14.sh` | WSL2 또는 Git Bash에서 실행 (bash 스크립트) |
 

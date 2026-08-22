@@ -9,14 +9,16 @@
   기준)를 하나의 타입 있는 client로 묶은 형제 라이브러리 `python-krairport-api`
   (Python 패키지명 `krairport`)가 `F:\dev\python-krairport-api`에 이미 존재하고, KAC/IIAC
   provider 경계 분리, XML/JSON 양쪽 파싱, `UnsupportedAirportError`, 동기/비동기 client,
-  오프라인 fixture 기반 테스트를 갖추고 있다. `kor-travel-map` 생태계(`AGENTS.md` ADR-044)는
-  이런 형제 `python-*-api` 라이브러리를 provider adapter 없이 직접 사용하고, 로컬 체크아웃을
-  우선 조회하는 정책을 이미 채택하고 있다.
+  오프라인 fixture 기반 테스트를 갖추고 있다. `kor-travel-map` 생태계(`AGENTS.md`)는 형제
+  `python-*-api` 라이브러리를 provider adapter 없이 직접 사용하고, 로컬 체크아웃을 우선
+  조회하는 정책을 이미 채택하고 있다(해당 정책은 kor-travel-map `AGENTS.md`/`SKILL.md`
+  본문에 있으며, 그 문서가 인용하는 특정 ADR 번호는 kor-travel-map 쪽 `docs/adr/README.md`
+  기준으로 존재를 확인하지 않았으므로 여기서는 정책 내용만 참고하고 번호는 인용하지 않는다).
 - **결정**: parking-radar의 비행편 조회는 `python-krairport-api`(`krairport`) client를
   사용한다. `flight_status.py`가 직접 구현한 HTTP 호출·XML/JSON 파싱은 이 라이브러리 호출로
   대체한다. `krairport`에 없는 endpoint나 버그가 필요하면, parking-radar 안에 우회
-  wrapper/shim을 만들지 않고 `F:\dev\python-krairport-api`(로컬 체크아웃 우선, ADR-044와
-  동일 원칙)를 직접 수정해 개선한 뒤 그 개선된 라이브러리를 parking-radar가 소비한다.
+  wrapper/shim을 만들지 않고 `F:\dev\python-krairport-api`(로컬 체크아웃 우선)를 직접
+  수정해 개선한 뒤 그 개선된 라이브러리를 parking-radar가 소비한다.
 - **근거**: 이미 검증된 provider 파싱 로직(XML/JSON 양쪽, KAC/IIAC 경계, 서비스키 처리)을
   중복 구현하지 않는 것이 회귀 위험과 유지보수 비용을 줄인다. 데이터 정합성(필드 의미,
   provider별 응답 형태)의 1차 책임을 provider 라이브러리에 두면, 다른 프로젝트(`kor-travel-map`
