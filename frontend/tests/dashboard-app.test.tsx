@@ -359,6 +359,10 @@ describe("DashboardApp", () => {
     expect(apiClient.getDashboardAnalytics).not.toHaveBeenCalled();
     expect(apiClient.getFlightStatus).not.toHaveBeenCalled();
 
+    await waitFor(() => {
+      expect(intersectionCallback).not.toBeNull();
+    });
+
     act(() => {
       intersectionCallback?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
     });
