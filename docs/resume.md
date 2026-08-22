@@ -4,7 +4,8 @@
 
 - 기준일: 2026-08-22
 - 작업 브랜치: `codex/parking-radar-postgres-migration`
-- 현재 단계: 구현·데이터 이전·14번 배포·5분 연속성 검증 완료; PR #2 최종 merge 대기
+- 현재 단계: 구현·데이터 이전·14번 배포·5분 연속성 검증 완료; `digitie/parking-radar` PR #1
+  최종 merge 대기
 - 운영 원본: `digitie@192.168.1.13:/home/digitie/apps/parking-radar`
 - 새 운영 대상: `digitie@192.168.1.14`
 - 14번 공개 포트: API `14000`, web `14001`; live E2E 기준 URL:
@@ -13,7 +14,7 @@
 
 ## 다음 한 작업
 
-PR [#2](https://github.com/digitie/airport-parking-radar/pull/2)의 green CI와 exact live E2E
+PR [#1](https://github.com/digitie/parking-radar/pull/1)의 green CI와 exact live E2E
 증적을 확인한 뒤 squash merge한다.
 
 ## 확인된 사실

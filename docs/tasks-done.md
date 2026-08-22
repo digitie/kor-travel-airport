@@ -38,7 +38,7 @@
 ### `T-020` — 단계별 원격 커밋·Draft PR·CI
 
 - 원격 branch: `codex/parking-radar-postgres-migration`.
-- Draft PR: [#2](https://github.com/digitie/airport-parking-radar/pull/2).
+- Draft PR: [#1](https://github.com/digitie/parking-radar/pull/1).
 - 주요 원격 커밋: `2b33a26`, `6b7ac89`, `2a88c09`, `c5e5b03`, `8d8a45a`, `f367db9`, `4980485`,
   `a690628`, `8f9af56`, `146573d`, `27e7b76`, `49e4a3e`.
 - workflow run `32551945257`의 backend(PostgreSQL + `alembic check`), frontend, live-e2e job이

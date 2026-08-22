@@ -30,7 +30,8 @@
 - 두 적대적 reviewer James(Frontend)와 Popper(Backend/Ops)의 P0/P1 지적을 반영했다.
   무인증 backup/restore는 사용자의 명시 요구라 유지하되 gateway/private network 보호를
   runbook에 남겼다.
-- Draft PR [#2](https://github.com/digitie/airport-parking-radar/pull/2)의 최신 head는
-  `49e4a3e`이며 workflow `32551945257`의 backend(PostgreSQL + `alembic check`), frontend,
-  live-e2e가 모두 green인 merge 단계다. 13번에는 Docker 명령을
+- `digitie/parking-radar`의 Draft PR [#1](https://github.com/digitie/parking-radar/pull/1)은
+  최신 head `0d26f0f`로 생성되었고, 새 레포 CI와 두 reviewer의 최종 상태를 확인한 뒤
+  merge한다. 이전 `airport-parking-radar` PR은 대상 레포가 아니므로 기준으로 사용하지 않는다.
+  13번에는 Docker 명령을
   실행하지 않았다.
