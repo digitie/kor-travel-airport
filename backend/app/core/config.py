@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     seed_sample_data: bool = True
     collect_interval_seconds: int = Field(default=300, gt=0)
     scheduler_safety_buffer_seconds: int = Field(default=60, ge=0)
+    manual_collect_enabled: bool = False
     manual_collect_min_interval_seconds: int = Field(default=300, ge=0)
     upstream_rate_limit_backoff_seconds: int = Field(default=3600, ge=0)
     api_timeout_seconds: int = Field(default=15, gt=0)
@@ -40,6 +41,7 @@ class Settings(BaseSettings):
     backup_dir: str = "/app/backups"
     backup_retention_count: int = 14
     backup_command_timeout_seconds: int = 120
+    backup_storage_limit_bytes: int = Field(default=8 * 1024 * 1024 * 1024, gt=0)
 
     @property
     def supported_airport_codes(self) -> list[str]:

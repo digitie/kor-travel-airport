@@ -16,6 +16,7 @@ def build_settings(tmp_path: Path, **overrides) -> Settings:
             "database_url": f"sqlite+aiosqlite:///{tmp_path / 'test.sqlite3'}",
             "seed_sample_data": True,
             "enable_scheduler": False,
+            "manual_collect_enabled": True,
             "collect_interval_seconds": 300,
             "manual_collect_min_interval_seconds": 300,
             "data_go_kr_service_key": None,

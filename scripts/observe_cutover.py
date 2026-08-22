@@ -19,6 +19,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-source-lag-seconds", type=int, default=300, choices=range(60, 1801))
     parser.add_argument("--max-run-gap-seconds", type=int, default=300, choices=range(60, 1801))
     parser.add_argument("--allow-empty-source-lot", action="append", default=[])
+    parser.add_argument("--empty-lot-file", type=argparse.FileType("r"))
     parser.add_argument("--samples", type=int, default=7, choices=range(2, 21))
     parser.add_argument("--sample-interval-seconds", type=int, default=50, choices=range(5, 3601))
     return parser.parse_args()
@@ -33,7 +34,12 @@ async def observe(args: argparse.Namespace) -> int:
         max_source_lag_seconds=args.max_source_lag_seconds,
         max_run_gap_seconds=args.max_run_gap_seconds,
         allow_empty_source_lot=args.allow_empty_source_lot,
+        empty_lot_file=None,
     )
+    if args.empty_lot_file is not None:
+        payload = json.load(args.empty_lot_file)
+        verifier_args.empty_lot_file = None
+        verifier_args.allow_empty_source_lot.extend(payload.get("allow_empty_source_lots", []))
     statuses: list[int] = []
     for sample_index in range(args.samples):
         statuses.append(await verify(verifier_args))

@@ -133,6 +133,7 @@ function buildCollectorStatus(overrides: Partial<CollectorStatusResponse> = {}):
   return {
     scheduler_enabled: true,
     collect_interval_seconds: 300,
+    manual_collect_enabled: true,
     manual_collect_min_interval_seconds: 300,
     client_mode: "live",
     enabled_sources: ["kac_parking"],

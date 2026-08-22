@@ -22,14 +22,14 @@ REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
 
 14번의 기본 구성은 PostgreSQL 16, Alembic `0003_legacy_source_identity`,
 `COLLECT_INTERVAL_SECONDS=300`, `SCHEDULER_SAFETY_BUFFER_SECONDS=60`,
-`MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300`이다. 백업 UI는 별도 인증이 없으므로
+`MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300`, `ENABLE_MANUAL_COLLECT=false`이다. 백업 UI는 별도 인증이 없으므로
 인터넷에 직접 노출하지 않고 내부망/게이트웨이 접근 제어를 전제로 한다.
 
-보안 예외: 사용자가 별도 application auth를 요구하지 않았으므로 `/admin/collect`와
-`/admin/backups*`는 의도적으로 인증 없이 남겨 둔다. 이 endpoint는 DB dump 다운로드와
-복원을 포함하는 destructive 운영 API이므로, 외부 gateway가 private ACL/mTLS 등으로
-차단되었음을 확인하기 전에는 릴리스 승인 대상이 아니다. UI의 경고 문구는 보안 경계가
-아니다.
+보안 예외: 사용자가 별도 application auth를 요구한 backup/restore UI와 `/admin/backups*`만
+의도적으로 인증 없이 남겨 둔다. 수동 수집 endpoint는 public server14에서 비활성화하고
+웹 proxy에도 노출하지 않는다. 백업 endpoint는 DB dump 다운로드와 복원을 포함하는
+destructive 운영 API이므로, 외부 gateway가 private ACL/mTLS 등으로 차단되었음을 확인하기
+전에는 릴리스 승인 대상이 아니다. UI의 경고 문구는 보안 경계가 아니다.
 
 운영 포트 계약:
 
@@ -203,8 +203,8 @@ Windows 로컬 PowerShell 테스트만으로 ODROID에 배포하지 않는다. P
 - 운영에서는 `ENABLE_API_DOCS=false`로 `/docs`, `/redoc`, `/openapi.json`을 공개하지 않는다.
 - `TRUSTED_HOSTS_CSV`에는 운영 도메인과 필요한 내부 호스트만 넣는다.
 - `CORS_ORIGINS_CSV`에는 실제 웹 origin만 넣고 와일드카드를 쓰지 않는다.
-- `POST /admin/collect`는 관리자 토큰 없이 실행된다.
-- 웹 UI의 `지금 수집` 버튼은 토큰 입력 없이 동작한다.
+- `ENABLE_MANUAL_COLLECT=false`인 운영 profile에서는 `POST /admin/collect`가 404로
+  비활성화되고 웹 proxy도 해당 경로를 전달하지 않는다.
 - 브라우저에는 공공데이터 API 키를 요구하거나 노출하지 않는다.
 - 백엔드는 `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, HTTPS 접근 시 `Strict-Transport-Security`를 응답 헤더로 내려준다.
 

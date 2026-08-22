@@ -159,7 +159,7 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
           {message ? <p className="backup-panel-message" aria-live="polite">{message}</p> : null}
           {error ? <p className="backup-panel-error" role="alert">{error}</p> : null}
           {items.length > 0 ? (
-            <ul className="backup-list">
+            <ul className="backup-list" data-testid="backup-list">
               {items.map((item) => (
                 <li key={item.filename}>
                   <span>
@@ -175,7 +175,7 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
               ))}
             </ul>
           ) : (
-            <p className="backup-panel-empty">저장된 백업이 없습니다.</p>
+            <p className="backup-panel-empty" data-testid="backup-empty-state">저장된 백업이 없습니다.</p>
           )}
         </div>
       ) : null}

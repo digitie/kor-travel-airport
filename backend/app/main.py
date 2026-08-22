@@ -82,6 +82,7 @@ from app.services.backup_restore import (
     backup_path_for_download,
     create_backup,
     list_backups,
+    remove_backup,
     restore_backup,
     save_uploaded_backup,
 )
@@ -643,6 +644,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session: AsyncSession = Depends(get_db),
         service: CollectionService = Depends(get_collection_service),
     ) -> CollectionSummary:
+        if not resolved_settings.manual_collect_enabled:
+            raise HTTPException(status_code=404, detail="수동 수집 endpoint가 비활성화되어 있습니다.")
         rate_limit_state = await service.get_upstream_rate_limit_state(session)
         can_collect_incheon = resolved_settings.enable_incheon_collection or resolved_settings.enable_incheon_fee_collection
         if rate_limit_state.is_blocked and rate_limit_state.blocked_until is not None and not can_collect_incheon:
@@ -718,6 +721,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             collect_interval_seconds=resolved_settings.collect_interval_seconds,
             effective_collect_interval_seconds=resolved_settings.effective_collect_interval_seconds,
             scheduler_safety_buffer_seconds=resolved_settings.scheduler_safety_buffer_seconds,
+            manual_collect_enabled=resolved_settings.manual_collect_enabled,
             manual_collect_min_interval_seconds=resolved_settings.manual_collect_min_interval_seconds,
             client_mode=service.client_mode,
             enabled_sources=service.enabled_sources,
@@ -750,6 +754,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 resolved_settings.database_url,
                 resolved_settings.backup_retention_count,
                 resolved_settings.backup_command_timeout_seconds,
+                resolved_settings.backup_storage_limit_bytes,
             )
         except (RuntimeError, ValueError) as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -773,14 +778,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not file.filename or not file.filename.lower().endswith(".dump"):
             raise HTTPException(status_code=400, detail=".dump 형식의 PostgreSQL 백업만 복원할 수 있습니다.")
         async with service.operation_lock:
+            uploaded = None
             try:
                 pre_restore = await create_backup(
                     resolved_settings.backup_dir,
                     resolved_settings.database_url,
                     resolved_settings.backup_retention_count,
                     resolved_settings.backup_command_timeout_seconds,
+                    resolved_settings.backup_storage_limit_bytes,
                 )
-                uploaded = await save_uploaded_backup(file, resolved_settings.backup_dir)
+                uploaded = await save_uploaded_backup(
+                    file,
+                    resolved_settings.backup_dir,
+                    resolved_settings.backup_storage_limit_bytes,
+                )
                 restored = await restore_backup(
                     resolved_settings.backup_dir,
                     resolved_settings.database_url,
@@ -791,6 +802,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise HTTPException(status_code=404, detail="업로드한 백업 파일을 찾지 못했습니다.") from exc
             except (RuntimeError, ValueError) as exc:
                 raise HTTPException(status_code=503, detail=str(exc)) from exc
+            finally:
+                if uploaded is not None:
+                    await remove_backup(resolved_settings.backup_dir, uploaded.filename)
         return BackupRestoreResponse(
             status="restored",
             backup=BackupFile(filename=restored.filename, size_bytes=restored.size_bytes, created_at=restored.created_at),

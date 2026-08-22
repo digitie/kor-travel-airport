@@ -42,6 +42,7 @@ def test_settings(tmp_path: Path) -> Settings:
         database_url=database_url,
         seed_sample_data=True,
         enable_scheduler=False,
+        manual_collect_enabled=True,
         collect_interval_seconds=300,
         manual_collect_min_interval_seconds=300,
         data_go_kr_service_key=None,

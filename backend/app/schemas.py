@@ -273,6 +273,7 @@ class CollectorStatusResponse(BaseModel):
     collect_interval_seconds: int
     effective_collect_interval_seconds: int
     scheduler_safety_buffer_seconds: int
+    manual_collect_enabled: bool
     manual_collect_min_interval_seconds: int
     client_mode: str
     enabled_sources: list[str]

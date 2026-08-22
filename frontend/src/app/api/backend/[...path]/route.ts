@@ -59,9 +59,6 @@ function isAllowedBackendRequest(path: string, method: string): boolean {
   if (/^admin\/backups\/[^/]+$/.test(path) && method === "GET") {
     return true;
   }
-  if (path === "admin/collect" && method === "POST") {
-    return true;
-  }
   return false;
 }
 

@@ -105,9 +105,6 @@ async def upsert_reference_data(session: AsyncSession, airport_payload: dict[str
             )
         )
         if lot is None:
-            # The live collector uses provider slugs while the legacy API uses
-            # numeric IDs. Match the existing named lot before creating a new
-            # row so a repeated migration cannot split its history.
             named_lots = (
                 await session.scalars(
                     select(ParkingLot)
@@ -115,11 +112,11 @@ async def upsert_reference_data(session: AsyncSession, airport_payload: dict[str
                     .order_by(ParkingLot.id)
                 )
             ).all()
-            if len(named_lots) > 1:
+            if named_lots:
                 raise ValueError(
-                    f"ambiguous parking lot identity for {airport.code}/{lot_payload['name']!r}; refusing implicit merge"
+                    f"unmatched stable lot identity for {airport.code}/{lot_payload['name']!r}; "
+                    "refusing an implicit name-based merge"
                 )
-            lot = named_lots[0] if named_lots else None
         if lot is None:
             lot = ParkingLot(
                 airport_id=airport.id,
@@ -135,6 +132,11 @@ async def upsert_reference_data(session: AsyncSession, airport_payload: dict[str
             session.add(lot)
             await session.flush()
         else:
+            if lot.legacy_source_lot_id is not None and lot.legacy_source_lot_id != source_lot_id:
+                raise ValueError(
+                    f"conflicting legacy source identity for {airport.code}/{lot_payload['name']!r}: "
+                    f"existing={lot.legacy_source_lot_id} incoming={source_lot_id}"
+                )
             lot.legacy_source_lot_id = source_lot_id
             lot.name = lot_payload["name"]
             lot.terminal = lot_payload.get("terminal")
@@ -246,7 +248,11 @@ async def import_history(args: argparse.Namespace) -> int:
             )
             await session.execute(statement)
             imported += len(rows)
-        await session.commit()
+        if failures:
+            await session.rollback()
+            imported = 0
+        else:
+            await session.commit()
 
     await engine.dispose()
     print(f"imported_snapshots={imported} source_lots={len(histories_by_source_lot)} failures={len(failures)}")

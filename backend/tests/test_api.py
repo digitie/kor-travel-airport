@@ -26,6 +26,7 @@ def build_client(tmp_path: Path, **overrides) -> TestClient:
             "database_url": f"sqlite+aiosqlite:///{tmp_path / 'test.sqlite3'}",
             "seed_sample_data": True,
             "enable_scheduler": False,
+            "manual_collect_enabled": True,
             "collect_interval_seconds": 300,
             "manual_collect_min_interval_seconds": 300,
             "data_go_kr_service_key": None,
@@ -310,6 +311,13 @@ def test_admin_collect_returns_cooldown_error(tmp_path: Path) -> None:
         assert response.json()["detail"]
 
 
+def test_admin_collect_is_disabled_without_explicit_enablement(tmp_path: Path) -> None:
+    with build_client(tmp_path, manual_collect_enabled=False) as client:
+        response = client.post("/admin/collect")
+
+    assert response.status_code == 404
+
+
 def test_admin_collect_succeeds_when_cooldown_is_disabled(tmp_path: Path) -> None:
     with build_client(tmp_path, manual_collect_min_interval_seconds=0) as client:
         response = client.post("/admin/collect")
@@ -327,6 +335,7 @@ def test_admin_collector_status(client) -> None:
 
     assert payload["scheduler_enabled"] is False
     assert payload["collect_interval_seconds"] == 300
+    assert payload["manual_collect_enabled"] is True
     assert payload["manual_collect_min_interval_seconds"] == 300
     assert payload["client_mode"] == "sample"
     assert payload["enabled_sources"] == ["kac_parking", "incheon_parking"]

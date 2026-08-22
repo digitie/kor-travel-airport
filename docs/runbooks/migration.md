@@ -79,14 +79,14 @@ TMPDIR=/tmp uv run --project backend --extra dev python scripts/verify_cutover.p
   --target-base-url http://192.168.1.14:14000 \
   --days 1 --max-age-seconds 300 --max-source-lag-seconds 300 \
   --max-run-gap-seconds 300 \
-  --allow-empty-source-lot AIRPORT/LEGACY_ID
+  --empty-lot-file scripts/cutover-empty-lots.json
 ```
 
 이 명령은 source lot 수, target의 안정적인 legacy lot ID 중복, 각 lot의 latest observed,
 source→target 지연, target scheduler/recent successful run 간격/freshness를 함께 검사한다.
-모든 freshness·전파·run gap 한도는 300초이며, 양쪽 모두 관측이 없는 lot만 운영자가
-`--allow-empty-source-lot CODE/ID`로 명시적으로 허용해야 한다. 이름만 같은 lot은 같은
-lot으로 인정하지 않는다. `failure_count=0`이어야 한다.
+모든 freshness·전파·run gap 한도는 300초이며, 양쪽 모두 관측이 없는 lot은 검토된
+`scripts/cutover-empty-lots.json` allowlist로만 허용한다. 이름만 같은 lot은 같은 lot으로
+인정하지 않는다. `failure_count=0`이어야 한다.
 
 단일 확인은 5분 연속성의 증거가 아니므로, cutover 승인 전에는 50초 간격 7회 반복 관찰을
 실행한다. 이는 0분부터 5분까지의 gate를 만들고 source/target 모두 HTTP read만 수행한다.
@@ -97,13 +97,13 @@ TMPDIR=/tmp uv run --project backend --extra dev python scripts/observe_cutover.
   --target-base-url http://192.168.1.14:14000 \
   --days 1 --max-age-seconds 300 --max-source-lag-seconds 300 \
   --max-run-gap-seconds 300 --samples 7 --sample-interval-seconds 50 \
-  --allow-empty-source-lot AIRPORT/LEGACY_ID
+  --empty-lot-file scripts/cutover-empty-lots.json
 ```
 
-`AIRPORT/LEGACY_ID`는 source `/airports`와 target의 `legacy_source_lot_id`를 대조해 실제
-양쪽 무관측 lot에 대해서만 채운다. 14번 scheduler의 계약은 300초이고 실제 tick 간격은
-240초 safety buffer로 운용하며, freshness/lag verifier의 한도는 300초이다. run 시작
-timestamp의 부동소수점/마이크로초 표현 차이만 1초 epsilon으로 허용한다.
+`scripts/cutover-empty-lots.json`은 source `/airports`와 target의 `legacy_source_lot_id`를
+대조해 실제 양쪽 무관측인 ICN lot만 기록한 검토 artifact다. 14번 scheduler의 계약은
+configured 300초이고 실제 tick 간격은 240초(`60초 safety buffer`)이며 verifier가 세 값을
+모두 검사한다. freshness/lag/run gap 한도에는 시간 epsilon을 두지 않는다.
 마지막 출력의 `failed_samples=0`과 각 verifier 출력의 `failure_count=0`을 journal에 기록한다.
 
 ### 5. 검증·보존

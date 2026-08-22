@@ -145,6 +145,7 @@ PostgreSQL, 백업/복원, 수집 스케줄러는 모두 14번에서만 실행�
 
 ```env
 ENABLE_SCHEDULER=true
+ENABLE_MANUAL_COLLECT=false
 SEED_SAMPLE_DATA=false
 USE_SAMPLE_CLIENT_WHEN_NO_KEY=false
 COLLECT_INTERVAL_SECONDS=600
@@ -160,7 +161,8 @@ DATA_GO_KR_SERVICE_KEY=...
 - `client_mode=live`로 운영할 때는 `SEED_SAMPLE_DATA=false`를 유지한다.
 - 샘플 시계열은 `client_mode=sample`에서만 시드한다.
 - `15056803` 카탈로그에는 개발계정 `5,000` 트래픽이 보이지만, ODROID 실측에서는 `2026-04-28`에 100회 성공 후 101번째부터 `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 발생했다.
-- 중복 수집기를 제거한 뒤에는 ODROID live를 10분(`600초`) 주기와 10분 수동 수집 제한으로 운영한다.
+- 중복 수집기를 제거한 뒤에는 ODROID live를 10분(`600초`) 주기로 운영하며, public server14
+  profile의 수동 수집 endpoint는 비활성화한다.
 - ODROID live는 `CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY`를 같은 10분 주기에서 처리한다.
 - `15056803`이 한도 초과 상태여도 인천 전용 API(`15095047`, `15095053`)가 활성화되어 있으면 인천 주차/요금 수집은 계속 시도한다.
 - 같은 인증키를 쓰는 live 수집기는 동시에 하나만 유지한다.
@@ -286,7 +288,7 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 - `GET /parking/analytics/threshold-insights`
 - `GET /flights/status`
 - `POST /fees/calculate`
-- `POST /admin/collect`
+- `POST /admin/collect` (로컬에서 `ENABLE_MANUAL_COLLECT=true`일 때만)
 - `GET /admin/collector-status`
 
 ## 문서

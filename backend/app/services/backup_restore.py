@@ -12,6 +12,7 @@ from sqlalchemy.engine import make_url
 
 BACKUP_NAME_PATTERN = re.compile(r"^parking-radar-[0-9T]{15}Z(?:-[A-Za-z0-9_-]+)?\.dump$")
 MAX_BACKUP_BYTES = 2 * 1024 * 1024 * 1024
+DEFAULT_BACKUP_STORAGE_LIMIT_BYTES = 8 * 1024 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -74,6 +75,26 @@ def _list_backups_sync(backup_dir: str) -> list[BackupFileInfo]:
     return sorted(items, key=lambda item: item.created_at, reverse=True)
 
 
+def _enforce_storage_limit_sync(
+    backup_dir: str,
+    storage_limit_bytes: int,
+    protected_filename: str | None = None,
+) -> None:
+    if storage_limit_bytes <= 0:
+        raise ValueError("백업 저장소 한도는 0보다 커야 합니다.")
+    items = _list_backups_sync(backup_dir)
+    total_bytes = sum(item.size_bytes for item in items)
+    for item in reversed(items):
+        if total_bytes <= storage_limit_bytes:
+            break
+        if item.filename == protected_filename:
+            continue
+        _backup_path(backup_dir, item.filename).unlink(missing_ok=True)
+        total_bytes -= item.size_bytes
+    if total_bytes > storage_limit_bytes:
+        raise ValueError("백업 저장소의 aggregate 용량 한도를 초과했습니다.")
+
+
 async def list_backups(backup_dir: str) -> list[BackupFileInfo]:
     return await asyncio.to_thread(_list_backups_sync, backup_dir)
 
@@ -88,9 +109,15 @@ def _postgres_command_database(database_url: str) -> tuple[str, dict[str, str]]:
     return safe_url, environment
 
 
-def _prune_backups_sync(backup_dir: str, retention_count: int) -> None:
+def _prune_backups_sync(
+    backup_dir: str,
+    retention_count: int,
+    storage_limit_bytes: int,
+    protected_filename: str | None = None,
+) -> None:
     for item in _list_backups_sync(backup_dir)[max(0, retention_count) :]:
         _backup_path(backup_dir, item.filename).unlink(missing_ok=True)
+    _enforce_storage_limit_sync(backup_dir, storage_limit_bytes, protected_filename=protected_filename)
 
 
 async def create_backup(
@@ -98,6 +125,7 @@ async def create_backup(
     database_url: str,
     retention_count: int,
     timeout_seconds: int,
+    storage_limit_bytes: int = DEFAULT_BACKUP_STORAGE_LIMIT_BYTES,
 ) -> BackupFileInfo:
     def run() -> BackupFileInfo:
         directory = Path(backup_dir)
@@ -106,20 +134,29 @@ async def create_backup(
         filename = f"parking-radar-{timestamp}.dump"
         path = _backup_path(backup_dir, filename)
         safe_database_url, environment = _postgres_command_database(database_url)
-        _run_command(
-            [
-                "pg_dump",
-                "--format=custom",
-                "--no-owner",
-                "--no-acl",
-                "--file",
-                str(path),
-                safe_database_url,
-            ],
-            timeout_seconds,
-            environment,
-        )
-        _prune_backups_sync(backup_dir, retention_count)
+        try:
+            _run_command(
+                [
+                    "pg_dump",
+                    "--format=custom",
+                    "--no-owner",
+                    "--no-acl",
+                    "--file",
+                    str(path),
+                    safe_database_url,
+                ],
+                timeout_seconds,
+                environment,
+            )
+            _prune_backups_sync(
+                backup_dir,
+                retention_count,
+                storage_limit_bytes,
+                protected_filename=filename,
+            )
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
         stat = path.stat()
         return BackupFileInfo(filename=filename, size_bytes=stat.st_size, created_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc))
 
@@ -162,7 +199,11 @@ async def restore_backup(
     return await asyncio.to_thread(run)
 
 
-async def save_uploaded_backup(uploaded_file, backup_dir: str) -> BackupFileInfo:
+async def save_uploaded_backup(
+    uploaded_file,
+    backup_dir: str,
+    storage_limit_bytes: int = DEFAULT_BACKUP_STORAGE_LIMIT_BYTES,
+) -> BackupFileInfo:
     directory = Path(backup_dir)
     directory.mkdir(parents=True, exist_ok=True)
     safe_stem = re.sub(r"[^A-Za-z0-9_-]", "-", Path(uploaded_file.filename or "upload").stem)[:48] or "upload"
@@ -171,13 +212,17 @@ async def save_uploaded_backup(uploaded_file, backup_dir: str) -> BackupFileInfo
     path = _backup_path(backup_dir, filename)
 
     written = 0
-    with path.open("wb") as output:
-        while chunk := await uploaded_file.read(1024 * 1024):
-            written += len(chunk)
-            if written > MAX_BACKUP_BYTES:
-                path.unlink(missing_ok=True)
-                raise ValueError("업로드 파일 크기가 허용 한도를 초과했습니다.")
-            output.write(chunk)
+    try:
+        with path.open("wb") as output:
+            while chunk := await uploaded_file.read(1024 * 1024):
+                written += len(chunk)
+                if written > MAX_BACKUP_BYTES:
+                    raise ValueError("업로드 파일 크기가 허용 한도를 초과했습니다.")
+                output.write(chunk)
+        _enforce_storage_limit_sync(backup_dir, storage_limit_bytes, protected_filename=filename)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
     return BackupFileInfo(
         filename=filename,
         size_bytes=written,
@@ -187,3 +232,8 @@ async def save_uploaded_backup(uploaded_file, backup_dir: str) -> BackupFileInfo
 
 def backup_path_for_download(backup_dir: str, filename: str) -> Path:
     return _backup_path(backup_dir, filename)
+
+
+async def remove_backup(backup_dir: str, filename: str) -> None:
+    path = _backup_path(backup_dir, filename)
+    await asyncio.to_thread(path.unlink, missing_ok=True)

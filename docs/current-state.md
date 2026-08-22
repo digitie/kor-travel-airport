@@ -162,7 +162,9 @@ row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 �
 
 ## 6. 수동 수집 버튼
 
-웹 UI의 `지금 수집` 버튼은 `POST /admin/collect`를 호출한다.
+로컬 개발 profile에서 `ENABLE_MANUAL_COLLECT=true`이면 웹 UI의 `지금 수집` 버튼이
+`POST /admin/collect`를 호출한다. public server14 profile에서는 버튼과 endpoint가 모두
+비활성화된다.
 
 동작 규칙:
 
@@ -271,7 +273,8 @@ row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 �
 - 운영 백엔드는 `TRUSTED_HOSTS_CSV`로 허용 Host를 제한한다.
 - 기존 13번 운영 CORS는 `http://192.168.1.13:3000`, `https://pr2.digitie.mywire.org`, `http://localhost:3000`만 허용한다.
 - 운영에서는 `ENABLE_API_DOCS=false`로 API 문서를 공개하지 않는다.
-- `POST /admin/collect`는 관리자 토큰 없이 실행된다.
+- 운영 server14에서는 `ENABLE_MANUAL_COLLECT=false`로 `POST /admin/collect`를 비활성화한다.
+  로컬 개발 profile에서만 명시적으로 활성화한다.
 - 일반 조회와 자동 갱신은 서버에 저장된 `DATA_GO_KR_SERVICE_KEY`로 동작하며, 브라우저에 공공데이터 API 키를 요구하거나 노출하지 않는다.
 - `GET /admin/collector-status`는 화면 갱신과 운영 상태 확인을 위해 공개 조회로 둔다.
 

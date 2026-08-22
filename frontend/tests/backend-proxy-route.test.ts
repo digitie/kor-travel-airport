@@ -57,6 +57,20 @@ describe("backend proxy route", () => {
     });
   });
 
+  test("does not expose manual collection through the public web proxy", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { POST } = await import("@/app/api/backend/[...path]/route");
+    const request = new NextRequest("https://pr.digitie.mywire.org/api/backend/admin/collect", {
+      method: "POST",
+    });
+    const response = await POST(request, { params: Promise.resolve({ path: ["admin", "collect"] }) });
+
+    expect(response.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   test("aborts a slow backend request and returns 504", async () => {
     vi.useFakeTimers();
     vi.stubEnv("BACKEND_INTERNAL_URL", "http://test-backend:8000");

@@ -28,6 +28,7 @@ services:
       DATABASE_URL: "${DATABASE_URL:-postgresql+asyncpg://parking_radar:parking_radar@postgres:5432/parking_radar_live}"
       RUN_DB_MIGRATIONS: "${RUN_DB_MIGRATIONS:-true}"
       ENABLE_SCHEDULER: "${ENABLE_SCHEDULER:-true}"
+      ENABLE_MANUAL_COLLECT: "${ENABLE_MANUAL_COLLECT:-false}"
       SEED_SAMPLE_DATA: "${SEED_SAMPLE_DATA:-false}"
       USE_SAMPLE_CLIENT_WHEN_NO_KEY: "${USE_SAMPLE_CLIENT_WHEN_NO_KEY:-false}"
       ENABLE_INCHEON_COLLECTION: "${ENABLE_INCHEON_COLLECTION:-true}"
@@ -46,6 +47,7 @@ services:
       APP_TIMEZONE: "${APP_TIMEZONE:-Asia/Seoul}"
       DATA_GO_KR_SERVICE_KEY: "${DATA_GO_KR_SERVICE_KEY:-}"
       BACKUP_DIR: "/app/backups"
+      BACKUP_STORAGE_LIMIT_BYTES: "${BACKUP_STORAGE_LIMIT_BYTES:-8589934592}"
     volumes:
       - ./backups:/app/backups
     depends_on:

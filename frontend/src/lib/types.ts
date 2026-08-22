@@ -64,6 +64,7 @@ export type CollectorStatusResponse = {
   collect_interval_seconds: number;
   effective_collect_interval_seconds: number;
   scheduler_safety_buffer_seconds: number;
+  manual_collect_enabled: boolean;
   manual_collect_min_interval_seconds: number;
   client_mode: string;
   enabled_sources: string[];

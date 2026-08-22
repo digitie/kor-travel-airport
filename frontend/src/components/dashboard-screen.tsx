@@ -394,20 +394,24 @@ export function DashboardScreen({
           <button className="button secondary" type="button" onClick={onRefresh}>
             새로고침
           </button>
-          <button
-            aria-label="즉시 수집 실행"
-            className="button"
-            data-testid="manual-collect-button"
-            disabled={collecting}
-            type="button"
-            onClick={onManualCollect}
-          >
-            {collecting ? "수집 중..." : "지금 수집"}
-          </button>
-          {collectorStatus?.manual_collect_available_at ? (
-            <p className="action-hint">
-              다음 수동 수집 가능: {formatDateTime(collectorStatus.manual_collect_available_at)}
-            </p>
+          {collectorStatus?.manual_collect_enabled ? (
+            <>
+              <button
+                aria-label="즉시 수집 실행"
+                className="button"
+                data-testid="manual-collect-button"
+                disabled={collecting}
+                type="button"
+                onClick={onManualCollect}
+              >
+                {collecting ? "수집 중..." : "지금 수집"}
+              </button>
+              {collectorStatus.manual_collect_available_at ? (
+                <p className="action-hint">
+                  다음 수동 수집 가능: {formatDateTime(collectorStatus.manual_collect_available_at)}
+                </p>
+              ) : null}
+            </>
           ) : null}
         </div>
       </section>

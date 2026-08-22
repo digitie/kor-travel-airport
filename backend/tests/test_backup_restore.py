@@ -8,6 +8,7 @@ from app.services.backup_restore import (
     BACKUP_NAME_PATTERN,
     _postgres_command_database,
     list_backups,
+    remove_backup,
     save_uploaded_backup,
 )
 
@@ -37,3 +38,21 @@ def test_pg_dump_url_does_not_expose_password_in_argv() -> None:
 
     assert "secret" not in safe_url
     assert environment["PGPASSWORD"] == "secret"
+
+
+@pytest.mark.asyncio
+async def test_uploaded_backup_enforces_aggregate_storage_limit(tmp_path: Path) -> None:
+    old_path = tmp_path / "parking-radar-20260101T000000Z.dump"
+    old_path.write_bytes(b"old")
+
+    uploaded = await save_uploaded_backup(
+        FakeUpload([b"new"]),
+        str(tmp_path),
+        storage_limit_bytes=3,
+    )
+
+    assert old_path.exists() is False
+    assert (tmp_path / uploaded.filename).exists()
+
+    await remove_backup(str(tmp_path), uploaded.filename)
+    assert (tmp_path / uploaded.filename).exists() is False

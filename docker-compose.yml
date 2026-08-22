@@ -28,6 +28,7 @@ services:
       DATABASE_URL: "${DATABASE_URL:-postgresql+asyncpg://parking_radar:parking_radar@postgres:5432/parking_radar}"
       RUN_DB_MIGRATIONS: "${RUN_DB_MIGRATIONS:-true}"
       ENABLE_SCHEDULER: "${ENABLE_SCHEDULER:-false}"
+      ENABLE_MANUAL_COLLECT: "${ENABLE_MANUAL_COLLECT:-false}"
       SEED_SAMPLE_DATA: "${SEED_SAMPLE_DATA:-true}"
       USE_SAMPLE_CLIENT_WHEN_NO_KEY: "${USE_SAMPLE_CLIENT_WHEN_NO_KEY:-true}"
       ENABLE_INCHEON_COLLECTION: "${ENABLE_INCHEON_COLLECTION:-true}"
@@ -48,6 +49,7 @@ services:
       BACKUP_DIR: "${BACKUP_DIR:-/app/backups}"
       BACKUP_RETENTION_COUNT: "${BACKUP_RETENTION_COUNT:-14}"
       BACKUP_COMMAND_TIMEOUT_SECONDS: "${BACKUP_COMMAND_TIMEOUT_SECONDS:-120}"
+      BACKUP_STORAGE_LIMIT_BYTES: "${BACKUP_STORAGE_LIMIT_BYTES:-8589934592}"
     volumes:
       - ./backups:/app/backups
     depends_on:

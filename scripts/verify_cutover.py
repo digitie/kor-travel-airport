@@ -12,11 +12,10 @@ import argparse
 import asyncio
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
-
-RUN_GAP_TIMESTAMP_EPSILON_SECONDS = 1.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,6 +32,11 @@ def parse_args() -> argparse.Namespace:
         default=[],
         metavar="AIRPORT/LEGACY_ID",
         help="explicitly allow a source lot with no history; repeat for each known empty lot",
+    )
+    parser.add_argument(
+        "--empty-lot-file",
+        type=Path,
+        help="JSON file with an allow_empty_source_lots array for the reviewed cutover allowlist",
     )
     return parser.parse_args()
 
@@ -54,6 +58,16 @@ def parse_empty_lot_allowlist(values: list[str]) -> set[tuple[str, str]]:
             raise ValueError(f"invalid --allow-empty-source-lot value: {value!r}")
         allowed.add((airport_code.upper(), legacy_id))
     return allowed
+
+
+def load_empty_lot_file(path: Path | None) -> list[str]:
+    if path is None:
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    values = payload.get("allow_empty_source_lots", [])
+    if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
+        raise ValueError(f"invalid allow_empty_source_lots in {path}")
+    return values
 
 
 async def fetch_json(client: httpx.AsyncClient, base_url: str, path: str, **params: Any) -> Any:
@@ -86,7 +100,9 @@ async def latest_lot_history(
 
 
 async def verify(args: argparse.Namespace) -> int:
-    allowed_empty_lots = parse_empty_lot_allowlist(args.allow_empty_source_lot)
+    allowed_empty_lots = parse_empty_lot_allowlist(
+        [*args.allow_empty_source_lot, *load_empty_lot_file(args.empty_lot_file)]
+    )
     async with httpx.AsyncClient(timeout=30) as client:
         source_airports, target_airports, target_status = await asyncio.gather(
             fetch_json(client, args.source_base_url, "/airports"),
@@ -161,6 +177,13 @@ async def verify(args: argparse.Namespace) -> int:
                         "add an explicit --allow-empty-source-lot entry if this is intentional"
                     )
                 continue
+            if source_latest is None:
+                if key not in allowed_empty_lots:
+                    failures.append(
+                        f"{airport_code}/{legacy_id}/{lot_name}: source has no observation but target does; "
+                        "add an explicit --allow-empty-source-lot entry if this is intentional"
+                    )
+                continue
             if source_latest is not None:
                 source_lag_seconds = (source_latest - target_latest).total_seconds()
             else:
@@ -188,6 +211,14 @@ async def verify(args: argparse.Namespace) -> int:
             failures.append("target scheduler is disabled")
         if target_status.get("collect_interval_seconds") != 300:
             failures.append(f"target interval={target_status.get('collect_interval_seconds')}s, expected 300s")
+        if target_status.get("effective_collect_interval_seconds") != 240:
+            failures.append(
+                f"target effective interval={target_status.get('effective_collect_interval_seconds')}s, expected 240s"
+            )
+        if target_status.get("scheduler_safety_buffer_seconds") != 60:
+            failures.append(
+                f"target scheduler safety buffer={target_status.get('scheduler_safety_buffer_seconds')}s, expected 60s"
+            )
         last_run = target_status.get("last_run") or {}
         if last_run.get("status") != "success":
             failures.append(f"target last run status={last_run.get('status')!r}")
@@ -202,11 +233,10 @@ async def verify(args: argparse.Namespace) -> int:
                 successful_runs.append((started_at, run.get("id")))
         for newer, older in zip(successful_runs, successful_runs[1:]):
             gap_seconds = (newer[0] - older[0]).total_seconds()
-            if gap_seconds > args.max_run_gap_seconds + RUN_GAP_TIMESTAMP_EPSILON_SECONDS:
+            if gap_seconds > args.max_run_gap_seconds:
                 failures.append(
                     f"target successful run gap between ids {newer[1]} and {older[1]} is "
-                    f"{gap_seconds:.1f}s > {args.max_run_gap_seconds}s "
-                    f"(+{RUN_GAP_TIMESTAMP_EPSILON_SECONDS:.0f}s timestamp precision epsilon)"
+                    f"{gap_seconds:.1f}s > {args.max_run_gap_seconds}s"
                 )
 
     result = {
@@ -219,7 +249,6 @@ async def verify(args: argparse.Namespace) -> int:
         "max_age_seconds": args.max_age_seconds,
         "max_source_lag_seconds": args.max_source_lag_seconds,
         "max_run_gap_seconds": args.max_run_gap_seconds,
-        "run_gap_timestamp_epsilon_seconds": RUN_GAP_TIMESTAMP_EPSILON_SECONDS,
         "allowed_empty_source_lots": sorted(f"{code}/{legacy_id}" for code, legacy_id in allowed_empty_lots),
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))

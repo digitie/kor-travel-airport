@@ -120,9 +120,9 @@ E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e
 E2E_BASE_URL=http://192.168.1.14:14001 npm run test:e2e  # 보조 검증
 ```
 
-GitHub Actions에서는 repository variable `PARKING_RADAR_LIVE_E2E_URL`이 설정된 경우에만
-`live-e2e` job을 활성화한다. 외부 라우팅이 Home Assistant나 다른 서비스로 향하면 이 job과
-운영 승인 모두 실패로 취급한다.
+GitHub Actions의 `live-e2e` job은 항상 정확한 `https://pr.digitie.mywire.org`를 사용한다.
+외부 라우팅이 Home Assistant나 다른 서비스로 향하면 이 job과 운영 승인 모두 실패로
+취급한다.
 
 데스크톱:
 
@@ -254,7 +254,8 @@ Playwright 결과 JSON은 `frontend/test-results/live-e2e.json`에 남긴다. 32
   - `client_mode=live`
   - `scheduler_enabled=true`
   - `upstream_rate_limited=false`
-- `POST /admin/collect`가 토큰 없이 동작하거나, 수동 수집 쿨다운이면 `409`를 반환하는지 확인
+- public server14에서 `POST /admin/collect`가 `404`로 비활성화되고, backup/restore UI는
+  별도 app auth 없이 private gateway 경계 안에서 동작하는지 확인
 - 웹 UI에서
   - 현재 시각 표시가 KST 기준인지 확인
   - `지금 수집` 버튼이 노출되는지 확인

@@ -56,13 +56,12 @@ jobs:
       - run: npm run build
 
   live-e2e:
-    if: ${{ vars.PARKING_RADAR_LIVE_E2E_URL != '' }}
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
     env:
-      E2E_BASE_URL: ${{ vars.PARKING_RADAR_LIVE_E2E_URL }}
+      E2E_BASE_URL: https://pr.digitie.mywire.org
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
