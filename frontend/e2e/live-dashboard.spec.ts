@@ -29,9 +29,13 @@ test.describe("live parking-radar dashboard", () => {
     expect(collectorPayload.collect_interval_seconds).toBe(300);
     expect(collectorPayload.effective_collect_interval_seconds).toBe(240);
     expect(collectorPayload.last_run?.status).toBe("success");
+    expect(collectorPayload.last_run?.raw_response_count).toBeGreaterThan(0);
+    expect(Number.isFinite(Date.parse(collectorPayload.last_run?.finished_at))).toBe(true);
     const latestObservedAt = Date.parse(collectorPayload.latest_snapshot_observed_at);
     expect(Number.isFinite(latestObservedAt)).toBe(true);
-    expect(Date.now() - latestObservedAt).toBeLessThanOrEqual(300_000);
+    const latestAge = Date.now() - latestObservedAt;
+    expect(latestAge).toBeGreaterThanOrEqual(0);
+    expect(latestAge).toBeLessThanOrEqual(300_000);
 
     const airportSelect = page.getByRole("combobox", { name: "공항 선택" });
     await expect.poll(() => airportSelect.locator("option").count(), { timeout: 20_000 }).toBeGreaterThan(0);

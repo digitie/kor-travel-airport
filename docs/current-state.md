@@ -4,7 +4,7 @@
 세부 기능 문서가 흩어져 있을 때 먼저 이 문서를 읽고, 필요하면 링크된 개별 문서로 내려가는 것을 권장한다.
 
 최종 확인 기준일:
-- `2026-05-09`
+- `2026-08-22`
 
 ## 1. 현재 구현 범위
 
@@ -202,6 +202,11 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 - `status=success`이면 실행은 정상
 - `snapshot_count=0`이면 중복 저장 방지 가능성 먼저 확인
 
+## Historical: 2026-05 ODROID 관찰 기록
+
+아래 수집기 rate-limit과 ODROID 항목은 13번에서 읽기 전용으로 확인했던 과거 운영 기록이다.
+현재 Docker/PostgreSQL 운영은 192.168.1.14에서만 수행한다.
+
 추가 규칙:
 
 - `collector-status`에 `upstream_rate_limited=true`가 보이면 외부 API 쿼터 보호 상태다.
@@ -262,15 +267,18 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 - `NEXT_PUBLIC_API_BASE_URL`이 있으면 그 값을 쓴다.
 - 없으면 브라우저는 같은 origin의 `/api/backend`를 호출한다.
 - Next.js 서버가 `/api/backend/*` 요청을 Docker 내부 백엔드 주소인 `BACKEND_INTERNAL_URL`로 프록시한다.
-- ODROID 기본값은 `BACKEND_INTERNAL_URL=http://backend:8000`이다.
+- server14 기본값은 `BACKEND_INTERNAL_URL=http://backend:8000`이다.
 
-이 규칙은 기존 13번 내부 LAN 주소(`http://192.168.1.13:3000`)와 외부 주소(`https://pr2.digitie.mywire.org/`)를 같은 빌드로 처리하고, 외부 HTTPS 페이지에서 HTTP API 포트를 직접 호출하는 문제를 피하기 위한 것이다.
+이 규칙은 server14 외부 주소(`https://pr.digitie.mywire.org/`)를 같은 빌드로 처리하고, 외부
+HTTPS 페이지에서 HTTP API 포트를 직접 호출하는 문제를 피하기 위한 것이다. 13번 주소는
+cutover read-only source로만 남긴다.
 
 ### 공개 서비스 보안
 
-- 기존 13번 외부 서비스 기준 주소는 `https://pr2.digitie.mywire.org/`이다.
+- server14 외부 서비스 기준 주소는 `https://pr.digitie.mywire.org/`이다.
 - 운영 백엔드는 `TRUSTED_HOSTS_CSV`로 허용 Host를 제한한다.
-- 기존 13번 운영 CORS는 `http://192.168.1.13:3000`, `https://pr2.digitie.mywire.org`, `http://localhost:3000`만 허용한다.
+- server14 운영 CORS는 `http://192.168.1.14:14001`, `https://pr.digitie.mywire.org`,
+  `https://pr-api.digitie.mywire.org`를 기준으로 제한한다.
 - 운영에서는 `ENABLE_API_DOCS=false`로 API 문서를 공개하지 않는다.
 - 운영 server14에서는 `ENABLE_MANUAL_COLLECT=false`로 `POST /admin/collect`를 비활성화한다.
   로컬 개발 profile에서만 명시적으로 활성화한다.
@@ -351,12 +359,13 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 - Windows 로컬 테스트는 지양하고 참고 결과로만 취급한다.
 - 1차 테스트는 `WSL2` 셸에서 로컬 런타임으로 실행한다.
 - 2차 테스트는 `WSL2 + Docker`에서 실행한다.
-- ODROID 배포는 1차/2차 테스트가 모두 통과한 뒤 진행한다.
+- server14 배포는 1차/2차 테스트가 모두 통과한 뒤 진행한다.
 - Windows PowerShell은 배포와 원격 상태 확인 보조 환경으로 취급한다.
 ## 14. Live Seed Policy
 
-- ODROID live 운영에서는 `client_mode=live`, `SEED_SAMPLE_DATA=false`를 기본값으로 사용한다.
+- server14 live 운영에서는 `client_mode=live`, `SEED_SAMPLE_DATA=false`를 기본값으로 사용한다.
 - 샘플 시계열은 `client_mode=sample` 개발 모드에서만 시드한다.
 - live 환경 DB에서 `collection_run_id is null` row는 샘플 스냅샷 가능성이 높으므로, 시계열이 이상하게 길어지면 먼저 이 조건을 확인한다.
 - `15056803` 카탈로그에는 개발계정 `5,000` 트래픽이 보이지만, `2026-04-28` 실측에서는 100회 성공 후 101번째부터 `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 발생했다.
-- 중복 수집기를 제거한 현재 기준으로는 ODROID live 프로파일이 10분 주기와 10분 수동 수집 제한을 사용한다.
+- 중복 수집기를 제거한 현재 기준으로는 server14 live 프로파일이 5분 configured 주기와
+  5분 수동 수집 제한 계약을 사용한다.

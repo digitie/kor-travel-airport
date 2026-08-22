@@ -74,7 +74,7 @@ async def observe(args: argparse.Namespace) -> int:
         "max_age_seconds": args.max_age_seconds,
         "max_source_lag_seconds": args.max_source_lag_seconds,
         "max_run_gap_seconds": args.max_run_gap_seconds,
-        "allowed_empty_source_lots": args.allow_empty_source_lot,
+        "allowed_empty_source_lots": verifier_args.allow_empty_source_lot,
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 1 if any(statuses) else 0

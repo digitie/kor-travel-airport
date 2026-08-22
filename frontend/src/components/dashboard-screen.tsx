@@ -123,12 +123,12 @@ function buildAvailabilityHeatStyle(value: number | null, maxValue: number): CSS
 
   const ratio = Math.min(Math.max(value / maxValue, 0), 1);
   const hue = 6 + ratio * 214;
-  const lightness = 86 - ratio * 30;
+  const lightness = 88 - ratio * 24;
 
   return {
     background: `hsl(${hue} 78% ${lightness}%)`,
     borderColor: `hsla(${hue} 72% 38% / 0.16)`,
-    color: "#111827",
+    color: "#000000",
   };
 }
 

@@ -172,7 +172,13 @@ async def create_backup(
         filename = f"parking-radar-{timestamp}.dump"
         path = _backup_path(backup_dir, filename)
         safe_database_url, environment = _postgres_command_database(database_url)
-        temporary_fd, temporary_name = tempfile.mkstemp(prefix="parking-radar-", suffix=".dump")
+        # Keep the staging file on the same filesystem as the bind-mounted backup directory.
+        # A /tmp -> /app/backups rename can fail with EXDEV on server14.
+        temporary_fd, temporary_name = tempfile.mkstemp(
+            dir=directory,
+            prefix=".parking-radar-",
+            suffix=".dump",
+        )
         os.close(temporary_fd)
         temporary_path = Path(temporary_name)
         try:
