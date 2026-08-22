@@ -1,38 +1,70 @@
-# ADR-004: 비행편 데이터는 `python-krairport-api`(krairport)를 provider 라이브러리로 사용한다
+# ADR-004: 비행편·주차 현황·주차요금 데이터는 `python-krairport-api`(krairport)를 provider 라이브러리로 사용한다
 
-- **상태**: accepted (구현은 미완료 — "후속" 참고)
-- **날짜**: 2026-08-23
+- **상태**: accepted (주차 현황/요금은 구현 완료 — `T-030`; 비행편은 구현 미완료 — "후속" 참고)
+- **날짜**: 2026-08-23 (비행편 결정) / 2026-08-23 갱신 (주차 현황·요금으로 범위 확장 + 구현)
 - **결정자**: agent + human
-- **컨텍스트**: `backend/app/services/flight_status.py`는 한국공항공사(KAC) `15113771`
-  ODCloud API와 인천국제공항공사(IIAC) `15112968` API를 `httpx` + 수동 XML/JSON 파싱으로
-  직접 재구현하고 있다. 같은 두 기관 API(KAC/IIAC 항공편 조회, `DATA_GO_KR_SERVICE_KEY`
-  기준)를 하나의 타입 있는 client로 묶은 형제 라이브러리 `python-krairport-api`
+- **컨텍스트**: `backend/app/services/flight_status.py`(비행편)와
+  `backend/app/services/collection.py`(주차 현황·주차요금)는 한국공항공사(KAC)/인천국제공항공사(IIAC)
+  공개 API를 `httpx` + 수동 XML/JSON 파싱으로 각각 직접 재구현하고 있었다. 같은 두 기관
+  API를 하나의 타입 있는 client로 묶은 형제 라이브러리 `python-krairport-api`
   (Python 패키지명 `krairport`)가 `F:\dev\python-krairport-api`에 이미 존재하고, KAC/IIAC
   provider 경계 분리, XML/JSON 양쪽 파싱, `UnsupportedAirportError`, 동기/비동기 client,
-  오프라인 fixture 기반 테스트를 갖추고 있다. `kor-travel-map` 생태계(`AGENTS.md`)는 형제
-  `python-*-api` 라이브러리를 provider adapter 없이 직접 사용하고, 로컬 체크아웃을 우선
-  조회하는 정책을 이미 채택하고 있다(해당 정책은 kor-travel-map `AGENTS.md`/`SKILL.md`
-  본문에 있으며, 그 문서가 인용하는 특정 ADR 번호는 kor-travel-map 쪽 `docs/adr/README.md`
-  기준으로 존재를 확인하지 않았으므로 여기서는 정책 내용만 참고하고 번호는 인용하지 않는다).
-- **결정**: parking-radar의 비행편 조회는 `python-krairport-api`(`krairport`) client를
-  사용한다. `flight_status.py`가 직접 구현한 HTTP 호출·XML/JSON 파싱은 이 라이브러리 호출로
-  대체한다. `krairport`에 없는 endpoint나 버그가 필요하면, parking-radar 안에 우회
+  오프라인 fixture 기반 테스트를 갖추고 있다. 실제로 조사해 보니 krairport는 주차
+  현황(`kac_raw_items("AirportParking", "airportparkingRT", ...)`, IIAC
+  `iiac_raw_items("StatusOfParking", "getTrackingParking", ...)`)과 KAC 주차요금
+  (`kac_raw_items("AirportParkingFee", "parkingfee", ...)`)의 실제 upstream endpoint를
+  parking-radar가 이미 검증한 것과 정확히 동일하게 호출한다. IIAC 주차요금
+  (`ParkingChargeInfo/getParkingChargeInformation`)은 typed 지원이 없지만 같은
+  `iiac_raw_items` 범용 escape hatch로 도달 가능하다. 반면 KAC 비행편은 krairport가
+  지원하는 `StatusOfFlights/getDepFlightStatusList` 계열과 parking-radar가 실제 사용하는
+  ODCloud `FlightStatusListDTL`(`15113771`)이 서로 다른 endpoint라 krairport 쪽에 코드
+  추가가 필요하다(T-029 참고). `kor-travel-map` 생태계(`AGENTS.md`)는 형제 `python-*-api`
+  라이브러리를 provider adapter 없이 직접 사용하고, 로컬 체크아웃을 우선 조회하는 정책을
+  이미 채택하고 있다(해당 정책은 kor-travel-map `AGENTS.md`/`SKILL.md` 본문에 있으며, 그
+  문서가 인용하는 특정 ADR 번호는 kor-travel-map 쪽 `docs/adr/README.md` 기준으로 존재를
+  확인하지 않았으므로 여기서는 정책 내용만 참고하고 번호는 인용하지 않는다).
+- **결정**: parking-radar의 비행편·주차 현황·주차요금 조회는 `python-krairport-api`
+  (`krairport`) client를 사용한다. 직접 구현한 HTTP 호출·XML/JSON 파싱은 이 라이브러리
+  호출로 대체한다. `krairport`에 없는 endpoint나 버그가 필요하면, parking-radar 안에 우회
   wrapper/shim을 만들지 않고 `F:\dev\python-krairport-api`(로컬 체크아웃 우선)를 직접
-  수정해 개선한 뒤 그 개선된 라이브러리를 parking-radar가 소비한다.
+  수정해 개선한 뒤 그 개선된 라이브러리를 parking-radar가 소비한다. 다만 krairport의
+  typed model(예: `ParkingFee`)이 parking-radar가 실제로 필요한 필드(휴일 요금, 분당
+  추가요금)를 담지 못하거나 검증된 필드명과 다르면, typed model 대신 `kac_raw_items`/
+  `iiac_raw_items` 범용 escape hatch로 원본에 가까운 item dict를 받아 parking-radar 자체
+  파싱 로직(`parsers.py`)을 그대로 쓴다 — typed model을 억지로 맞추거나 krairport의
+  model 자체를 확장하는 것보다 회귀 위험이 낮다.
 - **근거**: 이미 검증된 provider 파싱 로직(XML/JSON 양쪽, KAC/IIAC 경계, 서비스키 처리)을
   중복 구현하지 않는 것이 회귀 위험과 유지보수 비용을 줄인다. 데이터 정합성(필드 의미,
   provider별 응답 형태)의 1차 책임을 provider 라이브러리에 두면, 다른 프로젝트(`kor-travel-map`
   계열)와 동일한 수정이 한 곳에서 공유된다.
-- **결과 (긍정)**: 비행편 관련 버그 수정·신규 endpoint 지원이 `krairport`에 쌓이고
-  parking-radar는 이를 그대로 소비할 수 있다. offline fixture 기반 테스트를 `krairport` 쪽에서
-  재사용할 수 있다.
+- **결과 (긍정)**: 비행편/주차 관련 버그 수정·신규 endpoint 지원이 `krairport`에 쌓이고
+  parking-radar는 이를 그대로 소비할 수 있다. `collection.py`가 직접 유지하던 XML/JSON
+  envelope 파싱·serviceKey 주입 코드가 사라져 fetch 계층이 단순해졌다.
 - **결과 (부정)**: parking-radar가 외부(로컬) 라이브러리에 의존하게 되어, `krairport`의
-  breaking change가 parking-radar에 영향을 줄 수 있다. 현재 `krairport`는 PyPI에 게시되지
-  않은 로컬 라이브러리이므로, 운영 배포(Docker 이미지 빌드) 시 의존성 설치 방법(로컬 path
-  dependency vs git dependency vs vendoring)을 별도로 정해야 한다.
-- **후속**: 이 ADR은 방향 결정이며, 아직 코드 마이그레이션은 하지 않았다 — `flight_status.py`는
-  여전히 `httpx` 직접 구현 상태다. 실제 전환은 별도 task로 `docs/tasks.md`에 등록하고,
-  전환 시 (1) `backend/pyproject.toml`에 의존성 추가 방식 결정, (2) Docker 빌드에서 로컬
-  경로 접근 가능 여부 확인, (3) 기존 `test_flight_status.py` fixture를 `krairport`
-  fixture로 교체 또는 병행, (4) 전환 전후 `/flights/status` 응답 스키마 동일성 확인을
-  포함한다.
+  breaking change가 parking-radar에 영향을 줄 수 있다. `krairport`는 PyPI에 게시되지 않은
+  git 의존성(commit SHA 고정)이라, 버전을 올리려면 `backend/pyproject.toml`의 `rev`를
+  직접 갱신해야 한다. `RawApiResponse.body_text`가 더 이상 업스트림 원문 그대로가 아니라
+  krairport가 파싱한 item 목록의 JSON 직렬화로 바뀌었다 — krairport가 raw HTTP 응답
+  텍스트를 공개 API로 내려주지 않기 때문이며(디버그 fixture 전용 경로만 있음), 감사
+  목적상 "업스트림이 실제로 보낸 값"은 여전히 확인 가능하지만 바이트 단위로 동일하지는
+  않다.
+- **후속**:
+  - **완료(주차 현황·주차요금, T-030)**: `backend/pyproject.toml`에
+    `python-krairport-api @ git+https://github.com/digitie/python-krairport-api@<sha>`
+    PEP 508 direct reference로 의존성을 추가했다(`[tool.uv.sources]`는 Docker 빌드가
+    plain `pip install -e ".[dev]"`를 쓰기 때문에 인식되지 않아 폐기 — PEP 508 direct
+    reference는 pip/uv 양쪽에서 동작한다). `backend/Dockerfile`에 `git` 패키지를
+    추가했다(pip의 git+https 설치에 필요). `collection.py`의 `KrairportPublicDataClient`가
+    `kac_raw_items`/`iiac_raw_items`로 4개 fetch(KAC 주차현황/요금, IIAC 주차현황/요금)를
+    모두 대체했고, `parsers.py`는 입력 형태만(XML/JSON envelope → 사전 추출된 item
+    list) 넓혔을 뿐 파싱 로직은 그대로다. WSL 1차(72 passed)와 Docker 2차(69 passed,
+    `test_cutover_guards.py` 3개 제외 — 아래 참고) 모두 통과했다.
+  - **미완료(비행편, T-029)**: KAC ODCloud(`FlightStatusListDTL`) 지원이 krairport에
+    없어 `flight_status.py`는 아직 `httpx` 직접 구현 상태다. `T-029`(`docs/tasks.md`)로
+    남겨둔다.
+  - **관련 없는 발견**: 이번 검증 중 `backend/tests/test_cutover_guards.py`가 Docker
+    컨테이너 안에서 `ModuleNotFoundError: No module named 'observe_cutover'`로 깨지는
+    것을 발견했다 — `Path(__file__).parents[2]`가 로컬 디렉터리 깊이(`.../parking-radar/backend/tests/`)
+    기준으로 계산되어 있어, Docker의 `/app/tests/`(한 단계 얕음) 구조에서는 `/scripts`를
+    가리키게 되는 사전 존재 버그다(krairport 마이그레이션과 무관, 커밋 `481cb78`부터
+    있었다). 이 ADR/PR에서는 고치지 않았다 — 별도 task로 등록이 필요하다.

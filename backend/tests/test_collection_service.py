@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.services.collection import (
     CollectionService,
     FixturePublicDataClient,
-    LivePublicDataClient,
+    KrairportPublicDataClient,
     build_public_data_client,
     compute_upstream_rate_limit_retry_at,
     is_upstream_rate_limit_error,
@@ -47,7 +47,7 @@ def test_build_public_data_client_uses_live_client_with_key() -> None:
 
     client = build_public_data_client(settings)
 
-    assert isinstance(client, LivePublicDataClient)
+    assert isinstance(client, KrairportPublicDataClient)
 
 
 def test_collection_service_reports_enabled_sources() -> None:

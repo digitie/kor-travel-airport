@@ -7,6 +7,10 @@
   - 한국공항공사 계열 공항의 기본 실시간 주차 현황 수집
   - 총 주차면, 현재 주차대수 기반 잔여 주차면 계산
 - 수집 주기 기준 스냅샷 저장
+- provider 라이브러리: `python-krairport-api`(krairport)의
+  `kac_raw_items("AirportParking", "airportparkingRT", ...)`를 통해 조회한다(`T-030`,
+  [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)). 파싱은
+  여전히 `backend/app/services/parsers.py::parse_kac_parking`이 담당한다.
 
 ## 2. 한국공항공사 전국공항 주차장 혼잡도
 
@@ -27,6 +31,8 @@
   - `.env` 또는 `.env.odroid`에서 `ENABLE_INCHEON_COLLECTION=true`여야 한다.
   - `AIRPORT_CODES_CSV`에 `ICN`이 빠져 있으면 인천공항은 대시보드/수집 대상에서 빠진다.
   - 한국공항공사 `15056803`이 한도 초과 상태여도 인천 전용 API는 별도 기관 API이므로 계속 시도한다.
+- provider 라이브러리: krairport의
+  `iiac_raw_items("StatusOfParking", "getTrackingParking", ...)`를 통해 조회한다(`T-030`).
 
 ## 4. 인천국제공항공사 주차요금 정보
 
@@ -41,6 +47,10 @@
 - 운영 주의:
   - `ENABLE_INCHEON_FEE_COLLECTION=true`일 때만 수집한다.
   - 실시간 주차장 이름이 `T1 단기주차장지하1층`처럼 층 정보를 포함하면, 요금 규칙은 `T1 단기주차장` 접두어 기준으로 연결한다.
+- provider 라이브러리: krairport에 이 endpoint의 typed 지원은 없지만, 범용
+  `iiac_raw_items("ParkingChargeInfo", "getParkingChargeInformation", ...)` escape hatch로
+  조회한다(`T-030`). 파싱(`charid`/`chardesc` → 요금 규칙 변환)은 여전히
+  `parsers.py::parse_incheon_fee`가 담당한다.
 
 ## 5. 한국공항공사 전국공항 주차요금
 
@@ -48,6 +58,10 @@
 - 용도:
   - 한국공항공사 관리 공항의 주차요금 계산
   - 소형/대형, 평일/주말/공휴일 요금 규칙 저장
+- provider 라이브러리: krairport의 `kac_raw_items("AirportParkingFee", "parkingfee", ...)`를
+  통해 조회한다(`T-030`). krairport의 typed `ParkingFee` model은 쓰지 않는다 — 휴일 요금과
+  분당 추가요금 필드가 없고, 필드명(`parkingBasicM` 등)도 parking-radar가 실측 검증한 이름
+  (`PARKING_BASIC_M` 등)과 다르다. `parsers.py::parse_kac_fee`가 raw item을 그대로 파싱한다.
 
 ## 6. 한국공항공사 실시간 항공편 운항 정보
 

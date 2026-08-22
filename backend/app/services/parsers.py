@@ -254,13 +254,29 @@ def parse_kac_congestion(xml_text: str, airport_code: str) -> list[ParsedParking
     return observations
 
 
+def _coerce_kac_items(payload: str | list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Accept either literal upstream XML text or a pre-extracted item list.
+
+    `python-krairport-api`'s `kac_raw_items()` already parses XML into flat
+    `{tag: text}` dicts, so a krairport-backed fetch hands us
+    `SourceResponse.body_text` as a JSON-serialized list instead of XML.
+    """
+
+    if isinstance(payload, list):
+        return payload
+    stripped = payload.strip()
+    if stripped.startswith("["):
+        return json.loads(payload)
+    return _xml_items(payload)
+
+
 def parse_kac_parking(
-    xml_text: str,
+    payload: str | list[dict[str, Any]],
     allowed_airport_codes: list[str] | None = None,
 ) -> list[ParsedParkingObservation]:
     observations: list[ParsedParkingObservation] = []
     allowed = {code.upper() for code in allowed_airport_codes} if allowed_airport_codes else None
-    for item in _xml_items(xml_text):
+    for item in _coerce_kac_items(payload):
         airport_code = _resolve_kac_airport_code(item.get("aprKor"), item.get("aprEng"))
         if airport_code is None:
             continue
@@ -298,9 +314,23 @@ def parse_kac_parking(
     return observations
 
 
-def parse_incheon_parking(payload: str | dict[str, Any]) -> list[ParsedParkingObservation]:
+def _coerce_incheon_items(payload: str | dict[str, Any] | list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Accept literal upstream JSON text/envelope, or a pre-extracted item list.
+
+    `python-krairport-api`'s `iiac_raw_items()` already parses the JSON
+    envelope into a flat item list, so a krairport-backed fetch hands us
+    `SourceResponse.body_text` as a JSON-serialized list instead of the
+    original `{"response": {"body": {"items": ...}}}` envelope.
+    """
+
     document = json.loads(payload) if isinstance(payload, str) else payload
-    items = _json_items(document)
+    return document if isinstance(document, list) else _json_items(document)
+
+
+def parse_incheon_parking(
+    payload: str | dict[str, Any] | list[dict[str, Any]],
+) -> list[ParsedParkingObservation]:
+    items = _coerce_incheon_items(payload)
 
     observations: list[ParsedParkingObservation] = []
     for item in items:
@@ -381,9 +411,8 @@ def _build_incheon_fee_rule(
     )
 
 
-def parse_incheon_fee(payload: str | dict[str, Any]) -> list[ParsedFeeRule]:
-    document = json.loads(payload) if isinstance(payload, str) else payload
-    items = _json_items(document)
+def parse_incheon_fee(payload: str | dict[str, Any] | list[dict[str, Any]]) -> list[ParsedFeeRule]:
+    items = _coerce_incheon_items(payload)
     descriptions_by_id: dict[str, list[str]] = {}
     raw_by_id: dict[str, list[dict[str, Any]]] = {}
 
@@ -455,9 +484,9 @@ def _append_fee_rule(
     target.append(rule)
 
 
-def parse_kac_fee(xml_text: str, airport_code: str) -> list[ParsedFeeRule]:
+def parse_kac_fee(payload: str | list[dict[str, Any]], airport_code: str) -> list[ParsedFeeRule]:
     rules: list[ParsedFeeRule] = []
-    for item in _xml_items(xml_text):
+    for item in _coerce_kac_items(payload):
         _append_fee_rule(
             rules,
             item,

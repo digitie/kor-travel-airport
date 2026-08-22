@@ -13,6 +13,7 @@ dependencies = [
   "asyncpg>=0.31,<1.0",
   "fastapi>=0.141,<1.0",
   "httpx>=0.28,<1.0",
+  "python-krairport-api @ git+https://github.com/digitie/python-krairport-api@b8854137f26be4ae14c1693b83b425ee37c60655",
   "python-multipart>=0.0.32,<1.0",
   "pydantic-settings>=2.15,<3.0",
   "sqlalchemy>=2.0.52,<3.0",

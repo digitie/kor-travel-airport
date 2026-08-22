@@ -9,28 +9,63 @@
 ## 진행 중인 작업 인덱스
 
 - [ ] `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
+- [ ] `T-031` — Docker 컨테이너에서 `test_cutover_guards.py` import 경로가 깨지는 사전
+  존재 버그 수정
 
 ## `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
 
 [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)의 방향 결정에
-따른 실제 코드 마이그레이션이다. 아직 시작하지 않았다.
+따른 실제 코드 마이그레이션이다. 아직 시작하지 않았다. 같은 ADR-004 범위의 주차
+현황/요금 전환은 `T-030`(`docs/tasks-done.md`)으로 먼저 완료했다 — krairport 쪽에 새 코드
+없이 기존 raw-item escape hatch로 바로 대체 가능했기 때문이다.
+
+**의존성/Docker 패턴은 T-030에서 이미 정했다** — `backend/pyproject.toml`의
+`python-krairport-api @ git+...@<sha>` PEP 508 direct reference + `backend/Dockerfile`의
+`git` 설치를 그대로 재사용한다. 이 task에서 새로 정할 필요는 없다.
 
 완료 조건:
 
-- [ ] `backend/pyproject.toml`에 `krairport` 의존성을 추가하는 방식(로컬 path dependency,
-  git dependency, vendoring 중 택1)을 정하고 근거를 남긴다.
-- [ ] Docker 이미지 빌드 컨텍스트에서 선택한 의존성 방식이 실제로 동작하는지 확인한다
-  (로컬 path dependency라면 빌드 컨텍스트에 `F:\dev\python-krairport-api` 접근/복사 방법 필요).
-- [ ] `backend/app/services/flight_status.py`의 KAC(`15113771`)/IIAC(`15112968`) 직접
-  `httpx` 호출·XML/JSON 파싱을 `krairport`의 `departures()`/`arrivals()` 호출로 대체한다.
+- [ ] KAC 비행편(`15113771`, ODCloud `FlightStatusListDTL`)은 krairport의 기존
+  `departures()`/`arrivals()`(`StatusOfFlights/getDepFlightStatusList` 등)와 **다른
+  endpoint**다 — krairport가 아직 지원하지 않으므로, `F:\dev\python-krairport-api`에 이
+  ODCloud endpoint를 위한 provider 코드를 먼저 추가해야 한다(새 메서드 또는 raw items류
+  escape hatch. ODCloud는 KAC 도메인이 아닌 별도 provider라 `kac_raw_items`로는 닿지 않는다 —
+  `krairport/providers/kac.py`의 `raw_items()`가 `openapi.airport.co.kr`에 고정돼 있음을
+  확인했다).
+- [ ] IIAC 비행편(`15112968`)은 krairport의 `arrivals(detailed=True)`/`departures(detailed=True)`
+  (`getPassengerArrivalsDeOdp`/`getPassengerDeparturesDeOdp`)와 endpoint가 정확히 일치한다 —
+  이쪽은 krairport 수정 없이 바로 전환 가능.
+- [ ] `backend/app/services/flight_status.py`의 KAC/IIAC 직접 `httpx` 호출·XML/JSON 파싱을
+  krairport 호출로 대체한다.
 - [ ] 전환 전후 `/flights/status` 응답 스키마가 동일한지 확인한다(프론트 `daily-flight-overlay-chart.tsx`
   계약 변경 없음).
-- [ ] `backend/tests/test_flight_status.py`를 `krairport`의 오프라인 fixture 방식과
-  맞추거나 병행 유지한다.
-- [ ] `krairport`에 없는 endpoint/버그를 발견하면 parking-radar 안에 우회 코드를 추가하지
-  않고 `F:\dev\python-krairport-api`를 직접 수정한 뒤 그 결과를 소비한다.
+- [ ] `backend/tests/test_flight_status.py`를 krairport 기반 fetch에 맞게 갱신한다.
 - [ ] `docs/architecture/data-sources.md` §6/§7, `docs/architecture/architecture.md`의
   "전환 전" 문구를 제거하고 실제 전환 완료를 반영한다.
+- [ ] `docs/adr/004-krairport-provider-library.md`의 "후속"을 갱신한다.
+
+## `T-031` — Docker 컨테이너에서 `test_cutover_guards.py` import 경로가 깨지는 사전 존재 버그 수정
+
+`T-030`(krairport 주차 마이그레이션) 검증 중 `docker compose run --rm --no-deps backend
+pytest -q`에서 발견했다. krairport 마이그레이션과는 무관하며, 이번 PR에서는 이 파일만
+`--ignore`로 제외하고 넘어갔다.
+
+- 증상: `ModuleNotFoundError: No module named 'observe_cutover'`
+  (`backend/tests/test_cutover_guards.py:11`).
+- 원인: `sys.path.insert(0, str(Path(__file__).parents[2] / "scripts"))`가
+  로컬 디렉터리 깊이(`parking-radar/backend/tests/...` → `parents[2]` = 레포 루트)를
+  기준으로 계산되어 있다. Docker 이미지 안에서는 `COPY backend /app`이라 파일 경로가
+  `/app/tests/test_cutover_guards.py`가 되고, 여기서 `parents[2]`는 `/`가 되어
+  `/scripts`(존재하지 않음)를 가리킨다 — 의도한 `/app/scripts`가 아니다.
+- WSL 로컬 실행(레포 루트에서 `uv run pytest`)에서는 경로 깊이가 우연히 맞아떨어져 통과하고,
+  Docker 컨테이너 안에서만 깨진다.
+- 완료 조건:
+  - [ ] `Path(__file__).parents[N]` 계산을 로컬/Docker 양쪽에서 동일하게 `scripts/` 디렉터리를
+    가리키도록 고친다(예: 환경변수나 `importlib`로 `app` 패키지 루트 기준 상대 경로를 쓰거나,
+    Docker에서도 레포 루트 구조를 유지하도록 `COPY` 경로를 맞춘다).
+  - [ ] WSL 1차와 Docker 2차 양쪽에서 `test_cutover_guards.py`가 통과하는지 확인한다.
+  - [ ] CI의 `backend` job이 `docker compose run`이 아니라 `uv run pytest`만 쓰는지, 이
+    버그가 CI에서는 안 드러났던 이유도 확인해 문서에 남긴다.
 
 ## 완료 조건
 

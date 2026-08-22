@@ -3,16 +3,16 @@
 ## 현재 상태
 
 - 기준일: 2026-08-23
-- 작업 브랜치: `codex/docs-krairport-provider` (origin/main 기준)
+- 작업 브랜치: `codex/krairport-parking-migration` (origin/main 기준, PR 미생성)
 - `digitie/parking-radar` PR [#1](https://github.com/digitie/parking-radar/pull/1)
-  (postgres/server14 마이그레이션)은 이미 **MERGED** 상태다(`481cb78`). "다음 한 작업"으로
-  더 이상 남아있지 않다.
-- 2026-08-23: `origin`을 `digitie/parking-radar`(정본)로 전환하고, 구 remote는
-  `airport-parking-radar`로 재명명했다(`T-028`). `kor-travel-map` 문서 구조 이식(ADR 분리,
-  agent-failure-patterns/branch-protection/cross-repo-audit-checklist/hostile-review,
-  dev-environment.md, test-strategy.md)과 python-krairport-api 채택 ADR-004도 같은 작업에서
-  완료해 커밋 `6601fa2`로 `codex/docs-krairport-provider` 브랜치에 반영했다. Draft PR
-  [#2](https://github.com/digitie/parking-radar/pull/2)로 열려 있다.
+  (postgres/server14 마이그레이션), PR [#2](https://github.com/digitie/parking-radar/pull/2)
+  (kor-travel-map 문서 구조 이식 + ADR-004) 모두 **MERGED** 상태다(`origin/main` = `1d78e1b`).
+- `T-030`(주차 현황·주차요금 → `python-krairport-api`)을 이 브랜치에서 구현 완료했다:
+  `backend/pyproject.toml`/`Dockerfile` 의존성 배선, `collection.py`의
+  `KrairportPublicDataClient`, `parsers.py` 입력 형태 확장, sample 데이터 단순화. WSL 1차
+  `72 passed`, Docker 2차 `69 passed`(`test_cutover_guards.py` 3개는 무관한 사전 버그로
+  제외 — `T-031`), `alembic check` 통과, frontend Docker `48 passed`. **아직 커밋하지
+  않았다** — working tree 변경 상태.
 - 운영 원본: `digitie@192.168.1.13:/home/digitie/apps/parking-radar`
 - 새 운영 대상: `digitie@192.168.1.14`
 - 14번 공개 포트: API `14000`, web `14001`; live E2E 기준 URL:
@@ -21,14 +21,10 @@
 
 ## 다음 한 작업
 
-`T-029`(`docs/tasks.md`) — `python-krairport-api`를 실제로 backend 의존성에 추가하고
-비행편/주차현황/주차요금 수집을 그 client로 전환한다. 착수 전 조사 결과: KAC/IIAC 주차현황과
-KAC 주차요금은 krairport의 기존 typed API로 그대로 대체 가능하고, IIAC 주차요금은
-`iiac_raw_items()` 범용 escape hatch로 커버된다(krairport 자체 수정 불필요). 반면 KAC
-비행편(`15113771`, ODCloud `FlightStatusListDTL`)은 krairport가 현재 지원하지 않는 별도
-provider 도메인이라 krairport 쪽에 새 코드가 필요하다 — 이 부분은 별도 후속으로 분리한다.
-krairport로 전환하면 `RawApiResponse.body_text`가 더 이상 업스트림 원문 그대로가 아니라
-krairport가 파싱한 결과의 JSON 직렬화로 바뀐다는 점을 ADR-004/T-029에 명시해야 한다.
+`codex/krairport-parking-migration`의 변경사항을 커밋 → push → Draft PR → hostile review
+(James/Popper) → 머지한다. 머지 후 다음은 `T-029`(KAC ODCloud 비행편 지원을
+`python-krairport-api`에 먼저 추가한 뒤 `flight_status.py` 전환)와 `T-031`
+(`test_cutover_guards.py` Docker 경로 버그) 중 하나를 고른다.
 
 ## 확인된 사실
 
