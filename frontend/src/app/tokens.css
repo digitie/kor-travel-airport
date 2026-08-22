@@ -10,6 +10,8 @@
   --color-accent: oklch(61% 0.16 43);
   --color-accent-strong: oklch(50% 0.15 38);
   --color-accent-soft: oklch(61% 0.16 43 / 13%);
+  --color-button-bg: oklch(48% 0.15 38);
+  --color-button-ink: white;
   --color-teal: oklch(55% 0.12 174);
   --color-red: oklch(52% 0.16 28);
   --color-yellow: oklch(68% 0.14 83);

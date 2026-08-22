@@ -39,7 +39,7 @@
   - 인천공항공사 요금 API
 - 웹 UI에서 수동 수집 실행
 - 수동 수집 쿨다운 제한
-- 웹 UI 60초 자동 갱신
+- 웹 UI 15초 자동 갱신
 - 모바일 / 데스크톱 반응형 대응
 
 ## 2. 기본 실행 모드
@@ -226,7 +226,7 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 - 세부 주차장 선택:
   - 선택한 주차장 하나 기준으로 모든 패널이 바뀐다.
 - 마지막 선택 정보는 브라우저 localStorage에 저장되고 다음 접속 시 복원된다.
-- 화면 데이터는 60초마다 자동으로 다시 읽는다. 자동 갱신은 원 API 수집을 강제로 실행하지 않고, 백엔드에 이미 저장된 현재/분석 데이터를 다시 조회한다.
+- 화면 데이터는 15초마다 자동으로 다시 읽는다. 자동 갱신은 원 API 수집을 강제로 실행하지 않고, 백엔드에 이미 저장된 현재/분석 데이터를 다시 조회한다.
 - 브라우저 탭이 숨겨져 있으면 주기 갱신을 건너뛰고, 다시 보이거나 포커스를 얻으면 현재 선택 기준으로 조용히 갱신한다.
 - 하루 흐름 오버레이 차트의 비행편 마커도 같은 대시보드 새로고침 흐름에서 다시 조회한다.
 - 비행편 정보는 보조 데이터이므로 초기 대시보드 로딩을 막지 않는다. 주차 현황, 시계열, 분석 데이터가 먼저 표시되고 비행편 정보는 별도로 반영된다.
@@ -242,20 +242,19 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 - 하루 흐름 오버레이 차트의 선택 공항 출도착 비행편 마커
 - 지난주/이번주/다음주 공휴일 문장
 - 시계열 공휴일/토요일/일요일 배경
-- 요일 x 시간 평균 잔여 주차면
-- 요일별 시간대 상세 패턴
+- 요일 x 시간 평균 잔여 주차면 히트맵 요약
 - 공휴일/토요일/일요일 날짜별 시간대 패턴
 - 요일별 임계 달성 시간
 - 날짜별 임계 달성 시간 히스토리
 - 임계치 이벤트
-- 시계열의 마지막 값은 `지금 주차 여유`와 같은 계산 기준으로 고정한다.
+- 시계열의 마지막 값은 화면 상단 `현재 잔여 주차면`과 같은 계산 기준으로 고정한다.
 - 최근 7일 시계열 주차선은 실제 관측값까지만 그리고, 기본 X축을 미래로 확장하지 않는다.
 - 비행편 마커는 별도 `하루 흐름과 비행편` 차트에서 0시부터 24시까지의 하루 축에 표시한다.
 - `하루 흐름과 비행편` 차트는 최근 7일 선을 겹쳐 보여주고, 날짜별 선과 출발편/도착편 마커를 각각 켜고 끌 수 있다.
 - 공휴일/토요일/일요일 날짜의 선은 점선과 사각 마커로 일반일과 구분한다.
 - 같은 출도착 시각/출발지/도착지를 가진 비행편은 공동운항편으로 묶어 표시한다.
 - 모바일 화면에서는 현재 주차 여유, 빠듯한 주차장, 최근 7일 흐름, 요일별 평균을 우선 보여준다.
-- 모바일 화면에서는 비행편 흐름, 요일별 상세 패턴, 공휴일/토/일요일 패턴, 임계 달성 시간, 임계치 이벤트, 주차요금 계산기를 접힘 섹션으로 내려 스크롤 부담을 줄인다.
+- 모바일 화면에서는 비행편 흐름, 공휴일/토/일요일 패턴, 임계 달성 시간, 임계치 이벤트, 주차요금 계산기를 접힘 섹션으로 내려 스크롤 부담을 줄인다.
 - 모바일 표와 차트는 가로 스크롤을 허용하고, 시간대 히트맵은 첫 열을 고정해 어느 요일/특수일의 값인지 잃지 않게 한다.
 
 ### API 주소 결정
@@ -280,18 +279,16 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 
 ## 9. 배포 자산
 
-이미 만들어둔 주요 배포 자산:
+현재 운영 배포 자산:
 
-- [docker-compose.odroid.yml](</F:/dev/parking-radar/docker-compose.odroid.yml>)
-- [.env.odroid](</F:/dev/parking-radar/.env.odroid>)
-- [scripts/deploy-odroid.ps1](</F:/dev/parking-radar/scripts/deploy-odroid.ps1>)
-- [scripts/odroid-status.ps1](</F:/dev/parking-radar/scripts/odroid-status.ps1>)
-- [deploy/odroid/remote-deploy.sh](</F:/dev/parking-radar/deploy/odroid/remote-deploy.sh>)
-- [deploy/odroid/bootstrap-docker.sh](</F:/dev/parking-radar/deploy/odroid/bootstrap-docker.sh>)
+- [scripts/deploy-server14.sh](</F:/dev/parking-radar/scripts/deploy-server14.sh>)
+- [.env.server14.example](</F:/dev/parking-radar/.env.server14.example>)
+- [docker-compose.yml](</F:/dev/parking-radar/docker-compose.yml>)
+- `deploy/odroid/*`와 `scripts/deploy-odroid.ps1`는 historical fail-closed 자산이며 실행하지 않는다.
 
-배포 대상 기본값:
+배포 대상:
 
-- IP: `192.168.1.13`
+- IP: `192.168.1.14`
 - 사용자: `digitie`
 - 앱 경로: `/home/digitie/apps/parking-radar`
 
@@ -329,7 +326,7 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 - `client_mode=sample`이면 실데이터가 아니다.
 - `scheduler_enabled=false`면 자동 수집은 안 돈다.
 - `snapshot_count=0`은 실패가 아닐 수 있다.
-- `데이터 기준 시각`과 `수집기 마지막 동기화`는 서로 달라도 정상일 수 있다.
+- `collected_at`과 `데이터 기준 시각`은 서로 달라도 정상일 수 있다. `collected_at`은 API/운영 점검용이고 메인 UI에는 표시하지 않는다.
 - 프론트 이미지를 다시 빌드했으면 컨테이너 재생성까지 해야 화면이 바뀐다.
 - SQLite 런타임 파일을 OneDrive bind mount에 직접 두면 간헐 오류가 날 수 있다.
 

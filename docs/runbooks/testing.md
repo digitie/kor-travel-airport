@@ -98,7 +98,7 @@ docker compose run --rm --no-deps backend pytest -q
 - 모바일 시간대 히트맵에서 가로 스크롤 시 첫 열이 고정되어 요일/공휴일 기준을 읽을 수 있는지 확인
 - 요일 x 시간 히트맵
 - 공휴일 시간대 패턴 히트맵
-- 요일별 시간대 상세 카드
+- 요일 x 시간 히트맵의 최고/최저 혼잡 시간 요약
 - 요일별 임계 달성 시간 / 날짜별 임계 달성 시간
 - 요금 계산기
 
@@ -129,7 +129,7 @@ GitHub Actions의 `live-e2e` job은 항상 정확한 `https://pr.digitie.mywire.
 - 현재 주차 현황 표 렌더링
 - 시계열 차트 렌더링
 - 요일 x 시간 히트맵 렌더링
-- 요일별 시간대 상세 카드 렌더링
+- 요일 x 시간 히트맵과 최고/최저 혼잡 시간 요약 렌더링
 - 임계 달성 시간 표 렌더링
 
 모바일:
@@ -155,7 +155,6 @@ API 확인:
 UI 확인 (로컬 profile에서 `ENABLE_MANUAL_COLLECT=true`일 때만):
 
 - `데이터 기준 시각`
-- `수집기 마지막 동기화`
 - `지금 수집` 버튼
 
 동작 확인:
@@ -225,7 +224,7 @@ in-app browser 또는 브라우저에서 다음을 확인한다.
 - 공휴일/토/일요일 패턴 패널에 최근 8개 특수일이 날짜별로 표시되는지 확인
 - 6시간 단위 X축 라벨 표시
 - 요일 x 시간 히트맵 표시
-- 요일별 시간대 상세 카드 표시
+- 요일 x 시간 히트맵과 최고/최저 혼잡 시간 요약 표시
 - 요일별 임계 달성 시간 / 날짜별 임계 달성 시간 표시
 - `지금 수집` 성공 / 쿨다운 메시지 표시
 - 브라우저 콘솔 `error` / `warn` 없음
@@ -236,7 +235,7 @@ cd frontend
 E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e
 ```
 
-CI에서는 여기에 `EXPECTED_RELEASE_SHA=${GITHUB_HEAD_SHA}`를 추가해 14번에 실제 배포된
+CI에서는 여기에 `EXPECTED_RELEASE_SHA=${{ github.event.pull_request.head.sha || github.sha }}`를 추가해 14번에 실제 배포된
 candidate와 테스트 대상 PR head가 같은지 health 응답으로 확인한다. 로컬에서 공개 14번
 배포본만 재확인할 때는 `EXPECTED_RELEASE_SHA`를 생략할 수 있지만, merge 증적에는 반드시
 candidate SHA와 함께 기록한다.

@@ -128,7 +128,7 @@ function buildAvailabilityHeatStyle(value: number | null, maxValue: number): CSS
   return {
     background: `hsl(${hue} 78% ${lightness}%)`,
     borderColor: `hsla(${hue} 72% 38% / 0.16)`,
-    color: ratio > 0.56 ? "white" : undefined,
+    color: "#111827",
   };
 }
 

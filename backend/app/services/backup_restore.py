@@ -4,6 +4,7 @@ import asyncio
 import os
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -79,15 +80,19 @@ def _enforce_storage_limit_sync(
     backup_dir: str,
     storage_limit_bytes: int,
     protected_filename: str | None = None,
+    protected_filenames: set[str] | None = None,
 ) -> None:
     if storage_limit_bytes <= 0:
         raise ValueError("백업 저장소 한도는 0보다 커야 합니다.")
     items = _list_backups_sync(backup_dir)
     total_bytes = sum(item.size_bytes for item in items)
+    protected = set(protected_filenames or ())
+    if protected_filename:
+        protected.add(protected_filename)
     for item in reversed(items):
         if total_bytes <= storage_limit_bytes:
             break
-        if item.filename == protected_filename:
+        if item.filename in protected:
             continue
         _backup_path(backup_dir, item.filename).unlink(missing_ok=True)
         total_bytes -= item.size_bytes
@@ -100,6 +105,7 @@ def _make_room_for_upload_sync(
     storage_limit_bytes: int,
     incoming_bytes: int,
     protected_filename: str,
+    protected_filenames: set[str] | None = None,
 ) -> None:
     """Free old backups before a chunk would exceed the aggregate quota.
 
@@ -113,10 +119,12 @@ def _make_room_for_upload_sync(
         raise ValueError("업로드 파일이 백업 저장소의 aggregate 용량 한도를 초과했습니다.")
     items = _list_backups_sync(backup_dir)
     total_bytes = sum(item.size_bytes for item in items)
+    protected = set(protected_filenames or ())
+    protected.add(protected_filename)
     if total_bytes + incoming_bytes <= storage_limit_bytes:
         return
     for item in reversed(items):
-        if item.filename == protected_filename:
+        if item.filename in protected:
             continue
         _backup_path(backup_dir, item.filename).unlink(missing_ok=True)
         total_bytes -= item.size_bytes
@@ -164,6 +172,9 @@ async def create_backup(
         filename = f"parking-radar-{timestamp}.dump"
         path = _backup_path(backup_dir, filename)
         safe_database_url, environment = _postgres_command_database(database_url)
+        temporary_fd, temporary_name = tempfile.mkstemp(prefix="parking-radar-", suffix=".dump")
+        os.close(temporary_fd)
+        temporary_path = Path(temporary_name)
         try:
             _run_command(
                 [
@@ -172,12 +183,22 @@ async def create_backup(
                     "--no-owner",
                     "--no-acl",
                     "--file",
-                    str(path),
+                    str(temporary_path),
                     safe_database_url,
                 ],
                 timeout_seconds,
                 environment,
             )
+            temporary_size = temporary_path.stat().st_size
+            if temporary_size > MAX_BACKUP_BYTES:
+                raise ValueError("백업 파일 크기가 허용 한도를 초과했습니다.")
+            _make_room_for_upload_sync(
+                backup_dir,
+                storage_limit_bytes,
+                temporary_size,
+                protected_filename=filename,
+            )
+            temporary_path.replace(path)
             _prune_backups_sync(
                 backup_dir,
                 retention_count,
@@ -187,6 +208,8 @@ async def create_backup(
         except Exception:
             path.unlink(missing_ok=True)
             raise
+        finally:
+            temporary_path.unlink(missing_ok=True)
         stat = path.stat()
         return BackupFileInfo(filename=filename, size_bytes=stat.st_size, created_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc))
 
@@ -233,6 +256,7 @@ async def save_uploaded_backup(
     uploaded_file,
     backup_dir: str,
     storage_limit_bytes: int = DEFAULT_BACKUP_STORAGE_LIMIT_BYTES,
+    protected_filenames: set[str] | None = None,
 ) -> BackupFileInfo:
     directory = Path(backup_dir)
     directory.mkdir(parents=True, exist_ok=True)
@@ -253,10 +277,16 @@ async def save_uploaded_backup(
                     storage_limit_bytes,
                     chunk_size,
                     protected_filename=filename,
+                    protected_filenames=protected_filenames,
                 )
                 output.write(chunk)
                 written += chunk_size
-        _enforce_storage_limit_sync(backup_dir, storage_limit_bytes, protected_filename=filename)
+        _enforce_storage_limit_sync(
+            backup_dir,
+            storage_limit_bytes,
+            protected_filename=filename,
+            protected_filenames=protected_filenames,
+        )
     except Exception:
         path.unlink(missing_ok=True)
         raise

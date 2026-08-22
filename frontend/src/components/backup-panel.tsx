@@ -11,6 +11,8 @@ type BackupPanelProps = {
   restoreBackup: (file: File) => Promise<BackupRestoreResponse>;
 };
 
+type BackupListState = "idle" | "loading" | "ready" | "error";
+
 function formatBytes(sizeBytes: number): string {
   if (sizeBytes < 1024) {
     return `${sizeBytes} B`;
@@ -32,7 +34,7 @@ function formatBackupTimestamp(value: string): string {
 export function BackupPanel({ listBackups, createBackup, downloadBackup, restoreBackup }: BackupPanelProps) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<BackupFile[]>([]);
-  const [listLoaded, setListLoaded] = useState(false);
+  const [listState, setListState] = useState<BackupListState>("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -40,13 +42,14 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
   const refresh = useCallback(async () => {
     setBusy(true);
     setError(null);
-    setListLoaded(false);
+    setListState("loading");
     try {
       const response = await listBackups();
       setItems(response.items);
-      setListLoaded(true);
+      setListState("ready");
     } catch (caughtError) {
       setItems([]);
+      setListState("error");
       setError(caughtError instanceof Error ? caughtError.message : "백업 목록을 불러오지 못했습니다.");
     } finally {
       setBusy(false);
@@ -162,9 +165,9 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
           </div>
           {message ? <p className="backup-panel-message" aria-live="polite">{message}</p> : null}
           {error ? <p className="backup-panel-error" role="alert">{error}</p> : null}
-          {!listLoaded ? (
+          {listState === "loading" ? (
             <p className="backup-panel-empty" data-testid="backup-loading-state" role="status">백업 목록을 불러오는 중입니다.</p>
-          ) : items.length > 0 ? (
+          ) : listState === "ready" && items.length > 0 ? (
             <ul className="backup-list" data-testid="backup-list">
               {items.map((item) => (
                 <li key={item.filename}>
@@ -180,9 +183,9 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : listState === "ready" ? (
             <p className="backup-panel-empty" data-testid="backup-empty-state">저장된 백업이 없습니다.</p>
-          )}
+          ) : null}
         </div>
       ) : null}
     </section>

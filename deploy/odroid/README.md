@@ -1,11 +1,13 @@
 # ODROID M1S 배포 파일
 
-이 디렉터리는 `parking-radar`를 `ODROID M1S`에 배포할 때 쓰는 보조 파일을 모아둔다.
+이 디렉터리는 과거 ODROID 배포 기록을 보관한다. 현재 운영 배포는
+[`scripts/deploy-server14.sh`](../../scripts/deploy-server14.sh)만 사용하며, Docker/PostgreSQL은
+`192.168.1.14`에서만 실행한다. 이 디렉터리의 legacy 배포 스크립트는 의도적으로 종료된다.
 
 ## 파일 설명
 
 - [remote-deploy.sh](</F:/dev/parking-radar/deploy/odroid/remote-deploy.sh>)
-  - 원격 서버에서 `docker compose build`와 `docker compose up -d`를 실행한다.
+  - legacy 경로 차단용 스크립트다. Docker 명령을 실행하지 않는다.
 - [bootstrap-docker.sh](</F:/dev/parking-radar/deploy/odroid/bootstrap-docker.sh>)
   - Ubuntu 24.04 기준 Docker와 Compose plugin을 설치하는 1회성 스크립트다.
   - 실제 실행은 설치가 필요할 때만 한다.
@@ -25,8 +27,7 @@
 ## 로컬 실행 스크립트
 
 - [scripts/deploy-odroid.ps1](</F:/dev/parking-radar/scripts/deploy-odroid.ps1>)
-  - 로컬 프로젝트를 압축해서 원격 서버로 전송하고 배포까지 실행한다.
-  - `.env`, `.env.*`는 전송하지 않아 서버에 저장된 운영 키를 덮어쓰지 않는다.
+  - legacy 경로 차단용으로 유지하며 실행하지 않는다.
 - [scripts/odroid-status.ps1](</F:/dev/parking-radar/scripts/odroid-status.ps1>)
   - 배포 후 웹/API 상태와 최근 수집 상태를 요약해서 보여준다.
 
@@ -36,5 +37,6 @@
 - `parking-radar` 배포 스크립트는 `docker compose`와 `docker-compose`를 모두 지원해야 한다.
 - 원격 서버에서 `.env.odroid`를 먼저 로드하므로 Compose CLI의 `--env-file` 지원 유무에 의존하지 않는 구성을 유지한다.
 - 배포 후 컨테이너는 서버에 저장된 `.env.odroid`의 `DATA_GO_KR_SERVICE_KEY`로 동작해야 한다.
-- `docker-compose 1.29` 환경에서는 재생성 버그를 피하려고 `down --remove-orphans` 후 일반 `up -d` 순서를 사용한다.
+- 과거 Compose 호환성 메모는 기록으로만 보존한다. 현재 배포 스크립트는 Compose를 내리지 않으며,
+  운영 배포는 14번의 `scripts/deploy-server14.sh`만 사용한다.
 - 백엔드가 healthy가 된 뒤 프론트를 올리는 순서를 사용해 초기 healthcheck 경합을 줄인다.

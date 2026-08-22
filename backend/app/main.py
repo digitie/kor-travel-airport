@@ -796,6 +796,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     file,
                     resolved_settings.backup_dir,
                     resolved_settings.backup_storage_limit_bytes,
+                    protected_filenames={pre_restore.filename},
                 )
                 restored = await restore_backup(
                     resolved_settings.backup_dir,

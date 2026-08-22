@@ -156,17 +156,22 @@ async def verify(args: argparse.Namespace) -> int:
         source_results = await asyncio.gather(*source_checks)
 
         source_keys: set[tuple[str, str]] = set()
-        source_by_key: dict[tuple[str, str], tuple[str, datetime | None]] = {}
+        source_by_key: dict[tuple[str, str], tuple[str, datetime | None, datetime]] = {}
         target_checks = []
-        for airport_code, legacy_id, lot_name, source_latest, error, _source_checked_at in source_results:
+        for airport_code, legacy_id, lot_name, source_latest, error, source_checked_at in source_results:
             key = (airport_code, legacy_id)
             if key in source_keys:
                 failures.append(f"{airport_code}/{legacy_id}: duplicate source identity")
             source_keys.add(key)
-            source_by_key[key] = (lot_name, source_latest)
+            source_by_key[key] = (lot_name, source_latest, source_checked_at)
             if error:
                 failures.append(f"{airport_code}/{legacy_id}/{lot_name}: source request failed: {error}")
                 continue
+            if source_latest is not None and source_latest > source_checked_at:
+                failures.append(
+                    f"{airport_code}/{legacy_id}/{lot_name}: source observation is future-dated by "
+                    f"{(source_latest - source_checked_at).total_seconds():.1f}s"
+                )
             candidates = target_by_key.get(key, [])
             if len(candidates) != 1:
                 failures.append(f"{airport_code}/{legacy_id}/{lot_name}: target identity count={len(candidates)}")
@@ -188,7 +193,7 @@ async def verify(args: argparse.Namespace) -> int:
         target_results = await asyncio.gather(*target_checks)
         for airport_code, legacy_id, lot_name, target_latest, error, target_checked_at in target_results:
             key = (airport_code, legacy_id)
-            source_name, source_latest = source_by_key[key]
+            source_name, source_latest, source_checked_at = source_by_key[key]
             if error:
                 failures.append(f"{airport_code}/{legacy_id}/{lot_name}: target request failed: {error}")
                 continue
@@ -207,6 +212,14 @@ async def verify(args: argparse.Namespace) -> int:
                     "the empty-lot allowlist applies only when both sides have no observation"
                 )
                 continue
+            if source_latest > source_checked_at:
+                continue
+            if target_latest > target_checked_at:
+                failures.append(
+                    f"{airport_code}/{legacy_id}/{lot_name}: target observation is future-dated by "
+                    f"{(target_latest - target_checked_at).total_seconds():.1f}s"
+                )
+                continue
             source_lag_seconds = (source_latest - target_latest).total_seconds()
             if source_lag_seconds > args.max_source_lag_seconds:
                 failures.append(
@@ -222,6 +235,11 @@ async def verify(args: argparse.Namespace) -> int:
         latest_target_observed = parse_timestamp(target_status.get("latest_snapshot_observed_at"))
         if latest_target_observed is None:
             failures.append("target has no global latest observation")
+        elif latest_target_observed > target_status_checked_at:
+            failures.append(
+                "target global latest observation is future-dated by "
+                f"{(latest_target_observed - target_status_checked_at).total_seconds():.1f}s"
+            )
         elif (target_status_checked_at - latest_target_observed).total_seconds() > args.max_age_seconds:
             failures.append(
                 f"target global freshness is {(target_status_checked_at - latest_target_observed).total_seconds():.1f}s "

@@ -45,15 +45,67 @@ scp "${ARCHIVE_PATH}" "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_ARCHIVE}"
 ssh "${REMOTE_USER}@${REMOTE_HOST}" \
   "REMOTE_APP_DIR='${REMOTE_APP_DIR}' REMOTE_ARCHIVE='${REMOTE_ARCHIVE}' REMOTE_ENV_FILE='${REMOTE_ENV_FILE}' COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME}' CANDIDATE_SHA='${CANDIDATE_SHA}' bash -s" <<'REMOTE_SCRIPT'
 set -euo pipefail
+if ! command -v rsync >/dev/null 2>&1; then
+  echo "Refusing deployment: rsync is required to remove stale candidate files safely." >&2
+  exit 2
+fi
 if [[ ! -f "${REMOTE_APP_DIR}/${REMOTE_ENV_FILE}" ]]; then
   echo "Missing ${REMOTE_APP_DIR}/${REMOTE_ENV_FILE}; copy .env.server14.example and add the existing operations values." >&2
   exit 2
 fi
-tar -xzf "${REMOTE_ARCHIVE}" -C "${REMOTE_APP_DIR}"
+
+REMOTE_STAGE="$(mktemp -d /tmp/parking-radar-release.XXXXXX)"
+cleanup_remote() {
+  rm -rf -- "${REMOTE_STAGE}" "${REMOTE_ARCHIVE}"
+}
+trap cleanup_remote EXIT
+tar -xzf "${REMOTE_ARCHIVE}" -C "${REMOTE_STAGE}"
+rsync -a --delete \
+  --exclude="${REMOTE_ENV_FILE}" \
+  --exclude="backups/" \
+  "${REMOTE_STAGE}/" "${REMOTE_APP_DIR}/"
 cd "${REMOTE_APP_DIR}"
 set -a
 source "${REMOTE_ENV_FILE}"
 set +a
+
+require_exact() {
+  local name="$1"
+  local expected="$2"
+  local actual="${!name-}"
+  if [[ "${actual}" != "${expected}" ]]; then
+    echo "Refusing server14 deployment: ${name}=${actual@Q}, expected ${expected@Q}." >&2
+    exit 2
+  fi
+}
+
+if [[ "${POSTGRES_BIND_HOST:-127.0.0.1}" != "127.0.0.1" ]]; then
+  echo "Refusing server14 deployment: PostgreSQL must bind to loopback only." >&2
+  exit 2
+fi
+require_exact POSTGRES_HOST_PORT 5432
+require_exact PUBLIC_API_PORT 14000
+require_exact PUBLIC_WEB_PORT 14001
+require_exact ENABLE_SCHEDULER true
+require_exact ENABLE_MANUAL_COLLECT false
+require_exact RUN_DB_MIGRATIONS true
+require_exact SEED_SAMPLE_DATA false
+require_exact USE_SAMPLE_CLIENT_WHEN_NO_KEY false
+require_exact COLLECT_INTERVAL_SECONDS 300
+if [[ "${SCHEDULER_SAFETY_BUFFER_SECONDS:-60}" != "60" ]]; then
+  echo "Refusing server14 deployment: SCHEDULER_SAFETY_BUFFER_SECONDS must be 60." >&2
+  exit 2
+fi
+require_exact MANUAL_COLLECT_MIN_INTERVAL_SECONDS 300
+require_exact BACKEND_INTERNAL_URL http://backend:8000
+if [[ -n "${NEXT_PUBLIC_API_BASE_URL:-}" ]]; then
+  echo "Refusing server14 deployment: NEXT_PUBLIC_API_BASE_URL must be empty for same-origin proxying." >&2
+  exit 2
+fi
+if [[ ! "${DATABASE_URL:-}" =~ ^postgresql\+asyncpg://[^@]+@postgres:5432/parking_radar$ ]]; then
+  echo "Refusing server14 deployment: DATABASE_URL must target the Compose PostgreSQL service." >&2
+  exit 2
+fi
 export RELEASE_SHA="${CANDIDATE_SHA}"
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.yml up -d --build
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.yml ps
@@ -82,7 +134,6 @@ for attempt in $(seq 1 30); do
   fi
   sleep 2
 done
-rm -f "${REMOTE_ARCHIVE}"
 REMOTE_SCRIPT
 
 echo "192.168.1.14 deployment completed; existing compose projects were not stopped."

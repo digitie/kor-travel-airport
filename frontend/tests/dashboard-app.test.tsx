@@ -316,7 +316,7 @@ describe("DashboardApp", () => {
 
     await screen.findByTestId("history-chart");
     expect(screen.queryByText("데이터를 불러오는 중입니다.")).not.toBeInTheDocument();
-    expect(screen.getAllByText("지금 주차 여유").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("현재 잔여 주차면").length).toBeGreaterThan(0);
   });
 
   test("shows current parking data before delayed analytics finish", async () => {

@@ -50,6 +50,7 @@ describe("BackupPanel", () => {
     await user.click(screen.getByRole("button", { name: /백업 \/ 복원/ }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("backend unavailable");
+    expect(screen.queryByTestId("backup-loading-state")).not.toBeInTheDocument();
     expect(screen.queryByTestId("backup-empty-state")).not.toBeInTheDocument();
   });
 });

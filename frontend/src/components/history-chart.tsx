@@ -323,13 +323,6 @@ export function HistoryChart({ holidays, series, scopeLabel }: HistoryChartProps
         <p className="section-hint">마지막 관측 {formatDateTime(latestPoint.bucket_at)}</p>
       </div>
 
-      <div className="history-summary history-summary-compact">
-        <div className="summary-chip">
-          <span>지금 주차 여유</span>
-          <strong>{formatNumber(latestPoint.available_spaces)}대</strong>
-        </div>
-      </div>
-
       <div className="history-chart-shell" data-testid="history-chart">
         <div className="history-chart-scroll" ref={scrollRef}>
           <div className="history-chart-stage" style={{ width: `${chartWidth}px` }}>

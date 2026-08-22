@@ -64,6 +64,10 @@ docker compose up -d
 Docker를 실행·중지·재생성하지 않는다. 현재 운영 배포에는 사용하지 말고, source API와
 rollback 상태를 확인할 때만 읽는다.
 
+이 절의 환경변수·포트·스크립트는 과거 기록이다. `scripts/deploy-odroid.ps1`와
+`deploy/odroid/remote-deploy.sh`는 현재 fail-closed 차단 파일이며 Docker 명령을 실행하지 않는다.
+운영 변경은 위의 server14 절차만 사용한다.
+
 ## 기존 실데이터 설정
 
 `.env` 또는 셸 환경 변수에 다음 값을 넣는다.
@@ -156,9 +160,9 @@ DATA_GO_KR_SERVICE_KEY=...
 
 비밀번호는 저장하지 않으며, 배포 시에만 입력한다.
 
-## ODROID 배포 절차
+## ODROID 배포 절차 (비활성화됨)
 
-ODROID 배포 전에는 아래 순서를 반드시 따른다.
+ODROID 배포 절차는 폐기되었으며 실행하지 않는다.
 
 1. `WSL2` 셸에서 1차 테스트를 실행한다.
 2. `WSL2 + Docker`에서 2차 테스트를 실행한다.
@@ -167,17 +171,10 @@ ODROID 배포 전에는 아래 순서를 반드시 따른다.
 
 Windows 로컬 PowerShell 테스트만으로 ODROID에 배포하지 않는다. PowerShell은 배포 스크립트 실행과 원격 상태 확인 보조 도구로만 사용한다.
 
-```powershell
-.\scripts\deploy-odroid.ps1
-```
+`.\scripts\deploy-odroid.ps1`는 실행 시 즉시 종료된다. Docker는 13번에서 절대 실행하지 않는다.
 
-스크립트 흐름:
-
-1. 프로젝트를 tar.gz로 압축
-2. 원격 앱 디렉터리로 업로드
-3. 원격에서 압축 해제
-4. `docker-compose.odroid.yml` 기준 빌드 및 재기동
-5. 로컬에서 웹 / API 헬스 체크
+실제 운영 배포는 [14번 현재 운영 절차](#14번-현재-운영-절차)의
+`scripts/deploy-server14.sh`만 사용한다.
 
 호환성 메모:
 
@@ -188,7 +185,7 @@ Windows 로컬 PowerShell 테스트만으로 ODROID에 배포하지 않는다. P
 - `.env.odroid`는 원격 bash가 `source`로 읽으므로 UTF-8 without BOM, LF 줄바꿈을 유지한다. PowerShell `Set-Content -Encoding utf8`은 환경에 따라 BOM을 붙일 수 있어 원격에서 `$'\ufeffKEY=value\r': command not found` 오류를 만들 수 있다.
 - Compose 구현에 따라 `sudo` 실행 시 셸 환경 변수가 사라질 수 있으므로, 원격 스크립트는 `.env.odroid`를 `.env`로도 연결해 Compose가 직접 읽게 한다.
 - `docker-compose 1.29` 계열에서는 컨테이너 재생성 중 `ContainerConfig` 오류가 날 수 있다.
-- 이 경우 `up` 전에 `down --remove-orphans`를 거쳐 새로 올리는 방식이 더 안정적이다.
+- 현재 server14 배포는 기존 Compose project를 내리지 않고 candidate artifact를 교체한다.
 - 백엔드 healthcheck가 안정되기 전에는 프론트가 `depends_on`에서 실패할 수 있으므로, 원격 배포는 `backend -> health 확인 -> frontend` 순서로 올린다.
 
 ## 프론트 API 주소 결정 방식
