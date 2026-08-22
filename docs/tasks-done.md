@@ -16,6 +16,9 @@
 - `EXERCISE_LIVE_BACKUP=true` exact live E2E는 실제 backup 생성 UI 포함 `5 passed (13.0s)`였고,
   fresh strict gate는 7회 모두 `failure_count=0`, `failed_samples=0`, `gate_duration_seconds=339.9`,
   `source_lots=53`, `target_lots_checked=53`으로 통과했다.
+- 후속 기능 release에서는 Compose scheduler 기본값과 deploy guard를 모두 `120`으로 fail-closed 정렬하고,
+  scheduler 실행 중 PostgreSQL restore를 `409`로 거부해 복원으로 5분 freshness가 깨지지 않게 했다.
+  최종 기능 release strict gate는 `7/7`, `failed_samples=0`, `gate_duration_seconds=339.6`이었다.
 
 ### `T-026` — 최종 정합성·백업 안전성·라이브 검증
 

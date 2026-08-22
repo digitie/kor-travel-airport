@@ -38,3 +38,5 @@ PR [#1](https://github.com/digitie/parking-radar/pull/1)의 green CI와 exact li
   별도 운영 export를 제공한다.
 - 백업/복원은 별도 app auth가 없으므로 `pr.digitie.mywire.org` gateway/private ACL의 외부
   노출 제한을 유지한다.
+- scheduler 실행 중 restore는 `409` 유지보수 창 응답으로 제한하고, server14 scheduler는
+  `300/180/120` 계약으로 운영한다. 마지막 기능 release의 strict gate는 `7/7` 통과했다.
