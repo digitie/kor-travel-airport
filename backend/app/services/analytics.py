@@ -11,6 +11,55 @@ from app.models import Airport, ParkingLot, ParkingSnapshot
 WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"]
 
 
+def _snapshot_preference_key(snapshot: ParkingSnapshot) -> tuple[int, float, int]:
+    """Prefer live provider observations when HTTP migration overlaps them."""
+
+    is_migration = 1 if snapshot.source.startswith("migration_") else 0
+    collected_at = ensure_tz(snapshot.collected_at, "UTC").timestamp()
+    return is_migration, -collected_at, -(snapshot.id or 0)
+
+
+def deduplicate_snapshots(snapshots: list[ParkingSnapshot]) -> list[ParkingSnapshot]:
+    """Collapse source-overlapping snapshots to one row per lot and time."""
+
+    selected: dict[tuple[int, datetime], ParkingSnapshot] = {}
+    for snapshot in snapshots:
+        key = (snapshot.parking_lot_id, ensure_tz(snapshot.observed_at, "UTC"))
+        current = selected.get(key)
+        if current is None or _snapshot_preference_key(snapshot) < _snapshot_preference_key(current):
+            selected[key] = snapshot
+    return sorted(
+        selected.values(),
+        key=lambda snapshot: (
+            ensure_tz(snapshot.observed_at, "UTC"),
+            snapshot.parking_lot_id,
+            snapshot.id or 0,
+        ),
+    )
+
+
+def deduplicate_snapshot_rows(
+    rows: list[tuple[ParkingSnapshot, ParkingLot, Airport]],
+) -> list[tuple[ParkingSnapshot, ParkingLot, Airport]]:
+    """Apply the same source preference to joined analytics rows."""
+
+    selected: dict[tuple[int, datetime], tuple[ParkingSnapshot, ParkingLot, Airport]] = {}
+    for row in rows:
+        snapshot = row[0]
+        key = (snapshot.parking_lot_id, ensure_tz(snapshot.observed_at, "UTC"))
+        current = selected.get(key)
+        if current is None or _snapshot_preference_key(snapshot) < _snapshot_preference_key(current[0]):
+            selected[key] = row
+    return sorted(
+        selected.values(),
+        key=lambda row: (
+            ensure_tz(row[0].observed_at, "UTC"),
+            row[0].parking_lot_id,
+            row[0].id or 0,
+        ),
+    )
+
+
 def classify_status_level(available_spaces: int, total_spaces: int) -> str:
     if available_spaces <= 0:
         return "full"

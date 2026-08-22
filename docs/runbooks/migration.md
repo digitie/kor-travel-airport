@@ -12,7 +12,7 @@
 ## 데이터 경로 선택
 
 1. 가장 정확한 경로: 운영자가 13번 SQLite 파일의 authorized copy 또는 PostgreSQL dump를 14번의 보호된 경로로 제공하고 `scripts/migrate_sqlite_to_postgres.py` 또는 `pg_restore`를 실행한다. 이 경로는 raw response, collection run, fee rule, analytics cache까지 보존한다.
-2. 현재 SSH 권한에서 가능한 fallback: `scripts/migrate_http_history.py`가 13번 프론트 proxy의 `/api/backend/airports`와 parking history API를 읽어 공항·주차장·관측 시계열을 PostgreSQL에 upsert한다. source lot ID는 공항 코드와 함께 다루며, provider slug와 이름이 다른 경우 기존 lot을 재사용한다. 이 경로는 raw API body와 collection run ID를 복원할 수 없으므로 migration source로 명시한다.
+2. 현재 SSH 권한에서 가능한 fallback: `scripts/migrate_http_history.py`가 13번 프론트 proxy의 `/api/backend/airports`와 parking history API를 읽어 공항·주차장·관측 시계열을 PostgreSQL에 upsert한다. source lot ID는 공항 코드와 함께 다루며, provider slug와 이름이 다른 경우 기존 lot을 재사용한다. 이 경로는 raw API body와 collection run ID를 복원할 수 없으므로 `migration_http` source로 명시한다. live source와 같은 lot·관측시각이 겹치면 importer가 migration 행을 제거하고, API/분석도 migration source를 중복 집계하지 않는다.
 
 ## 단계
 
@@ -45,7 +45,7 @@ docker compose --project-name parking-radar --env-file .env.server14 run --rm --
   --days 7
 ```
 
-프론트 proxy만 접근 가능하면 `http://192.168.1.13:3000/api/backend`를 사용한다. 출력의 `failures=0`, imported count, source lot 수를 기록한다. 하나라도 history 요청이 실패하면 importer는 commit하지 않고 종료한다.
+프론트 proxy만 접근 가능하면 `http://192.168.1.13:3000/api/backend`를 사용한다. 출력의 `failures=0`, `imported_snapshots`, `deduplicated_snapshots`, source lot 수를 기록한다. 하나라도 history 요청이 실패하면 importer는 commit하지 않고 종료한다.
 
 ### 4. final delta와 5분 cutover
 

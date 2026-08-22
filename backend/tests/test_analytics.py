@@ -11,6 +11,7 @@ from app.services.analytics import (
     build_weekday_buckets,
     build_weekday_hour_patterns,
     classify_status_level,
+    deduplicate_snapshots,
     detect_threshold_events,
 )
 
@@ -72,6 +73,48 @@ def test_build_aggregations() -> None:
     assert hourly
     assert weekday
     assert weekday[0]["weekday_name"] == "화"
+
+
+def test_deduplicate_snapshots_prefers_live_source_over_http_migration() -> None:
+    observed_at = datetime(2026, 4, 21, 0, 0, tzinfo=ZoneInfo("UTC"))
+    snapshots = [
+        ParkingSnapshot(
+            id=1,
+            collection_run_id=None,
+            airport_id=1,
+            parking_lot_id=1,
+            source="migration_http",
+            observed_at=observed_at,
+            collected_at=observed_at,
+            occupied_spaces=90,
+            total_spaces=100,
+            available_spaces=10,
+            congestion_label=None,
+            congestion_ratio=None,
+            raw_item_json=None,
+        ),
+        ParkingSnapshot(
+            id=2,
+            collection_run_id=2,
+            airport_id=1,
+            parking_lot_id=1,
+            source="kac_parking",
+            observed_at=observed_at,
+            collected_at=observed_at + timedelta(minutes=1),
+            occupied_spaces=70,
+            total_spaces=100,
+            available_spaces=30,
+            congestion_label=None,
+            congestion_ratio=None,
+            raw_item_json=None,
+        ),
+    ]
+
+    selected = deduplicate_snapshots(snapshots)
+
+    assert len(selected) == 1
+    assert selected[0].source == "kac_parking"
+    assert selected[0].available_spaces == 30
 
 
 def test_build_time_series_aggregates_latest_state_per_half_hour() -> None:

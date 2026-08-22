@@ -64,7 +64,7 @@ def _list_backups_sync(backup_dir: str) -> list[BackupFileInfo]:
     directory.mkdir(parents=True, exist_ok=True)
     items: list[BackupFileInfo] = []
     for path in directory.iterdir():
-        if not path.is_file() or not BACKUP_NAME_PATTERN.fullmatch(path.name):
+        if path.is_symlink() or not path.is_file() or not BACKUP_NAME_PATTERN.fullmatch(path.name):
             continue
         stat = path.stat()
         items.append(
@@ -141,7 +141,11 @@ async def list_backups(backup_dir: str) -> list[BackupFileInfo]:
 def _postgres_command_database(database_url: str) -> tuple[str, dict[str, str]]:
     parsed = make_url(_database_url_without_async_driver(database_url))
     password = parsed.password
-    safe_url = parsed.set(password=None).render_as_string(hide_password=True)
+    # ``URL.set(password=None)`` leaves the existing password untouched in
+    # SQLAlchemy.  Replace it explicitly so the secret is supplied only via
+    # PGPASSWORD and never accidentally becomes the literal ``***`` mask in
+    # the pg_dump/pg_restore connection URL.
+    safe_url = parsed._replace(password=None).render_as_string(hide_password=False)
     environment = os.environ.copy()
     if password:
         environment["PGPASSWORD"] = password
@@ -235,7 +239,7 @@ async def restore_backup(
     path = _backup_path(backup_dir, filename)
 
     def run() -> BackupFileInfo:
-        if not path.is_file():
+        if path.is_symlink() or not path.is_file():
             raise FileNotFoundError(filename)
         if path.stat().st_size > MAX_BACKUP_BYTES:
             raise ValueError("백업 파일 크기가 허용 한도를 초과했습니다.")
@@ -274,10 +278,21 @@ async def save_uploaded_backup(
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     filename = f"parking-radar-{timestamp}-{safe_stem}.dump"
     path = _backup_path(backup_dir, filename)
+    if path.exists() or path.is_symlink():
+        filename = f"parking-radar-{timestamp}-{uuid4().hex[:12]}-{safe_stem}.dump"
+        path = _backup_path(backup_dir, filename)
+
+    temporary_fd, temporary_name = tempfile.mkstemp(
+        dir=directory,
+        prefix=".parking-radar-upload-",
+        suffix=".dump",
+    )
+    os.close(temporary_fd)
+    temporary_path = Path(temporary_name)
 
     written = 0
     try:
-        with path.open("wb") as output:
+        with temporary_path.open("wb") as output:
             while chunk := await uploaded_file.read(1024 * 1024):
                 chunk_size = len(chunk)
                 if written + chunk_size > MAX_BACKUP_BYTES:
@@ -285,12 +300,15 @@ async def save_uploaded_backup(
                 _make_room_for_upload_sync(
                     backup_dir,
                     storage_limit_bytes,
-                    chunk_size,
+                    written + chunk_size,
                     protected_filename=filename,
                     protected_filenames=protected_filenames,
                 )
                 output.write(chunk)
                 written += chunk_size
+            output.flush()
+            os.fsync(output.fileno())
+        temporary_path.replace(path)
         _enforce_storage_limit_sync(
             backup_dir,
             storage_limit_bytes,
@@ -300,6 +318,8 @@ async def save_uploaded_backup(
     except Exception:
         path.unlink(missing_ok=True)
         raise
+    finally:
+        temporary_path.unlink(missing_ok=True)
     return BackupFileInfo(
         filename=filename,
         size_bytes=written,

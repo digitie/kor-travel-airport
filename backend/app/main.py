@@ -60,6 +60,8 @@ from app.services.analytics import (
     build_weekday_buckets,
     build_weekday_hour_patterns,
     classify_status_level,
+    deduplicate_snapshot_rows,
+    deduplicate_snapshots,
     detect_threshold_events,
 )
 from app.services.analytics_cache import (
@@ -306,7 +308,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return ParkingHistoryResponse(items=[])
             query = query.where(ParkingSnapshot.airport_id == airport.id)
 
-        snapshots = (await session.execute(query)).scalars().all()
+        snapshots = deduplicate_snapshots((await session.execute(query)).scalars().all())
         return ParkingHistoryResponse(
             items=[
                 {
@@ -909,7 +911,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return []
             query = query.where(ParkingSnapshot.airport_id == airport.id)
 
-        return (await session.execute(query)).scalars().all()
+        return deduplicate_snapshots((await session.execute(query)).scalars().all())
 
     async def _load_snapshots_between_local_dates(
         session: AsyncSession,
@@ -934,7 +936,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return []
             query = query.where(ParkingSnapshot.airport_id == airport.id)
 
-        return (await session.execute(query)).scalars().all()
+        return deduplicate_snapshots((await session.execute(query)).scalars().all())
 
     async def _load_snapshot_rows(
         session: AsyncSession,
@@ -953,7 +955,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             query = query.where(ParkingSnapshot.parking_lot_id == parking_lot_id)
         elif airport_code:
             query = query.where(Airport.code == airport_code.upper())
-        return (await session.execute(query)).all()
+        return deduplicate_snapshot_rows((await session.execute(query)).all())
 
     return app
 

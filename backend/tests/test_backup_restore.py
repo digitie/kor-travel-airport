@@ -38,6 +38,8 @@ def test_pg_dump_url_does_not_expose_password_in_argv() -> None:
     safe_url, environment = _postgres_command_database("postgresql+asyncpg://operator:secret@postgres:5432/parking_radar")
 
     assert "secret" not in safe_url
+    assert "***" not in safe_url
+    assert safe_url == "postgresql://operator@postgres:5432/parking_radar"
     assert environment["PGPASSWORD"] == "secret"
 
 

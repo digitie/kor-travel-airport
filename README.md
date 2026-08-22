@@ -149,8 +149,8 @@ ENABLE_SCHEDULER=true
 ENABLE_MANUAL_COLLECT=false
 SEED_SAMPLE_DATA=false
 USE_SAMPLE_CLIENT_WHEN_NO_KEY=false
-COLLECT_INTERVAL_SECONDS=600
-MANUAL_COLLECT_MIN_INTERVAL_SECONDS=600
+COLLECT_INTERVAL_SECONDS=300
+MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300
 UPSTREAM_RATE_LIMIT_BACKOFF_SECONDS=3600
 HOLIDAY_CACHE_SECONDS=86400
 ENABLE_INCHEON_COLLECTION=true
@@ -162,9 +162,10 @@ DATA_GO_KR_SERVICE_KEY=...
 - `client_mode=live`로 운영할 때는 `SEED_SAMPLE_DATA=false`를 유지한다.
 - 샘플 시계열은 `client_mode=sample`에서만 시드한다.
 - `15056803` 카탈로그에는 개발계정 `5,000` 트래픽이 보이지만, ODROID 실측에서는 `2026-04-28`에 100회 성공 후 101번째부터 `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 발생했다.
-- 중복 수집기를 제거한 뒤에는 ODROID live를 10분(`600초`) 주기로 운영하며, public server14
-  profile의 수동 수집 endpoint는 비활성화한다.
-- ODROID live는 `CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY`를 같은 10분 주기에서 처리한다.
+- 현재 server14 live는 5분(`300초`) 주기로 운영하고, `SCHEDULER_SAFETY_BUFFER_SECONDS=60`에
+  따라 유효 tick 간격은 240초다. public server14 profile의 수동 수집 endpoint는 비활성화한다.
+- 현재 server14 live는 `CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY`를 처리한다.
+- 기존 13번/ODROID의 10분(`600초`) 설정은 historical reference이며 현재 배포 계약이 아니다.
 - `15056803`이 한도 초과 상태여도 인천 전용 API(`15095047`, `15095053`)가 활성화되어 있으면 인천 주차/요금 수집은 계속 시도한다.
 - 같은 인증키를 쓰는 live 수집기는 동시에 하나만 유지한다.
 - 빠른 검증용 live 스택을 잠깐 띄웠다면 검증 직후 반드시 내려야 한다.
@@ -176,7 +177,8 @@ DATA_GO_KR_SERVICE_KEY=...
 1. 백엔드 기동 직후 스케줄러가 1회 즉시 수집한다.
 2. 이후 `COLLECT_INTERVAL_SECONDS` 기준으로 반복 수집한다.
 3. 기본 실시간 소스는 `kac_parking`이다.
-4. 동일한 `parking_lot_id + observed_at + source` 조합은 중복 저장하지 않는다.
+4. 동일한 `parking_lot_id + observed_at + source` 조합은 중복 저장하지 않는다. HTTP fallback
+   migration과 live source가 같은 관측시각을 공유하면 API/분석은 live source를 우선해 한 번만 집계한다.
 
 중요:
 

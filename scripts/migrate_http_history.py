@@ -14,9 +14,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
+from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import or_, select
+from sqlalchemy.orm import aliased
 
 from app.core.config import Settings
 from app.db.session import create_engine_and_session_factory
@@ -152,6 +153,7 @@ async def import_history(args: argparse.Namespace) -> int:
     engine, session_factory = create_engine_and_session_factory(settings.database_url)
     base_url = args.source_base_url.rstrip("/")
     imported = 0
+    deduplicated = 0
     failures: list[str] = []
 
     async with httpx.AsyncClient(timeout=settings.api_timeout_seconds) as client:
@@ -260,10 +262,27 @@ async def import_history(args: argparse.Namespace) -> int:
             await session.rollback()
             imported = 0
         else:
+            if args.source.startswith("migration_"):
+                canonical_snapshot = aliased(ParkingSnapshot)
+                cleanup = delete(ParkingSnapshot).where(
+                    ParkingSnapshot.source == args.source,
+                    select(canonical_snapshot.id)
+                    .where(
+                        canonical_snapshot.parking_lot_id == ParkingSnapshot.parking_lot_id,
+                        canonical_snapshot.observed_at == ParkingSnapshot.observed_at,
+                        canonical_snapshot.source != args.source,
+                    )
+                    .exists(),
+                )
+                cleanup_result = await session.execute(cleanup)
+                deduplicated = cleanup_result.rowcount or 0
             await session.commit()
 
     await engine.dispose()
-    print(f"imported_snapshots={imported} source_lots={len(histories_by_source_lot)} failures={len(failures)}")
+    print(
+        f"imported_snapshots={imported} deduplicated_snapshots={deduplicated} "
+        f"source_lots={len(histories_by_source_lot)} failures={len(failures)}"
+    )
     for failure in failures[:10]:
         print(f"migration_warning={failure}")
     return 2 if failures else 0

@@ -1,5 +1,9 @@
 # 트러블슈팅
 
+> 현재 운영은 192.168.1.14의 Docker/PostgreSQL이며 scheduler 계약은 300초,
+> 유효 tick은 240초다. 192.168.1.13/ODROID 관련 수치와 SQLite 항목은 historical
+> reference로만 읽고, 13번에는 Docker를 실행하지 않는다.
+
 ## 프론트에서 `fetch` 에러가 보일 때
 
 먼저 확인:
@@ -71,7 +75,7 @@ curl -X POST http://localhost:8000/admin/collect
 정상 케이스:
 
 - `status=success`
-- `raw_response_count=1`
+- `raw_response_count>=1`
 - 원본 API의 `observed_at`이 직전 실행과 같음
 
 이때는 중복 저장을 방지하느라 `parking_snapshots` 추가 건수가 0으로 보이는 것이다.
@@ -203,6 +207,9 @@ curl -fsS -D - -o /dev/null https://pr2.digitie.mywire.org/api/backend/airports
 이 방식은 `unable to open database file` 같은 간헐 오류를 만들 수 있다.
 ## `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 반복될 때
 
+아래 ODROID 수치와 조치 기록은 historical reference다. 현재 server14는
+`COLLECT_INTERVAL_SECONDS=300`, `MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300`을 사용한다.
+
 먼저 확인:
 
 1. `GET /admin/collector-status`
@@ -236,7 +243,7 @@ curl -fsS -D - -o /dev/null https://pr2.digitie.mywire.org/api/backend/airports
 - 10분 주기: 하루 `144`회로, 모든 공항을 한 번의 응답에서 처리하는 현재 구조에서는 가장 공격적이면서도 현실적인 기본값이다.
 - 5분 주기: 하루 `288`회라서 예전에 중복 수집기까지 겹친 상황의 실패 구간과 너무 가까워 기본 운영값으로는 보수적이지 않다.
 
-권장 대응:
+Historical ODROID 권장 대응:
 
 - ODROID live는 `COLLECT_INTERVAL_SECONDS=600`
 - 수동 수집 제한도 `MANUAL_COLLECT_MIN_INTERVAL_SECONDS=600`
