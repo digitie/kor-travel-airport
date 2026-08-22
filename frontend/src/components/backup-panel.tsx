@@ -32,6 +32,7 @@ function formatBackupTimestamp(value: string): string {
 export function BackupPanel({ listBackups, createBackup, downloadBackup, restoreBackup }: BackupPanelProps) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<BackupFile[]>([]);
+  const [listLoaded, setListLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -39,10 +40,13 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
   const refresh = useCallback(async () => {
     setBusy(true);
     setError(null);
+    setListLoaded(false);
     try {
       const response = await listBackups();
       setItems(response.items);
+      setListLoaded(true);
     } catch (caughtError) {
+      setItems([]);
       setError(caughtError instanceof Error ? caughtError.message : "백업 목록을 불러오지 못했습니다.");
     } finally {
       setBusy(false);
@@ -158,7 +162,9 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
           </div>
           {message ? <p className="backup-panel-message" aria-live="polite">{message}</p> : null}
           {error ? <p className="backup-panel-error" role="alert">{error}</p> : null}
-          {items.length > 0 ? (
+          {!listLoaded ? (
+            <p className="backup-panel-empty" data-testid="backup-loading-state" role="status">백업 목록을 불러오는 중입니다.</p>
+          ) : items.length > 0 ? (
             <ul className="backup-list" data-testid="backup-list">
               {items.map((item) => (
                 <li key={item.filename}>

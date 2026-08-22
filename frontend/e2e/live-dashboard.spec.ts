@@ -43,6 +43,17 @@ test.describe("live parking-radar dashboard", () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("combobox", { name: "공항 선택" })).toBeVisible();
+      await expect(
+        page.locator('[data-testid="desktop-lot-table"] tbody tr, [data-testid="mobile-lot-grid"] article').first()
+      ).toBeVisible({ timeout: 20_000 });
+      const analyticsGrid = page.getByTestId("analytics-grid");
+      await analyticsGrid.scrollIntoViewIfNeeded();
+      await expect(analyticsGrid).toHaveAttribute("data-analytics-ready", "true", { timeout: 20_000 });
+      const disclosure = page.getByTestId("mobile-disclosure").first();
+      if (await disclosure.count()) {
+        await disclosure.locator("summary").click();
+        await expect(disclosure).toHaveAttribute("open", "");
+      }
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow).toBeLessThanOrEqual(1);
     });

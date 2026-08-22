@@ -220,6 +220,8 @@ describe("DailyFlightOverlayChart", () => {
     );
 
     const button = screen.getByRole("button", { name: /10:00.*KE1101/ });
+    button.focus();
+    expect(button).toHaveFocus();
     await user.click(button);
     expect(button).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("daily-flight-highlight-label")).toHaveTextContent("KE1101");

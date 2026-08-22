@@ -695,7 +695,7 @@ select {
 
 .flight-chip.active,
 .flight-chip:focus-visible {
-  outline: 2px solid rgba(12, 139, 125, 0.32);
+  outline: 2px solid var(--accent-strong);
   outline-offset: 2px;
 }
 
@@ -902,7 +902,7 @@ select {
 
 .daily-flight-marker-button.active,
 .daily-flight-marker-button:focus-visible {
-  outline: 2px solid rgba(12, 139, 125, 0.32);
+  outline: 2px solid var(--accent-strong);
   outline-offset: 2px;
 }
 

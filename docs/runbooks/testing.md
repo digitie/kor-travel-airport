@@ -152,7 +152,7 @@ API 확인:
 - `latest_snapshot_collected_at`이 UTC ISO 8601인지 확인
 - 브라우저에서는 같은 값이 KST로 보이는지 확인
 
-UI 확인:
+UI 확인 (로컬 profile에서 `ENABLE_MANUAL_COLLECT=true`일 때만):
 
 - `데이터 기준 시각`
 - `수집기 마지막 동기화`
@@ -261,7 +261,7 @@ Playwright 결과 JSON은 `frontend/test-results/live-e2e.json`에 남긴다. 32
   - `upstream_rate_limited=false`
 - public server14에서 `POST /admin/collect`가 `404`로 비활성화되고, backup/restore UI는
   별도 app auth 없이 private gateway 경계 안에서 동작하는지 확인
-- 웹 UI에서
+- 웹 UI에서 (로컬 profile):
   - 현재 시각 표시가 KST 기준인지 확인
   - `지금 수집` 버튼이 노출되는지 확인
 

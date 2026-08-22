@@ -547,7 +547,12 @@ export function DashboardScreen({
         </section>
       )}
 
-      <section className="analytics-grid" data-testid="analytics-grid" ref={analyticsRef}>
+      <section
+        className="analytics-grid"
+        data-analytics-ready={timeSeries ? "true" : "false"}
+        data-testid="analytics-grid"
+        ref={analyticsRef}
+      >
         <HistoryChart
           holidays={holidaySummary?.items ?? []}
           series={timeSeries}

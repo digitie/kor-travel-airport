@@ -70,9 +70,11 @@ cutover 동안 HTTP read-only source로 유지하며 Docker를 조작하지 않�
 - 사용자가 확인해야 하는 기준 시각: `데이터 기준 시각`
 - 수집기 동작 참고용 시각: `수집기 마지막 동기화`
 
-## 강제 수집 버튼
+## 강제 수집 버튼 (로컬 개발 전용)
 
-웹 UI의 `지금 수집` 버튼은 `POST /admin/collect`를 호출한다.
+로컬 개발 profile에서 `ENABLE_MANUAL_COLLECT=true`일 때만 웹 UI의 `지금 수집` 버튼이
+`POST /admin/collect`를 호출한다. public server14 profile에서는 `ENABLE_MANUAL_COLLECT=false`로
+버튼과 endpoint가 모두 비활성화되고, 웹 proxy에도 노출되지 않는다.
 
 동작 규칙:
 
