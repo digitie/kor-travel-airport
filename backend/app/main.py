@@ -787,6 +787,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> BackupRestoreResponse:
         if not file.filename or not file.filename.lower().endswith(".dump"):
             raise HTTPException(status_code=400, detail=".dump 형식의 PostgreSQL 백업만 복원할 수 있습니다.")
+        if resolved_settings.enable_scheduler:
+            raise HTTPException(
+                status_code=409,
+                detail="수집 scheduler가 실행 중입니다. 5분 데이터 연속성을 위해 유지보수 창에서 scheduler를 중지한 뒤 복원하세요.",
+            )
         async with service.operation_lock:
             uploaded = None
             try:

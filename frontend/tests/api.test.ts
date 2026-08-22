@@ -197,8 +197,8 @@ describe("api client", () => {
         json: async () => ({
           scheduler_enabled: true,
           collect_interval_seconds: 300,
-          effective_collect_interval_seconds: 240,
-          scheduler_safety_buffer_seconds: 60,
+          effective_collect_interval_seconds: 180,
+          scheduler_safety_buffer_seconds: 120,
           manual_collect_enabled: true,
           manual_collect_min_interval_seconds: 300,
           client_mode: "live",

@@ -28,6 +28,8 @@ REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
 인터넷에 직접 노출하지 않고 내부망/게이트웨이 접근 제어를 전제로 한다. 백업 생성·복원 명령은
 각각 최대 120초, restore 업로드는 최대 600초이며, web의 backup proxy timeout은
 `900000ms`로 이 합계와 여유 시간을 수용한다.
+운영 scheduler가 켜진 동안에는 restore endpoint가 `409`를 반환하므로, 복원은 scheduler를 중지한
+유지보수 창에서만 수행한다.
 
 보안 예외: 사용자가 별도 application auth를 요구한 backup/restore UI와 `/admin/backups*`만
 의도적으로 인증 없이 남겨 둔다. 수동 수집 endpoint는 public server14에서 비활성화하고

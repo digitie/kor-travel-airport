@@ -319,6 +319,17 @@ def test_admin_collect_is_disabled_without_explicit_enablement(tmp_path: Path) -
     assert response.status_code == 404
 
 
+def test_admin_restore_requires_a_scheduler_maintenance_window(tmp_path: Path) -> None:
+    with build_client(tmp_path, enable_scheduler=True, seed_sample_data=False) as client:
+        response = client.post(
+            "/admin/backups/restore",
+            files={"file": ("restore.dump", b"dump", "application/octet-stream")},
+        )
+
+    assert response.status_code == 409
+    assert "scheduler" in response.json()["detail"]
+
+
 def test_admin_collect_succeeds_when_cooldown_is_disabled(tmp_path: Path) -> None:
     with build_client(tmp_path, manual_collect_min_interval_seconds=0) as client:
         response = client.post("/admin/collect")
