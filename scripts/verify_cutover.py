@@ -18,6 +18,11 @@ from typing import Any
 import httpx
 
 
+STRICT_MAX_AGE_SECONDS = 300
+STRICT_MAX_SOURCE_LAG_SECONDS = 300
+STRICT_MAX_RUN_GAP_SECONDS = 300
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-base-url", required=True)
@@ -38,7 +43,24 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="JSON file with an allow_empty_source_lots array for the reviewed cutover allowlist",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    try:
+        validate_release_gate_args(args)
+    except ValueError as exc:
+        parser.error(str(exc))
+    return args
+
+
+def validate_release_gate_args(args: argparse.Namespace) -> None:
+    expected_values = {
+        "max_age_seconds": STRICT_MAX_AGE_SECONDS,
+        "max_source_lag_seconds": STRICT_MAX_SOURCE_LAG_SECONDS,
+        "max_run_gap_seconds": STRICT_MAX_RUN_GAP_SECONDS,
+    }
+    for name, expected in expected_values.items():
+        actual = getattr(args, name, None)
+        if actual != expected:
+            raise ValueError(f"{name} is fixed at {expected} seconds for the release cutover gate")
 
 
 def parse_timestamp(value: str | None) -> datetime | None:
@@ -100,6 +122,7 @@ async def latest_lot_history(
 
 
 async def verify(args: argparse.Namespace) -> int:
+    validate_release_gate_args(args)
     allowed_empty_lots = parse_empty_lot_allowlist(
         [*args.allow_empty_source_lot, *load_empty_lot_file(args.empty_lot_file)]
     )
@@ -178,16 +201,12 @@ async def verify(args: argparse.Namespace) -> int:
                     )
                 continue
             if source_latest is None:
-                if key not in allowed_empty_lots:
-                    failures.append(
-                        f"{airport_code}/{legacy_id}/{lot_name}: source has no observation but target does; "
-                        "add an explicit --allow-empty-source-lot entry if this is intentional"
-                    )
+                failures.append(
+                    f"{airport_code}/{legacy_id}/{lot_name}: source has no observation but target does; "
+                    "the empty-lot allowlist applies only when both sides have no observation"
+                )
                 continue
-            if source_latest is not None:
-                source_lag_seconds = (source_latest - target_latest).total_seconds()
-            else:
-                source_lag_seconds = 0
+            source_lag_seconds = (source_latest - target_latest).total_seconds()
             if source_lag_seconds > args.max_source_lag_seconds:
                 failures.append(
                     f"{airport_code}/{legacy_id}/{lot_name}: source leads target by {source_lag_seconds:.1f}s "

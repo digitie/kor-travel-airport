@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     backup_retention_count: int = 14
     backup_command_timeout_seconds: int = 120
     backup_storage_limit_bytes: int = Field(default=8 * 1024 * 1024 * 1024, gt=0)
+    release_sha: str = "unknown"
 
     @property
     def supported_airport_codes(self) -> list[str]:

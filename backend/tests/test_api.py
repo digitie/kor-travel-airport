@@ -95,6 +95,7 @@ def test_health(client) -> None:
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["seeded"] is True
+    assert payload["release_sha"] == "unknown"
 
 
 def test_security_headers(client) -> None:

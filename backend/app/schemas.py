@@ -293,6 +293,7 @@ class HealthResponse(BaseModel):
     status: str
     database: str
     seeded: bool
+    release_sha: str
 
 
 class BackupFile(BaseModel):
@@ -307,7 +308,7 @@ class BackupListResponse(BaseModel):
 
 class BackupRestoreResponse(BaseModel):
     status: Literal["restored"]
-    backup: BackupFile
+    restored_from: BackupFile
     pre_restore_backup: BackupFile
 
 

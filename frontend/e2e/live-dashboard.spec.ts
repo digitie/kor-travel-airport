@@ -14,7 +14,12 @@ test.describe("live parking-radar dashboard", () => {
 
     const apiHealth = await page.request.get("/api/backend/health");
     expect(apiHealth.status()).toBe(200);
-    expect((await apiHealth.json()).status).toBe("ok");
+    const healthPayload = await apiHealth.json();
+    expect(healthPayload.status).toBe("ok");
+    const expectedReleaseSha = process.env.EXPECTED_RELEASE_SHA;
+    if (expectedReleaseSha) {
+      expect(healthPayload.release_sha).toBe(expectedReleaseSha);
+    }
 
     const airportSelect = page.getByRole("combobox", { name: "공항 선택" });
     await expect.poll(() => airportSelect.locator("option").count(), { timeout: 20_000 }).toBeGreaterThan(0);

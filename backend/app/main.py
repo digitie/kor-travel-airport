@@ -195,7 +195,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health", response_model=HealthResponse)
     async def health(session: AsyncSession = Depends(get_db)) -> HealthResponse:
         seeded = await session.scalar(select(func.count(ParkingSnapshot.id)))
-        return HealthResponse(status="ok", database="ready", seeded=bool(seeded))
+        return HealthResponse(
+            status="ok",
+            database="ready",
+            seeded=bool(seeded),
+            release_sha=resolved_settings.release_sha,
+        )
 
     @app.get("/airports", response_model=list[AirportSummary])
     async def airports(session: AsyncSession = Depends(get_db)) -> list[AirportSummary]:
@@ -807,7 +812,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await remove_backup(resolved_settings.backup_dir, uploaded.filename)
         return BackupRestoreResponse(
             status="restored",
-            backup=BackupFile(filename=restored.filename, size_bytes=restored.size_bytes, created_at=restored.created_at),
+            restored_from=BackupFile(
+                filename=restored.filename,
+                size_bytes=restored.size_bytes,
+                created_at=restored.created_at,
+            ),
             pre_restore_backup=BackupFile(
                 filename=pre_restore.filename,
                 size_bytes=pre_restore.size_bytes,

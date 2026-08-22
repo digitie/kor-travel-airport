@@ -95,6 +95,36 @@ def _enforce_storage_limit_sync(
         raise ValueError("백업 저장소의 aggregate 용량 한도를 초과했습니다.")
 
 
+def _make_room_for_upload_sync(
+    backup_dir: str,
+    storage_limit_bytes: int,
+    incoming_bytes: int,
+    protected_filename: str,
+) -> None:
+    """Free old backups before a chunk would exceed the aggregate quota.
+
+    The current upload is protected, so the quota is enforced before each
+    chunk is written rather than after an unbounded request has filled disk.
+    """
+
+    if storage_limit_bytes <= 0:
+        raise ValueError("백업 저장소 한도는 0보다 커야 합니다.")
+    if incoming_bytes > storage_limit_bytes:
+        raise ValueError("업로드 파일이 백업 저장소의 aggregate 용량 한도를 초과했습니다.")
+    items = _list_backups_sync(backup_dir)
+    total_bytes = sum(item.size_bytes for item in items)
+    if total_bytes + incoming_bytes <= storage_limit_bytes:
+        return
+    for item in reversed(items):
+        if item.filename == protected_filename:
+            continue
+        _backup_path(backup_dir, item.filename).unlink(missing_ok=True)
+        total_bytes -= item.size_bytes
+        if total_bytes + incoming_bytes <= storage_limit_bytes:
+            return
+    raise ValueError("백업 저장소의 aggregate 용량 한도를 초과했습니다.")
+
+
 async def list_backups(backup_dir: str) -> list[BackupFileInfo]:
     return await asyncio.to_thread(_list_backups_sync, backup_dir)
 
@@ -215,10 +245,17 @@ async def save_uploaded_backup(
     try:
         with path.open("wb") as output:
             while chunk := await uploaded_file.read(1024 * 1024):
-                written += len(chunk)
-                if written > MAX_BACKUP_BYTES:
+                chunk_size = len(chunk)
+                if written + chunk_size > MAX_BACKUP_BYTES:
                     raise ValueError("업로드 파일 크기가 허용 한도를 초과했습니다.")
+                _make_room_for_upload_sync(
+                    backup_dir,
+                    storage_limit_bytes,
+                    chunk_size,
+                    protected_filename=filename,
+                )
                 output.write(chunk)
+                written += chunk_size
         _enforce_storage_limit_sync(backup_dir, storage_limit_bytes, protected_filename=filename)
     except Exception:
         path.unlink(missing_ok=True)

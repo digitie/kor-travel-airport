@@ -236,6 +236,11 @@ cd frontend
 E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e
 ```
 
+CI에서는 여기에 `EXPECTED_RELEASE_SHA=${GITHUB_HEAD_SHA}`를 추가해 14번에 실제 배포된
+candidate와 테스트 대상 PR head가 같은지 health 응답으로 확인한다. 로컬에서 공개 14번
+배포본만 재확인할 때는 `EXPECTED_RELEASE_SHA`를 생략할 수 있지만, merge 증적에는 반드시
+candidate SHA와 함께 기록한다.
+
 Playwright 결과 JSON은 `frontend/test-results/live-e2e.json`에 남긴다. 320/375/414/768px에서 page-level overflow가 1px 이하인지와 backup/restore 경고가 보이는지를 함께 확인한다.
 - `https://pr.digitie.mywire.org/`와 GET 방식의 `/api/backend/airports` 응답 헤더가 `Cache-Control: no-store, max-age=0, must-revalidate`인지 확인
 - `https://pr-api.digitie.mywire.org/health`가 200을 반환하는지 확인

@@ -56,3 +56,15 @@ async def test_uploaded_backup_enforces_aggregate_storage_limit(tmp_path: Path) 
 
     await remove_backup(str(tmp_path), uploaded.filename)
     assert (tmp_path / uploaded.filename).exists() is False
+
+
+@pytest.mark.asyncio
+async def test_upload_rejects_a_chunk_larger_than_aggregate_quota_before_deleting_backups(tmp_path: Path) -> None:
+    old_path = tmp_path / "parking-radar-20260101T000000Z.dump"
+    old_path.write_bytes(b"old")
+
+    with pytest.raises(ValueError, match="aggregate"):
+        await save_uploaded_backup(FakeUpload([b"too-large"]), str(tmp_path), storage_limit_bytes=3)
+
+    assert old_path.exists()
+    assert [item.filename for item in await list_backups(str(tmp_path))] == [old_path.name]

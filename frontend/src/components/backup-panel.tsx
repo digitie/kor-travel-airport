@@ -104,7 +104,7 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
       const rollback = restored.pre_restore_backup
         ? `복원 전 자동 백업: ${restored.pre_restore_backup.filename}. `
         : "복원 전 자동 백업이 생성되었습니다. ";
-      setMessage(`${rollback}복원했습니다: ${restored.backup.filename}. 화면을 새로고침하면 최신 상태를 확인할 수 있습니다.`);
+      setMessage(`${rollback}복원했습니다: ${restored.restored_from.filename}. 화면을 새로고침하면 최신 상태를 확인할 수 있습니다.`);
       await refresh();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "백업을 복원하지 못했습니다.");

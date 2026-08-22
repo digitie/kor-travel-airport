@@ -276,7 +276,7 @@ export type BackupListResponse = {
 
 export type BackupRestoreResponse = {
   status: "restored";
-  backup: BackupFile;
+  restored_from: BackupFile;
   pre_restore_backup?: BackupFile;
 };
 

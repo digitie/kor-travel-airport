@@ -7,7 +7,11 @@ import asyncio
 import json
 from types import SimpleNamespace
 
-from verify_cutover import verify
+from verify_cutover import validate_release_gate_args, verify
+
+
+STRICT_SAMPLE_COUNT = 7
+STRICT_SAMPLE_INTERVAL_SECONDS = 50
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,10 +26,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--empty-lot-file", type=argparse.FileType("r"))
     parser.add_argument("--samples", type=int, default=7, choices=range(2, 21))
     parser.add_argument("--sample-interval-seconds", type=int, default=50, choices=range(5, 3601))
-    return parser.parse_args()
+    args = parser.parse_args()
+    try:
+        validate_observation_gate_args(args)
+    except ValueError as exc:
+        parser.error(str(exc))
+    return args
+
+
+def validate_observation_gate_args(args: argparse.Namespace) -> None:
+    validate_release_gate_args(args)
+    if getattr(args, "samples", None) != STRICT_SAMPLE_COUNT:
+        raise ValueError(f"samples is fixed at {STRICT_SAMPLE_COUNT} for the release cutover gate")
+    if getattr(args, "sample_interval_seconds", None) != STRICT_SAMPLE_INTERVAL_SECONDS:
+        raise ValueError(
+            f"sample_interval_seconds is fixed at {STRICT_SAMPLE_INTERVAL_SECONDS} for the release cutover gate"
+        )
 
 
 async def observe(args: argparse.Namespace) -> int:
+    validate_observation_gate_args(args)
     verifier_args = SimpleNamespace(
         source_base_url=args.source_base_url,
         target_base_url=args.target_base_url,
@@ -51,6 +71,7 @@ async def observe(args: argparse.Namespace) -> int:
         "sample_interval_seconds": args.sample_interval_seconds,
         "gate_duration_seconds": (args.samples - 1) * args.sample_interval_seconds,
         "failed_samples": sum(status != 0 for status in statuses),
+        "max_age_seconds": args.max_age_seconds,
         "max_source_lag_seconds": args.max_source_lag_seconds,
         "max_run_gap_seconds": args.max_run_gap_seconds,
         "allowed_empty_source_lots": args.allow_empty_source_lot,

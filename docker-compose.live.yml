@@ -26,6 +26,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql+asyncpg://parking_radar:parking_radar@postgres:5432/parking_radar_live}"
+      RELEASE_SHA: "${RELEASE_SHA:-unknown}"
       RUN_DB_MIGRATIONS: "${RUN_DB_MIGRATIONS:-true}"
       ENABLE_SCHEDULER: "${ENABLE_SCHEDULER:-true}"
       ENABLE_MANUAL_COLLECT: "${ENABLE_MANUAL_COLLECT:-false}"

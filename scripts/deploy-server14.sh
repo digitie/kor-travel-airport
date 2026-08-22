@@ -6,6 +6,12 @@ REMOTE_USER="${REMOTE_USER:-digitie}"
 REMOTE_APP_DIR="${REMOTE_APP_DIR:-/home/digitie/apps/parking-radar}"
 REMOTE_ENV_FILE="${REMOTE_ENV_FILE:-.env.server14}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-parking-radar}"
+CANDIDATE_SHA="$(git rev-parse HEAD)"
+
+if [[ ! "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Refusing deployment: unable to resolve a full git candidate SHA." >&2
+  exit 2
+fi
 
 if [[ "${REMOTE_HOST}" != "192.168.1.14" ]]; then
   echo "Refusing deployment: this script may run Docker only on 192.168.1.14 (got ${REMOTE_HOST})." >&2
@@ -32,24 +38,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-tar \
-  --exclude=.git \
-  --exclude=.env \
-  --exclude=.env.* \
-  --exclude=.next \
-  --exclude=node_modules \
-  --exclude=coverage \
-  --exclude=dist \
-  --exclude=.pytest_cache \
-  --exclude=__pycache__ \
-  --exclude=backend/.venv \
-  --exclude=data \
-  -czf "${ARCHIVE_PATH}" .
+git archive --format=tar.gz --output="${ARCHIVE_PATH}" HEAD
 
 ssh "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p '${REMOTE_APP_DIR}'"
 scp "${ARCHIVE_PATH}" "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_ARCHIVE}"
 ssh "${REMOTE_USER}@${REMOTE_HOST}" \
-  "REMOTE_APP_DIR='${REMOTE_APP_DIR}' REMOTE_ARCHIVE='${REMOTE_ARCHIVE}' REMOTE_ENV_FILE='${REMOTE_ENV_FILE}' COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME}' bash -s" <<'REMOTE_SCRIPT'
+  "REMOTE_APP_DIR='${REMOTE_APP_DIR}' REMOTE_ARCHIVE='${REMOTE_ARCHIVE}' REMOTE_ENV_FILE='${REMOTE_ENV_FILE}' COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME}' CANDIDATE_SHA='${CANDIDATE_SHA}' bash -s" <<'REMOTE_SCRIPT'
 set -euo pipefail
 if [[ ! -f "${REMOTE_APP_DIR}/${REMOTE_ENV_FILE}" ]]; then
   echo "Missing ${REMOTE_APP_DIR}/${REMOTE_ENV_FILE}; copy .env.server14.example and add the existing operations values." >&2
@@ -60,9 +54,14 @@ cd "${REMOTE_APP_DIR}"
 set -a
 source "${REMOTE_ENV_FILE}"
 set +a
+export RELEASE_SHA="${CANDIDATE_SHA}"
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.yml up -d --build
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.yml ps
-curl -fsS "http://127.0.0.1:${PUBLIC_API_PORT:-14000}/health" >/dev/null
+health_payload="$(curl -fsS "http://127.0.0.1:${PUBLIC_API_PORT:-14000}/health")"
+if ! grep -Fq "\"release_sha\":\"${CANDIDATE_SHA}\"" <<<"${health_payload}"; then
+  echo "deployed health release_sha does not match candidate ${CANDIDATE_SHA}: ${health_payload}" >&2
+  exit 1
+fi
 for attempt in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${PUBLIC_WEB_PORT:-14001}/" >/dev/null; then
     break

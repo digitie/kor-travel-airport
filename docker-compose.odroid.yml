@@ -10,6 +10,7 @@ services:
       - .env.odroid
     environment:
       DATABASE_URL: "${DATABASE_URL:-sqlite+aiosqlite:////app/data/app.sqlite3}"
+      RELEASE_SHA: "${RELEASE_SHA:-unknown}"
       ENABLE_SCHEDULER: "${ENABLE_SCHEDULER:-true}"
       SEED_SAMPLE_DATA: "${SEED_SAMPLE_DATA:-false}"
       USE_SAMPLE_CLIENT_WHEN_NO_KEY: "${USE_SAMPLE_CLIENT_WHEN_NO_KEY:-false}"

@@ -161,9 +161,17 @@ async def import_history(args: argparse.Namespace) -> int:
         for airport in airports_payload:
             if not isinstance(airport, dict) or not airport.get("code") or not isinstance(airport.get("parking_lots"), list):
                 raise ValueError("/airports returned an invalid airport or parking_lots shape")
+            seen_source_identities: set[tuple[str, str]] = set()
+            airport_code = str(airport["code"]).upper()
             for lot in airport["parking_lots"]:
                 if not isinstance(lot, dict) or lot.get("id") is None or not lot.get("name"):
                     raise ValueError("/airports returned an invalid parking lot shape")
+                identity = (airport_code, str(lot["id"]))
+                if identity in seen_source_identities:
+                    raise ValueError(
+                        f"/airports returned duplicate source identity {airport_code}/{lot['id']}"
+                    )
+                seen_source_identities.add(identity)
         history_tasks = []
         semaphore = asyncio.Semaphore(args.concurrency)
         for airport in airports_payload:

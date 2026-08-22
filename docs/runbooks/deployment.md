@@ -10,7 +10,9 @@
 2. WSL 로컬 테스트와 `docker compose config`를 통과시킨다.
 3. [`scripts/deploy-server14.sh`](../../scripts/deploy-server14.sh)를 실행한다. 이
    스크립트는 대상 host가 `192.168.1.14`이고 Compose project가 `parking-radar`인지 먼저
-   확인한 뒤 14번의 `docker compose`만 호출하며 다른 Compose project를 중지하지 않는다.
+   확인한 뒤 현재 Git `HEAD`를 candidate artifact로 만들어 14번의 `docker compose`만
+   호출하며 다른 Compose project를 중지하지 않는다. 배포 직후 `/health.release_sha`가
+   candidate SHA와 일치하는지도 확인한다.
 4. [migration.md](migration.md)의 prewarm → final delta → 240초 이내 cutover 검증을
    완료한다.
 
@@ -38,6 +40,7 @@ destructive 운영 API이므로, 외부 gateway가 private ACL/mTLS 등으로 �
 - Docker 내부 backend: `http://backend:8000`
 - 외부 API: `https://pr-api.digitie.mywire.org`
 - 외부 live E2E: `https://pr.digitie.mywire.org`
+- 배포 candidate: `GET /health`의 `release_sha`가 배포한 Git full SHA와 일치해야 한다.
 
 외부 reverse proxy가 두 host를 각각 14번의 `14000`/`14001`로 전달해야 한다. 14번 host에는
 443 listener가 없을 수 있으므로 Compose 배포만으로 기존 `pr.digitie.mywire.org`의 외부

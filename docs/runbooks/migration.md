@@ -84,12 +84,15 @@ TMPDIR=/tmp uv run --project backend --extra dev python scripts/verify_cutover.p
 
 이 명령은 source lot 수, target의 안정적인 legacy lot ID 중복, 각 lot의 latest observed,
 source→target 지연, target scheduler/recent successful run 간격/freshness를 함께 검사한다.
-모든 freshness·전파·run gap 한도는 300초이며, 양쪽 모두 관측이 없는 lot은 검토된
-`scripts/cutover-empty-lots.json` allowlist로만 허용한다. 이름만 같은 lot은 같은 lot으로
-인정하지 않는다. `failure_count=0`이어야 한다.
+release gate의 freshness·전파·run gap 한도는 호출자가 완화할 수 없도록 각각 정확히
+`300초`로 고정되어 있다. `scripts/cutover-empty-lots.json` allowlist는 양쪽 모두 관측이
+없는 lot에만 적용되며, source는 비어 있고 target만 관측되는 비대칭 상태는 allowlist가 있어도
+실패한다. 이름만 같은 lot은 같은 lot으로 인정하지 않는다. `failure_count=0`이어야 한다.
 
-단일 확인은 5분 연속성의 증거가 아니므로, cutover 승인 전에는 50초 간격 7회 반복 관찰을
-실행한다. 이는 0분부터 5분까지의 gate를 만들고 source/target 모두 HTTP read만 수행한다.
+단일 확인은 5분 연속성의 증거가 아니므로, cutover 승인 전에는 정확히 50초 간격 7회 반복
+관찰을 실행한다. `samples`, `sample-interval-seconds`, 세 가지 300초 threshold는 release
+gate에서 모두 고정되어 임의의 짧은 관찰이나 완화된 threshold로 green을 만들 수 없다. 이는
+0분부터 5분까지의 gate를 만들고 source/target 모두 HTTP read만 수행한다.
 
 ```bash
 TMPDIR=/tmp uv run --project backend --extra dev python scripts/observe_cutover.py \
@@ -105,6 +108,11 @@ TMPDIR=/tmp uv run --project backend --extra dev python scripts/observe_cutover.
 configured 300초이고 실제 tick 간격은 240초(`60초 safety buffer`)이며 verifier가 세 값을
 모두 검사한다. freshness/lag/run gap 한도에는 시간 epsilon을 두지 않는다.
 마지막 출력의 `failed_samples=0`과 각 verifier 출력의 `failure_count=0`을 journal에 기록한다.
+
+배포 artifact는 `scripts/deploy-server14.sh`가 현재 Git `HEAD`의 full SHA로 만들고, 14번
+health 응답의 `release_sha`와 일치하는지 확인한다. live E2E의 CI job도
+`EXPECTED_RELEASE_SHA`를 같은 PR head SHA로 설정해, 다른 commit이 올라간 외부 사이트를
+green으로 오인하지 않도록 한다.
 
 ### 5. 검증·보존
 

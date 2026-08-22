@@ -146,6 +146,8 @@ curl http://localhost:8000/admin/collector-status
 
 - DB 저장 기준: UTC
 - API 응답 기준: UTC ISO 8601
+- `/health`의 `release_sha`는 14번에 배포한 Git full SHA를 나타내며, deploy script와 CI live
+  E2E에서 candidate 일치를 확인한다.
 - 브라우저 표시 기준: KST
 
 웹 UI에서 보이는 대표 시각:
@@ -318,8 +320,8 @@ row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 �
 
 마지막 확인 기준:
 
-- 백엔드: `53 passed`
-- 프론트: `31 passed`
+- 백엔드: `61 passed` (SQLite/WSL 기준; CI에서는 PostgreSQL container와 `alembic check`도 통과)
+- 프론트: `45 passed` 및 TypeScript/build 통과
 
 관련 문서:
 - [runbooks/testing.md](</F:/dev/parking-radar/docs/runbooks/testing.md>)

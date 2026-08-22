@@ -43,7 +43,7 @@ describe("api client", () => {
   test("uploads a PostgreSQL dump without overriding multipart boundaries", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ status: "restored", backup: { filename: "parking-radar-test.dump", size_bytes: 12, created_at: "2026-08-22T00:00:00Z" } }),
+      json: async () => ({ status: "restored", restored_from: { filename: "parking-radar-test.dump", size_bytes: 12, created_at: "2026-08-22T00:00:00Z" } }),
     });
 
     vi.stubGlobal("fetch", fetchMock);
