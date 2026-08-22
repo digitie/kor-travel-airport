@@ -124,6 +124,17 @@ GitHub Actions의 `live-e2e` job은 항상 정확한 `https://pr.digitie.mywire.
 외부 라우팅이 Home Assistant나 다른 서비스로 향하면 이 job과 운영 승인 모두 실패로
 취급한다.
 
+공유 server14를 매 push/PR마다 변경하지 않도록 CI는 백업 목록·경고·레이아웃을 검증하고
+실제 dump 생성은 기본적으로 실행하지 않는다. 백업 UI까지 한 번 실제로 확인할 때만 아래
+환경 변수를 명시한다. 이 실행은 DB 백업을 만들므로 동시 CI가 없는 시점에 수행한다.
+
+```bash
+EXERCISE_LIVE_BACKUP=true \
+E2E_BASE_URL=https://pr.digitie.mywire.org \
+EXPECTED_RELEASE_SHA="$(git rev-parse HEAD)" \
+npm run test:e2e
+```
+
 데스크톱:
 
 - 현재 주차 현황 표 렌더링

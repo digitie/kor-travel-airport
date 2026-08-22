@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from uuid import uuid4
@@ -90,11 +91,20 @@ def _enforce_storage_limit_sync(
     protected = set(protected_filenames or ())
     if protected_filename:
         protected.add(protected_filename)
+    candidates: list[BackupFileInfo] = []
+    reclaimable_bytes = 0
     for item in reversed(items):
         if total_bytes <= storage_limit_bytes:
             break
         if item.filename in protected:
             continue
+        candidates.append(item)
+        reclaimable_bytes += item.size_bytes
+        if total_bytes - reclaimable_bytes <= storage_limit_bytes:
+            break
+    if total_bytes - reclaimable_bytes > storage_limit_bytes:
+        raise ValueError("백업 저장소의 aggregate 용량 한도를 초과했습니다.")
+    for item in candidates:
         _backup_path(backup_dir, item.filename).unlink(missing_ok=True)
         total_bytes -= item.size_bytes
     if total_bytes > storage_limit_bytes:
@@ -108,11 +118,7 @@ def _make_room_for_upload_sync(
     protected_filename: str,
     protected_filenames: set[str] | None = None,
 ) -> None:
-    """Free old backups before a chunk would exceed the aggregate quota.
-
-    The current upload is protected, so the quota is enforced before each
-    chunk is written rather than after an unbounded request has filled disk.
-    """
+    """Free old backups after a staged upload has completed."""
 
     if storage_limit_bytes <= 0:
         raise ValueError("백업 저장소 한도는 0보다 커야 합니다.")
@@ -124,14 +130,23 @@ def _make_room_for_upload_sync(
     protected.add(protected_filename)
     if total_bytes + incoming_bytes <= storage_limit_bytes:
         return
+    candidates: list[BackupFileInfo] = []
+    reclaimable_bytes = 0
     for item in reversed(items):
         if item.filename in protected:
             continue
+        candidates.append(item)
+        reclaimable_bytes += item.size_bytes
+        if total_bytes - reclaimable_bytes + incoming_bytes <= storage_limit_bytes:
+            break
+    if total_bytes - reclaimable_bytes + incoming_bytes > storage_limit_bytes:
+        raise ValueError("백업 저장소의 aggregate 용량 한도를 초과했습니다.")
+    for item in candidates:
         _backup_path(backup_dir, item.filename).unlink(missing_ok=True)
         total_bytes -= item.size_bytes
-        if total_bytes + incoming_bytes <= storage_limit_bytes:
-            return
-    raise ValueError("백업 저장소의 aggregate 용량 한도를 초과했습니다.")
+    if total_bytes + incoming_bytes <= storage_limit_bytes:
+        return
+    raise RuntimeError("백업 저장소 용량 정리 후에도 업로드 공간을 확보하지 못했습니다.")
 
 
 async def list_backups(backup_dir: str) -> list[BackupFileInfo]:
@@ -180,6 +195,9 @@ async def create_backup(
             filename = f"parking-radar-{timestamp}-{uuid4().hex[:12]}.dump"
             path = _backup_path(backup_dir, filename)
         safe_database_url, environment = _postgres_command_database(database_url)
+        _enforce_storage_limit_sync(backup_dir, storage_limit_bytes)
+        if shutil.disk_usage(directory).free < MAX_BACKUP_BYTES:
+            raise ValueError("백업을 생성할 충분한 디스크 여유 공간이 없습니다.")
         # Keep the staging file on the same filesystem as the bind-mounted backup directory.
         # A /tmp -> /app/backups rename can fail with EXDEV on server14.
         temporary_fd, temporary_name = tempfile.mkstemp(
@@ -292,22 +310,24 @@ async def save_uploaded_backup(
 
     written = 0
     try:
+        if shutil.disk_usage(directory).free < MAX_BACKUP_BYTES:
+            raise ValueError("업로드를 처리할 충분한 디스크 여유 공간이 없습니다.")
         with temporary_path.open("wb") as output:
             while chunk := await uploaded_file.read(1024 * 1024):
                 chunk_size = len(chunk)
                 if written + chunk_size > MAX_BACKUP_BYTES:
                     raise ValueError("업로드 파일 크기가 허용 한도를 초과했습니다.")
-                _make_room_for_upload_sync(
-                    backup_dir,
-                    storage_limit_bytes,
-                    written + chunk_size,
-                    protected_filename=filename,
-                    protected_filenames=protected_filenames,
-                )
                 output.write(chunk)
                 written += chunk_size
             output.flush()
             os.fsync(output.fileno())
+        _make_room_for_upload_sync(
+            backup_dir,
+            storage_limit_bytes,
+            written,
+            protected_filename=filename,
+            protected_filenames=protected_filenames,
+        )
         temporary_path.replace(path)
         _enforce_storage_limit_sync(
             backup_dir,

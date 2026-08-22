@@ -14,6 +14,8 @@ from app.services.analytics import (
     build_threshold_insights,
     build_time_series,
     build_weekday_hour_patterns,
+    deduplicate_snapshot_rows,
+    deduplicate_snapshots,
     detect_threshold_events,
 )
 
@@ -287,7 +289,7 @@ async def _load_snapshots(
     )
     if parking_lot_id is not None:
         query = query.where(ParkingSnapshot.parking_lot_id == parking_lot_id)
-    return (await session.execute(query)).scalars().all()
+    return deduplicate_snapshots((await session.execute(query)).scalars().all())
 
 
 async def _load_snapshot_rows(
@@ -306,4 +308,4 @@ async def _load_snapshot_rows(
     )
     if parking_lot_id is not None:
         query = query.where(ParkingSnapshot.parking_lot_id == parking_lot_id)
-    return (await session.execute(query)).all()
+    return deduplicate_snapshot_rows((await session.execute(query)).all())

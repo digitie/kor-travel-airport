@@ -776,7 +776,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             path = backup_path_for_download(resolved_settings.backup_dir, filename)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        if not path.is_file():
+        if path.is_symlink() or not path.is_file():
             raise HTTPException(status_code=404, detail="백업 파일을 찾지 못했습니다.")
         return FileResponse(path, media_type="application/octet-stream", filename=filename)
 

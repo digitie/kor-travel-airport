@@ -24,6 +24,19 @@ class FakeUpload:
         return next(self.chunks, b"")
 
 
+class FailingUpload:
+    filename = "operator export.dump"
+
+    def __init__(self) -> None:
+        self.read_count = 0
+
+    async def read(self, _size: int) -> bytes:
+        self.read_count += 1
+        if self.read_count == 1:
+            return b"partial"
+        raise RuntimeError("simulated upload failure")
+
+
 @pytest.mark.asyncio
 async def test_uploaded_backup_is_safely_named_and_listed(tmp_path: Path) -> None:
     uploaded = await save_uploaded_backup(FakeUpload([b"dump", b"data"]), str(tmp_path))
@@ -68,6 +81,18 @@ async def test_upload_rejects_a_chunk_larger_than_aggregate_quota_before_deletin
 
     with pytest.raises(ValueError, match="aggregate"):
         await save_uploaded_backup(FakeUpload([b"too-large"]), str(tmp_path), storage_limit_bytes=3)
+
+    assert old_path.exists()
+    assert [item.filename for item in await list_backups(str(tmp_path))] == [old_path.name]
+
+
+@pytest.mark.asyncio
+async def test_failed_staged_upload_does_not_prune_existing_backups(tmp_path: Path) -> None:
+    old_path = tmp_path / "parking-radar-20260101T000000Z.dump"
+    old_path.write_bytes(b"old")
+
+    with pytest.raises(RuntimeError, match="simulated upload failure"):
+        await save_uploaded_backup(FailingUpload(), str(tmp_path), storage_limit_bytes=3)
 
     assert old_path.exists()
     assert [item.filename for item in await list_backups(str(tmp_path))] == [old_path.name]
