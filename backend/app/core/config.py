@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     backup_dir: str = "/app/backups"
     backup_retention_count: int = 14
     backup_command_timeout_seconds: int = 120
+    backup_upload_timeout_seconds: int = Field(default=600, gt=0)
     backup_storage_limit_bytes: int = Field(default=8 * 1024 * 1024 * 1024, gt=0)
     release_sha: str = "unknown"
 

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import os
+import time
 from pathlib import Path
 
 import pytest
@@ -35,6 +38,14 @@ class FailingUpload:
         if self.read_count == 1:
             return b"partial"
         raise RuntimeError("simulated upload failure")
+
+
+class SlowUpload:
+    filename = "operator export.dump"
+
+    async def read(self, _size: int) -> bytes:
+        await asyncio.sleep(0.05)
+        return b"dump"
 
 
 @pytest.mark.asyncio
@@ -96,6 +107,25 @@ async def test_failed_staged_upload_does_not_prune_existing_backups(tmp_path: Pa
 
     assert old_path.exists()
     assert [item.filename for item in await list_backups(str(tmp_path))] == [old_path.name]
+
+
+@pytest.mark.asyncio
+async def test_slow_upload_is_bounded_and_cleans_its_staging_file(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="제한 시간"):
+        await save_uploaded_backup(SlowUpload(), str(tmp_path), upload_timeout_seconds=0.01)
+
+    assert list(tmp_path.glob(".parking-radar-*.dump")) == []
+
+
+@pytest.mark.asyncio
+async def test_listing_removes_stale_orphaned_staging_files(tmp_path: Path) -> None:
+    stale_path = tmp_path / ".parking-radar-upload-orphan.dump"
+    stale_path.write_bytes(b"partial")
+    stale_timestamp = time.time() - backup_restore.STAGING_BACKUP_MAX_AGE_SECONDS - 1
+    os.utime(stale_path, (stale_timestamp, stale_timestamp))
+
+    assert await list_backups(str(tmp_path)) == []
+    assert stale_path.exists() is False
 
 
 @pytest.mark.asyncio

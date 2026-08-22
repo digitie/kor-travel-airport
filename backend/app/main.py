@@ -802,6 +802,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     resolved_settings.backup_dir,
                     resolved_settings.backup_storage_limit_bytes,
                     protected_filenames={pre_restore.filename},
+                    upload_timeout_seconds=resolved_settings.backup_upload_timeout_seconds,
                 )
                 restored = await restore_backup(
                     resolved_settings.backup_dir,

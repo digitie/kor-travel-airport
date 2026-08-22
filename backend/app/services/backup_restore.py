@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from uuid import uuid4
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -16,6 +17,8 @@ from sqlalchemy.engine import make_url
 BACKUP_NAME_PATTERN = re.compile(r"^parking-radar-[0-9T]{15}Z(?:-[A-Za-z0-9_-]+)?\.dump$")
 MAX_BACKUP_BYTES = 2 * 1024 * 1024 * 1024
 DEFAULT_BACKUP_STORAGE_LIMIT_BYTES = 8 * 1024 * 1024 * 1024
+STAGING_BACKUP_PREFIX = ".parking-radar-"
+STAGING_BACKUP_MAX_AGE_SECONDS = 3600
 
 
 @dataclass(frozen=True)
@@ -29,10 +32,26 @@ def _backup_path(backup_dir: str, filename: str) -> Path:
     if not BACKUP_NAME_PATTERN.fullmatch(filename):
         raise ValueError("허용되지 않는 백업 파일명입니다.")
     directory = Path(backup_dir).resolve()
-    path = (directory / filename).resolve()
+    # The filename grammar has no path separators. Keep the raw directory
+    # entry so callers can reject a symlink before opening it.
+    path = directory / filename
     if path.parent != directory:
         raise ValueError("백업 경로가 올바르지 않습니다.")
     return path
+
+
+def _cleanup_staging_backups_sync(backup_dir: str) -> None:
+    directory = Path(backup_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    cutoff = time.time() - STAGING_BACKUP_MAX_AGE_SECONDS
+    for path in directory.iterdir():
+        if path.is_symlink() or not path.name.startswith(STAGING_BACKUP_PREFIX) or path.suffix != ".dump":
+            continue
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+        except FileNotFoundError:
+            continue
 
 
 def _database_url_without_async_driver(database_url: str) -> str:
@@ -63,6 +82,7 @@ def _run_command(command: list[str], timeout_seconds: int, env: dict[str, str] |
 def _list_backups_sync(backup_dir: str) -> list[BackupFileInfo]:
     directory = Path(backup_dir)
     directory.mkdir(parents=True, exist_ok=True)
+    _cleanup_staging_backups_sync(backup_dir)
     items: list[BackupFileInfo] = []
     for path in directory.iterdir():
         if path.is_symlink() or not path.is_file() or not BACKUP_NAME_PATTERN.fullmatch(path.name):
@@ -188,6 +208,7 @@ async def create_backup(
     def run() -> BackupFileInfo:
         directory = Path(backup_dir)
         directory.mkdir(parents=True, exist_ok=True)
+        _cleanup_staging_backups_sync(backup_dir)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         filename = f"parking-radar-{timestamp}.dump"
         path = _backup_path(backup_dir, filename)
@@ -289,9 +310,13 @@ async def save_uploaded_backup(
     backup_dir: str,
     storage_limit_bytes: int = DEFAULT_BACKUP_STORAGE_LIMIT_BYTES,
     protected_filenames: set[str] | None = None,
+    upload_timeout_seconds: int = 600,
 ) -> BackupFileInfo:
+    if upload_timeout_seconds <= 0:
+        raise ValueError("업로드 제한 시간은 0보다 커야 합니다.")
     directory = Path(backup_dir)
     directory.mkdir(parents=True, exist_ok=True)
+    _cleanup_staging_backups_sync(backup_dir)
     safe_stem = re.sub(r"[^A-Za-z0-9_-]", "-", Path(uploaded_file.filename or "upload").stem)[:48] or "upload"
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     filename = f"parking-radar-{timestamp}-{safe_stem}.dump"
@@ -312,8 +337,18 @@ async def save_uploaded_backup(
     try:
         if shutil.disk_usage(directory).free < MAX_BACKUP_BYTES:
             raise ValueError("업로드를 처리할 충분한 디스크 여유 공간이 없습니다.")
+        upload_deadline = asyncio.get_running_loop().time() + upload_timeout_seconds
         with temporary_path.open("wb") as output:
-            while chunk := await uploaded_file.read(1024 * 1024):
+            while True:
+                remaining_seconds = upload_deadline - asyncio.get_running_loop().time()
+                if remaining_seconds <= 0:
+                    raise ValueError("백업 업로드가 제한 시간 안에 끝나지 않았습니다.")
+                try:
+                    chunk = await asyncio.wait_for(uploaded_file.read(1024 * 1024), remaining_seconds)
+                except asyncio.TimeoutError as exc:
+                    raise ValueError("백업 업로드가 제한 시간 안에 끝나지 않았습니다.") from exc
+                if not chunk:
+                    break
                 chunk_size = len(chunk)
                 if written + chunk_size > MAX_BACKUP_BYTES:
                     raise ValueError("업로드 파일 크기가 허용 한도를 초과했습니다.")
