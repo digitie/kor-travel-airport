@@ -9,7 +9,6 @@ import type {
   Airport,
   CollectorStatusResponse,
   FlightStatusResponse,
-  HolidayPatternItem,
   HolidayPatternResponse,
   HolidaySummaryResponse,
   ParkingLot,
@@ -54,7 +53,6 @@ type DashboardScreenProps = {
 
 type ResponsiveSectionProps = {
   children: ReactNode;
-  defaultOpen?: boolean;
   isMobile: boolean | null;
   summary?: string;
   title: string;
@@ -98,10 +96,6 @@ function formatHourLabel(hour: number): string {
   return `${String(hour).padStart(2, "0")}:00`;
 }
 
-function formatCompactHourLabel(hour: number): string {
-  return `${hour}시`;
-}
-
 function formatThresholdLabel(threshold: number): string {
   return `${formatNumber(threshold)}대 미만`;
 }
@@ -122,13 +116,6 @@ function formatHolidayDate(localDate: string, weekdayName: string): string {
   return `${Number(month)}/${Number(day)} (${weekdayName})`;
 }
 
-function getObservedBuckets(hourlyBuckets: WeekdayHourBucket[]): WeekdayHourBucket[] {
-  return hourlyBuckets.filter(
-    (bucket): bucket is WeekdayHourBucket & { average_available_spaces: number } =>
-      bucket.average_available_spaces !== null && bucket.observations > 0
-  );
-}
-
 function buildAvailabilityHeatStyle(value: number | null, maxValue: number): CSSProperties | undefined {
   if (value === null || maxValue <= 0) {
     return undefined;
@@ -142,44 +129,6 @@ function buildAvailabilityHeatStyle(value: number | null, maxValue: number): CSS
     background: `hsl(${hue} 78% ${lightness}%)`,
     borderColor: `hsla(${hue} 72% 38% / 0.16)`,
     color: ratio > 0.56 ? "white" : undefined,
-  };
-}
-
-function summarizePattern(pattern: WeekdayHourlyPattern): {
-  tightestHour: WeekdayHourBucket | null;
-  loosestHour: WeekdayHourBucket | null;
-} {
-  const observedBuckets = getObservedBuckets(pattern.hourly_buckets);
-  if (observedBuckets.length === 0) {
-    return { tightestHour: null, loosestHour: null };
-  }
-
-  const sorted = [...observedBuckets].sort(
-    (left, right) => (left.average_available_spaces ?? 0) - (right.average_available_spaces ?? 0)
-  );
-
-  return {
-    tightestHour: sorted[0],
-    loosestHour: sorted[sorted.length - 1],
-  };
-}
-
-function summarizeHolidayPattern(pattern: HolidayPatternItem): {
-  tightestHour: WeekdayHourBucket | null;
-  loosestHour: WeekdayHourBucket | null;
-} {
-  const observedBuckets = getObservedBuckets(pattern.hourly_buckets);
-  if (observedBuckets.length === 0) {
-    return { tightestHour: null, loosestHour: null };
-  }
-
-  const sorted = [...observedBuckets].sort(
-    (left, right) => (left.average_available_spaces ?? 0) - (right.average_available_spaces ?? 0)
-  );
-
-  return {
-    tightestHour: sorted[0],
-    loosestHour: sorted[sorted.length - 1],
   };
 }
 
@@ -242,7 +191,6 @@ function historyLabel(selectedParkingLotName: string | null, airportName: string
 
 function ResponsiveSection({
   children,
-  defaultOpen = false,
   isMobile,
   summary,
   title,
@@ -256,7 +204,7 @@ function ResponsiveSection({
   }
 
   return (
-    <details className="mobile-disclosure" data-testid="mobile-disclosure" open={defaultOpen}>
+    <details className="mobile-disclosure" data-testid="mobile-disclosure">
       <summary>
         <span>{title}</span>
         {summary ? <small>{summary}</small> : null}
@@ -298,7 +246,6 @@ export function DashboardScreen({
   const selectedAirport = airports.find((airport) => airport.code === selectedAirportCode);
   const visibleItems = currentItems;
   const latestObservedAt = findLatestValue(scopeItems, "observed_at");
-  const latestSyncedAt = collectorStatus?.latest_snapshot_collected_at ?? null;
   const sortedByAvailable = [...scopeItems].sort((left, right) => left.available_spaces - right.available_spaces);
   const tightestLot = sortedByAvailable[0];
   const roomiestLot = sortedByAvailable[sortedByAvailable.length - 1];
@@ -352,8 +299,7 @@ export function DashboardScreen({
   return (
     <main className="page-shell">
       <header className="page-header">
-        <p className="site-mark">parking-radar</p>
-        <h1>공항 주차</h1>
+        <h1>공항 주차 현황</h1>
       </header>
 
       <section className="control-band">
@@ -421,19 +367,12 @@ export function DashboardScreen({
           <h2>{selectedAirport?.name_ko ?? "공항"}</h2>
           <div className="status-meta">
             <span>데이터 기준 시각: {latestObservedAt ? formatDateTime(latestObservedAt) : "데이터 없음"}</span>
-            {latestSyncedAt ? <span>수집기 마지막 동기화: {formatDateTime(latestSyncedAt)}</span> : null}
             {holidaySummary ? <span className="holiday-sentence">{holidaySummary.sentence}</span> : null}
           </div>
         </div>
-
-        <div className="spotlight">
-          <span>지금 주차 여유</span>
-          <strong>{formatNumber(totalAvailableSpaces)}대</strong>
-          <small>{scopeLabel}</small>
-        </div>
       </section>
 
-      <section className="detail-ribbon detail-ribbon-compact">
+      <section className="detail-ribbon">
         <div className="metric-card detail-card">
           <span>현재 잔여 주차면</span>
           <strong>{formatNumber(totalAvailableSpaces)}대</strong>
@@ -580,23 +519,19 @@ export function DashboardScreen({
             <p className="notice">표시할 요일별 시간대 데이터가 없습니다.</p>
           ) : (
             <>
-              <div className="pattern-summary-strip pattern-summary-strip-compact">
-                <div className="pattern-summary-card pattern-summary-card-wide">
-                  <div className="pattern-summary-lines">
-                    <span>
-                      <strong>최고 혼잡</strong> :{" "}
-                      {averageAvailabilitySummary.tightest
-                        ? `${averageAvailabilitySummary.tightest.weekdayName} ${formatHourLabel(averageAvailabilitySummary.tightest.hour)} 평균 ${formatNumber(Math.round(averageAvailabilitySummary.tightest.value))}대`
-                        : "데이터 없음"}
-                    </span>
-                    <span>
-                      <strong>최저 혼잡</strong> :{" "}
-                      {averageAvailabilitySummary.roomiest
-                        ? `${averageAvailabilitySummary.roomiest.weekdayName} ${formatHourLabel(averageAvailabilitySummary.roomiest.hour)} 평균 ${formatNumber(Math.round(averageAvailabilitySummary.roomiest.value))}대`
-                        : "데이터 없음"}
-                    </span>
-                  </div>
-                </div>
+              <div className="pattern-summary-lines">
+                <span>
+                  <strong>최고 혼잡</strong> :{" "}
+                  {averageAvailabilitySummary.tightest
+                    ? `${averageAvailabilitySummary.tightest.weekdayName} ${formatHourLabel(averageAvailabilitySummary.tightest.hour)} 평균 ${formatNumber(Math.round(averageAvailabilitySummary.tightest.value))}대`
+                    : "데이터 없음"}
+                </span>
+                <span>
+                  <strong>최저 혼잡</strong> :{" "}
+                  {averageAvailabilitySummary.roomiest
+                    ? `${averageAvailabilitySummary.roomiest.weekdayName} ${formatHourLabel(averageAvailabilitySummary.roomiest.hour)} 평균 ${formatNumber(Math.round(averageAvailabilitySummary.roomiest.value))}대`
+                    : "데이터 없음"}
+                </span>
               </div>
 
               <div className="heatmap-scroll" data-testid="weekday-hour-heatmap">
@@ -635,72 +570,6 @@ export function DashboardScreen({
             </>
           )}
         </article>
-
-        <ResponsiveSection
-          isMobile={isMobile}
-          summary="요일별 24시간 상세 카드"
-          title="요일별 상세 패턴"
-        >
-          <article className="panel-surface panel-full-span">
-            <div className="panel-head">
-              <h3>요일별 패턴</h3>
-            </div>
-            {weekdayHourlyPatterns.length === 0 ? (
-              <p className="notice">표시할 요일별 패턴 데이터가 없습니다.</p>
-            ) : (
-              <div className="weekday-pattern-grid" data-testid="weekday-pattern-grid">
-                {weekdayHourlyPatterns.map((pattern) => {
-                  const { tightestHour, loosestHour } = summarizePattern(pattern);
-                  return (
-                    <article key={`weekday-pattern-${pattern.weekday}`} className="weekday-detail-card">
-                      <div className="weekday-detail-head">
-                        <div>
-                          <h4>{pattern.weekday_name}</h4>
-                          <p>
-                            평균{" "}
-                            {pattern.average_available_spaces === null
-                              ? "-"
-                              : `${formatNumber(Math.round(pattern.average_available_spaces))}대`}
-                          </p>
-                        </div>
-                        <div className="weekday-detail-summary">
-                          <span>
-                            최고 혼잡{" "}
-                            {tightestHour?.average_available_spaces !== null && tightestHour
-                              ? `${formatHourLabel(tightestHour.hour)} ${formatNumber(Math.round(tightestHour.average_available_spaces))}대`
-                              : "-"}
-                          </span>
-                          <span>
-                            최저 혼잡{" "}
-                            {loosestHour?.average_available_spaces !== null && loosestHour
-                              ? `${formatHourLabel(loosestHour.hour)} ${formatNumber(Math.round(loosestHour.average_available_spaces))}대`
-                              : "-"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="hour-chip-grid">
-                        {pattern.hourly_buckets.map((bucket) => (
-                          <div
-                            key={`hour-chip-${pattern.weekday}-${bucket.hour}`}
-                            className="hour-chip"
-                            style={buildAvailabilityHeatStyle(bucket.average_available_spaces, maxHeatValue)}
-                          >
-                            <span>{isMobile ? formatCompactHourLabel(bucket.hour) : formatHourLabel(bucket.hour)}</span>
-                            <strong>
-                              {bucket.average_available_spaces === null
-                                ? "-"
-                                : `${formatNumber(Math.round(bucket.average_available_spaces))}대`}
-                            </strong>
-                          </div>
-                        ))}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </article>
-        </ResponsiveSection>
 
         <ResponsiveSection
           isMobile={isMobile}
@@ -758,44 +627,6 @@ export function DashboardScreen({
                   </table>
                 </div>
 
-                <div className="holiday-pattern-grid" data-testid="holiday-pattern-grid">
-                  {holidayPatternItems.map((pattern) => {
-                    const { tightestHour, loosestHour } = summarizeHolidayPattern(pattern);
-                    return (
-                      <article key={`holiday-card-${pattern.local_date}-${pattern.name}`} className="weekday-detail-card">
-                        <div className="weekday-detail-head">
-                          <div>
-                            <h4>{formatHolidayDate(pattern.local_date, pattern.weekday_name)}</h4>
-                            <p>{pattern.name}</p>
-                          </div>
-                          <div className="weekday-detail-summary">
-                            <span>
-                              평균{" "}
-                              {pattern.average_available_spaces === null
-                                ? "-"
-                                : `${formatNumber(Math.round(pattern.average_available_spaces))}대`}
-                            </span>
-                            <span>관측 {formatNumber(pattern.observations)}개</span>
-                          </div>
-                        </div>
-                        <div className="holiday-extreme-row">
-                          <span>
-                            최고 혼잡{" "}
-                            {tightestHour?.average_available_spaces !== null && tightestHour
-                              ? `${formatHourLabel(tightestHour.hour)} ${formatNumber(Math.round(tightestHour.average_available_spaces))}대`
-                              : "-"}
-                          </span>
-                          <span>
-                            최저 혼잡{" "}
-                            {loosestHour?.average_available_spaces !== null && loosestHour
-                              ? `${formatHourLabel(loosestHour.hour)} ${formatNumber(Math.round(loosestHour.average_available_spaces))}대`
-                              : "-"}
-                          </span>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
               </>
             )}
           </article>

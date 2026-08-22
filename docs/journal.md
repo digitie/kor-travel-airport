@@ -35,3 +35,6 @@
   merge한다. 이전 `airport-parking-radar` PR은 대상 레포가 아니므로 기준으로 사용하지 않는다.
   13번에는 Docker 명령을
   실행하지 않았다.
+- Hallmark 최종 정리로 메인 화면에서 중복 KPI, 보조 브랜드 문구, 수집기 내부 동기화 시각을
+  제거하고, 요일/공휴일의 중복 상세 카드를 히트맵 중심으로 통합했다. 핵심 분석·요금·백업/복원
+  기능은 유지했으며 frontend 테스트 `47 passed`, TypeScript와 production build가 통과했다.

@@ -93,15 +93,6 @@ select {
   letter-spacing: 0;
 }
 
-.site-mark {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .hero-text,
 .section-hint,
 .panel-head p,
@@ -116,7 +107,6 @@ select {
 .panel-surface,
 .table-surface,
 .lot-card,
-.spotlight,
 .control-band {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -124,7 +114,6 @@ select {
   box-shadow: var(--shadow);
 }
 
-.spotlight,
 .control-band {
   backdrop-filter: blur(12px);
 }
@@ -134,7 +123,6 @@ select {
 }
 
 .metric-card span,
-.spotlight span,
 .field span {
   display: block;
   color: var(--muted);
@@ -142,19 +130,11 @@ select {
 }
 
 .metric-card strong,
-.spotlight strong,
 .quote-total strong {
   display: block;
   margin-top: 6px;
   font-size: 1.8rem;
   line-height: 1;
-}
-
-.spotlight small {
-  display: block;
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 0.82rem;
 }
 
 .control-band {
@@ -280,11 +260,6 @@ select {
   margin: 0;
 }
 
-.spotlight {
-  min-width: 250px;
-  padding: 16px 18px;
-}
-
 .table-surface,
 .panel-surface,
 .lot-card {
@@ -311,7 +286,6 @@ select {
 
 .lot-table td strong,
 .threshold-list strong,
-.weekday-chip strong,
 .spark-bar strong {
   display: block;
 }
@@ -1061,7 +1035,6 @@ select {
   grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
 }
 
-.weekday-chip,
 .quote-box {
   border-radius: 14px;
   background: var(--surface-strong);
@@ -1075,43 +1048,10 @@ select {
   overscroll-behavior-x: contain;
 }
 
-.pattern-summary-strip {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: 16px;
-}
-
-.pattern-summary-strip-compact {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.pattern-summary-card {
-  border-radius: 14px;
-  background: var(--surface-strong);
-  border: 1px solid rgba(31, 37, 48, 0.08);
-  padding: 14px;
-}
-
-.pattern-summary-card span,
-.pattern-summary-card small {
-  display: block;
-  color: var(--muted);
-}
-
-.pattern-summary-card strong {
-  display: block;
-  margin: 6px 0 4px;
-  font-size: 1.12rem;
-}
-
-.pattern-summary-card-wide {
-  padding: 12px 14px;
-}
-
 .pattern-summary-lines {
   display: grid;
   gap: 6px;
+  margin: 0 0 16px;
   color: var(--ink);
   font-size: 0.95rem;
   line-height: 1.35;
@@ -1189,89 +1129,6 @@ select {
   background: rgba(31, 37, 48, 0.06);
   font-size: 0.82rem;
   font-weight: 700;
-}
-
-.weekday-pattern-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
-.holiday-pattern-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  margin-top: 14px;
-}
-
-.weekday-detail-card {
-  border-radius: 14px;
-  background: var(--surface-strong);
-  border: 1px solid rgba(31, 37, 48, 0.08);
-  padding: 16px;
-}
-
-.weekday-detail-head {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.weekday-detail-head h4,
-.weekday-detail-head p {
-  margin: 0;
-}
-
-.weekday-detail-head p,
-.weekday-detail-summary span {
-  color: var(--muted);
-}
-
-.weekday-detail-summary {
-  display: grid;
-  gap: 6px;
-  font-size: 0.82rem;
-}
-
-.holiday-extreme-row {
-  display: grid;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.hour-chip-grid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.hour-chip {
-  min-width: 0;
-  border-radius: 12px;
-  border: 1px solid rgba(31, 37, 48, 0.08);
-  background: rgba(31, 37, 48, 0.06);
-  padding: 10px 8px;
-}
-
-.hour-chip span,
-.hour-chip strong {
-  display: block;
-  min-width: 0;
-}
-
-.hour-chip span {
-  color: var(--muted);
-  font-size: 0.74rem;
-}
-
-.hour-chip strong {
-  margin-top: 4px;
-  font-size: 0.84rem;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
 }
 
 .threshold-list {
@@ -1468,21 +1325,11 @@ select {
   margin-top: 10px;
 }
 
-/* The first client render does not know the viewport yet. CSS owns the initial
-   variant so mobile users never see a desktop-only branch flash during hydration. */
-.responsive-mobile {
-  display: none;
-}
-
 .responsive-desktop {
   display: contents;
 }
 
 @media (max-width: 860px) {
-  .responsive-mobile {
-    display: contents;
-  }
-
   .responsive-desktop {
     display: none;
   }
@@ -1495,8 +1342,7 @@ select {
   }
 
   .history-summary,
-  .detail-ribbon,
-  .pattern-summary-strip {
+  .detail-ribbon {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1522,16 +1368,11 @@ select {
     font-size: 1.12rem;
   }
 
-  .site-mark {
-    font-size: 0.68rem;
-  }
-
   .control-band,
   .metric-card,
   .panel-surface,
   .table-surface,
-  .lot-card,
-  .spotlight {
+  .lot-card {
     border-radius: 14px;
   }
 
@@ -1545,8 +1386,7 @@ select {
   }
 
   .field span,
-  .metric-card span,
-  .spotlight span {
+  .metric-card span {
     font-size: 0.82rem;
   }
 
@@ -1572,16 +1412,6 @@ select {
     align-items: start;
   }
 
-  .spotlight {
-    width: 100%;
-    min-width: 0;
-    padding: 14px 16px;
-  }
-
-  .spotlight strong {
-    font-size: 2.3rem;
-  }
-
   .status-header {
     gap: 10px;
     padding: 14px 0 10px;
@@ -1604,10 +1434,6 @@ select {
   .detail-ribbon {
     gap: 10px;
     padding-bottom: 12px;
-  }
-
-  .detail-ribbon-compact .detail-card:first-child {
-    display: none;
   }
 
   .detail-card {
@@ -1732,19 +1558,6 @@ select {
     gap: 5px;
   }
 
-  .pattern-summary-strip {
-    gap: 8px;
-  }
-
-  .pattern-summary-card {
-    padding: 10px;
-    border-radius: 12px;
-  }
-
-  .pattern-summary-card strong {
-    font-size: 0.98rem;
-  }
-
   .availability-legend {
     gap: 7px;
   }
@@ -1765,45 +1578,6 @@ select {
     background: var(--sticky-bg);
   }
 
-  .weekday-pattern-grid,
-  .holiday-pattern-grid {
-    gap: 10px;
-    grid-template-columns: 1fr;
-  }
-
-  .weekday-detail-card {
-    padding: 12px;
-    border-radius: 12px;
-  }
-
-  .hour-chip-grid {
-    display: grid;
-    gap: 6px;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    overflow: visible;
-    padding-bottom: 0;
-  }
-
-  .hour-chip {
-    min-width: 0;
-    padding: 7px 4px;
-  }
-
-  .hour-chip span {
-    font-size: 0.68rem;
-  }
-
-  .hour-chip strong {
-    margin-top: 3px;
-    font-size: 0.72rem;
-  }
-
-  .weekday-detail-head {
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-
   .threshold-list div,
   .quote-breakdown li {
     flex-direction: column;
@@ -1820,10 +1594,6 @@ select {
 }
 
 @media (max-width: 560px) {
-  .pattern-summary-strip {
-    grid-template-columns: 1fr;
-  }
-
   .page-shell {
     width: min(100% - 20px, 720px);
   }
@@ -1861,17 +1631,6 @@ select {
     padding: 8px 6px;
   }
 
-  .hour-chip-grid {
-    gap: 5px;
-  }
-
-  .hour-chip {
-    padding: 7px 3px;
-  }
-
-  .hour-chip strong {
-    font-size: 0.7rem;
-  }
 }
 
 @media (max-width: 380px) {
@@ -1887,16 +1646,12 @@ select {
 
 @media (prefers-color-scheme: dark) {
   .summary-chip,
-  .pattern-summary-card,
-  .weekday-detail-card,
-  .weekday-chip,
   .quote-box,
   .flight-chip,
   .lot-card,
   .table-surface,
   .panel-surface,
   .metric-card,
-  .spotlight,
   .control-band {
     border-color: var(--line);
   }
@@ -1940,8 +1695,7 @@ select {
     color: var(--teal);
   }
 
-  .heatmap-table td,
-  .hour-chip {
+  .heatmap-table td {
     background: rgba(255, 255, 255, 0.08);
   }
 
