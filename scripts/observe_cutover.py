@@ -46,6 +46,8 @@ def validate_observation_gate_args(args: argparse.Namespace) -> None:
 
 async def observe(args: argparse.Namespace) -> int:
     validate_observation_gate_args(args)
+    loop = asyncio.get_running_loop()
+    gate_started = loop.time()
     verifier_args = SimpleNamespace(
         source_base_url=args.source_base_url,
         target_base_url=args.target_base_url,
@@ -69,7 +71,8 @@ async def observe(args: argparse.Namespace) -> int:
     result = {
         "samples": args.samples,
         "sample_interval_seconds": args.sample_interval_seconds,
-        "gate_duration_seconds": (args.samples - 1) * args.sample_interval_seconds,
+        "nominal_gate_duration_seconds": (args.samples - 1) * args.sample_interval_seconds,
+        "gate_duration_seconds": round(loop.time() - gate_started, 1),
         "failed_samples": sum(status != 0 for status in statuses),
         "max_age_seconds": args.max_age_seconds,
         "max_source_lag_seconds": args.max_source_lag_seconds,

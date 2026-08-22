@@ -182,7 +182,7 @@ DATA_GO_KR_SERVICE_KEY=...
 
 - `snapshot_count=0`은 항상 실패가 아니다.
 - 공공데이터 원본의 `observed_at`이 이전 수집과 같으면 중복 방지로 저장 건수가 0이 될 수 있다.
-- 이 경우에도 `raw_response_count=1`, `status=success`이면 수집 호출 자체는 정상이다.
+- 이 경우에도 `raw_response_count>=1`, `status=success`이면 하나 이상의 원본 소스 호출 자체는 정상이다.
 
 현재 데이터 즉시 갱신:
 

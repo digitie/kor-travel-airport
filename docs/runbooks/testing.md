@@ -181,7 +181,7 @@ UI 확인 (로컬 profile에서 `ENABLE_MANUAL_COLLECT=true`일 때만):
 - `scheduler_enabled=true`
 - `client_mode=live`
 - `status=success`
-- `raw_response_count=1`
+- `raw_response_count>=1`
 - 인천 수집을 검증할 때는 `enabled_sources`에 `incheon_parking` 또는 `incheon_fee`가 포함되는지 확인
 - 인천공항까지 운영 대상이면 `AIRPORT_CODES_CSV`에 `ICN`이 포함되는지 확인
 

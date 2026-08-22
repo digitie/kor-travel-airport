@@ -29,8 +29,13 @@ test.describe("live parking-radar dashboard", () => {
     expect(collectorPayload.collect_interval_seconds).toBe(300);
     expect(collectorPayload.effective_collect_interval_seconds).toBe(240);
     expect(collectorPayload.last_run?.status).toBe("success");
+    expect(collectorPayload.last_run?.trigger).toBe("scheduler");
     expect(collectorPayload.last_run?.raw_response_count).toBeGreaterThan(0);
-    expect(Number.isFinite(Date.parse(collectorPayload.last_run?.finished_at))).toBe(true);
+    const lastRunFinishedAt = Date.parse(collectorPayload.last_run?.finished_at);
+    expect(Number.isFinite(lastRunFinishedAt)).toBe(true);
+    const lastRunAge = Date.now() - lastRunFinishedAt;
+    expect(lastRunAge).toBeGreaterThanOrEqual(0);
+    expect(lastRunAge).toBeLessThanOrEqual(300_000);
     const latestObservedAt = Date.parse(collectorPayload.latest_snapshot_observed_at);
     expect(Number.isFinite(latestObservedAt)).toBe(true);
     const latestAge = Date.now() - latestObservedAt;

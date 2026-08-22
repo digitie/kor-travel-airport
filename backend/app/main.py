@@ -752,17 +752,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     @app.post("/admin/backups", response_model=BackupFile, status_code=201)
-    async def admin_create_backup() -> BackupFile:
-        try:
-            item = await create_backup(
-                resolved_settings.backup_dir,
-                resolved_settings.database_url,
-                resolved_settings.backup_retention_count,
-                resolved_settings.backup_command_timeout_seconds,
-                resolved_settings.backup_storage_limit_bytes,
-            )
-        except (RuntimeError, ValueError) as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+    async def admin_create_backup(
+        service: CollectionService = Depends(get_collection_service),
+    ) -> BackupFile:
+        async with service.operation_lock:
+            try:
+                item = await create_backup(
+                    resolved_settings.backup_dir,
+                    resolved_settings.database_url,
+                    resolved_settings.backup_retention_count,
+                    resolved_settings.backup_command_timeout_seconds,
+                    resolved_settings.backup_storage_limit_bytes,
+                )
+            except (RuntimeError, ValueError) as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
         return BackupFile(filename=item.filename, size_bytes=item.size_bytes, created_at=item.created_at)
 
     @app.get("/admin/backups/{filename}")

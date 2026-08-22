@@ -198,7 +198,7 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 
 이 경우 해석은 아래처럼 한다.
 
-- `raw_response_count=1`이면 호출은 성공
+- `raw_response_count>=1`이면 하나 이상의 원본 소스 호출은 성공
 - `status=success`이면 실행은 정상
 - `snapshot_count=0`이면 중복 저장 방지 가능성 먼저 확인
 

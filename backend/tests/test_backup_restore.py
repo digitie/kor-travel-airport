@@ -114,3 +114,15 @@ async def test_create_backup_checks_dump_size_before_moving_into_backup_dir(
     assert created.size_bytes == 4
     assert (tmp_path / created.filename).read_bytes() == b"dump"
     assert old_path.exists() is False
+
+    second = await backup_restore.create_backup(
+        str(tmp_path),
+        "postgresql+asyncpg://operator:secret@postgres:5432/parking_radar",
+        retention_count=14,
+        timeout_seconds=30,
+        storage_limit_bytes=8,
+    )
+
+    assert second.filename != created.filename
+    assert (tmp_path / created.filename).exists()
+    assert (tmp_path / second.filename).exists()
