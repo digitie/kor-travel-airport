@@ -13,6 +13,11 @@ const BACKEND_PROXY_BODY_TIMEOUT_MS = Math.max(
   1_000,
   Number(process.env.BACKEND_PROXY_BODY_TIMEOUT_MS ?? BACKEND_PROXY_TIMEOUT_MS) || BACKEND_PROXY_TIMEOUT_MS
 );
+const BACKUP_PROXY_TIMEOUT_MS = Math.max(1_000, Number(process.env.BACKUP_PROXY_TIMEOUT_MS ?? 180_000) || 180_000);
+const BACKUP_PROXY_BODY_TIMEOUT_MS = Math.max(
+  1_000,
+  Number(process.env.BACKUP_PROXY_BODY_TIMEOUT_MS ?? BACKUP_PROXY_TIMEOUT_MS) || BACKUP_PROXY_TIMEOUT_MS
+);
 const FORWARDED_REQUEST_HEADERS = new Set(["accept", "content-type"]);
 const FORWARDED_RESPONSE_HEADERS = new Set([
   "cache-control",
@@ -99,7 +104,10 @@ function buildProxyErrorResponse(status: 502 | 504, detail: string): Response {
   );
 }
 
-function streamWithReadTimeout(body: ReadableStream<Uint8Array> | null): ReadableStream<Uint8Array> | null {
+function streamWithReadTimeout(
+  body: ReadableStream<Uint8Array> | null,
+  timeoutMs: number,
+): ReadableStream<Uint8Array> | null {
   if (!body) {
     return null;
   }
@@ -120,7 +128,7 @@ function streamWithReadTimeout(body: ReadableStream<Uint8Array> | null): Readabl
             settled = true;
             void reader.cancel("backend response body timeout").catch(() => undefined);
             reject(new Error("backend response body timeout"));
-          }, BACKEND_PROXY_BODY_TIMEOUT_MS);
+          }, timeoutMs);
           reader.read().then(
             (result) => {
               if (!settled) {
@@ -171,8 +179,11 @@ async function proxyToBackend(request: NextRequest, context: RouteContext): Prom
   }
 
   const targetUrl = `${BACKEND_INTERNAL_URL}/${backendPath}${request.nextUrl.search}`;
+  const isBackupRequest = backendPath.startsWith("admin/backups");
+  const requestTimeoutMs = isBackupRequest ? BACKUP_PROXY_TIMEOUT_MS : BACKEND_PROXY_TIMEOUT_MS;
+  const bodyTimeoutMs = isBackupRequest ? BACKUP_PROXY_BODY_TIMEOUT_MS : BACKEND_PROXY_BODY_TIMEOUT_MS;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), BACKEND_PROXY_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
   const requestBody = method === "GET" || method === "HEAD" ? undefined : request.body;
 
   try {
@@ -186,7 +197,7 @@ async function proxyToBackend(request: NextRequest, context: RouteContext): Prom
       ...(requestBody ? { duplex: "half" as const } : {}),
     });
 
-    return new Response(streamWithReadTimeout(upstreamResponse.body), {
+    return new Response(streamWithReadTimeout(upstreamResponse.body, bodyTimeoutMs), {
       status: upstreamResponse.status,
       statusText: upstreamResponse.statusText,
       headers: buildResponseHeaders(upstreamResponse),

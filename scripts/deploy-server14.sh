@@ -98,6 +98,7 @@ if [[ "${SCHEDULER_SAFETY_BUFFER_SECONDS:-60}" != "60" ]]; then
 fi
 require_exact MANUAL_COLLECT_MIN_INTERVAL_SECONDS 300
 require_exact BACKEND_INTERNAL_URL http://backend:8000
+require_exact BACKUP_DIR /app/backups
 if [[ -n "${NEXT_PUBLIC_API_BASE_URL:-}" ]]; then
   echo "Refusing server14 deployment: NEXT_PUBLIC_API_BASE_URL must be empty for same-origin proxying." >&2
   exit 2

@@ -76,6 +76,10 @@ services:
     restart: unless-stopped
     environment:
       BACKEND_INTERNAL_URL: "${BACKEND_INTERNAL_URL:-http://backend:8000}"
+      BACKEND_PROXY_TIMEOUT_MS: "${BACKEND_PROXY_TIMEOUT_MS:-10000}"
+      BACKEND_PROXY_BODY_TIMEOUT_MS: "${BACKEND_PROXY_BODY_TIMEOUT_MS:-10000}"
+      BACKUP_PROXY_TIMEOUT_MS: "${BACKUP_PROXY_TIMEOUT_MS:-180000}"
+      BACKUP_PROXY_BODY_TIMEOUT_MS: "${BACKUP_PROXY_BODY_TIMEOUT_MS:-180000}"
     depends_on:
       backend:
         condition: service_healthy

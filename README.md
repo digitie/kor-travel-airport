@@ -237,8 +237,8 @@ curl http://localhost:8000/admin/collector-status
 
 1. `WSL2` 셸에서 1차 테스트
 2. `WSL2 + Docker`에서 2차 테스트
-3. ODROID 배포
-4. ODROID 스모크 체크
+3. 192.168.1.14 server14 배포
+4. `https://pr.digitie.mywire.org` live 스모크 체크
 
 Windows 로컬 PowerShell 테스트는 지양하고, 테스트 통과 기준으로 삼지 않는다.
 
@@ -315,5 +315,5 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 - Windows 로컬 테스트는 지양한다.
 - 1차 테스트는 `WSL2` 셸에서 로컬 런타임으로 실행한다.
 - 2차 테스트는 `WSL2 + Docker`에서 `docker compose run --rm --no-deps ...` 형태로 실행한다.
-- ODROID 배포는 1차/2차 테스트 통과 이후 진행한다.
+- 192.168.1.14 server14 배포는 1차/2차 테스트 통과 이후 진행한다.
 - Windows PowerShell은 배포 스크립트와 상태 확인 용도로 사용하되, 테스트 합격 기준은 `WSL2` 결과를 따른다.

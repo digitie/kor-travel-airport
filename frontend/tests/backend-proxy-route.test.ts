@@ -100,4 +100,32 @@ describe("backend proxy route", () => {
       vi.useRealTimers();
     }
   });
+
+  test("allows backup operations to use the longer operation timeout", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("BACKEND_INTERNAL_URL", "http://test-backend:8000");
+    vi.stubEnv("BACKUP_PROXY_TIMEOUT_MS", "2000");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        new Promise<Response>((resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+          setTimeout(() => resolve(new Response("[]", { status: 200 })), 1500);
+        })
+      )
+    );
+
+    try {
+      const { GET } = await import("@/app/api/backend/[...path]/route");
+      const request = new NextRequest("https://pr.digitie.mywire.org/api/backend/admin/backups");
+      const responsePromise = GET(request, { params: Promise.resolve({ path: ["admin", "backups"] }) });
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(500);
+      const response = await responsePromise;
+
+      expect(response.status).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
