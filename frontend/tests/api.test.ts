@@ -17,23 +17,59 @@ describe("api client", () => {
     );
   });
 
-  test("uses the current browser host when the API base URL is not explicitly passed", async () => {
+  test("uses the consolidated bootstrap and analytics endpoints", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const client = buildApiClient("http://localhost:8000");
+    await client.getDashboardBootstrap("GMP");
+    await client.getDashboardAnalytics("GMP", 12);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:8000/dashboard/bootstrap?airport_code=GMP",
+      expect.objectContaining({ cache: "no-store" })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:8000/dashboard/analytics?airport_code=GMP&parking_lot_id=12",
+      expect.objectContaining({ cache: "no-store" })
+    );
+  });
+
+  test("uploads a PostgreSQL dump without overriding multipart boundaries", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "restored", restored_from: { filename: "parking-radar-test.dump", size_bytes: 12, created_at: "2026-08-22T00:00:00Z" } }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const client = buildApiClient("http://localhost:8000");
+    await client.restoreBackup(new File(["dump"], "parking-radar-test.dump"));
+
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8000/admin/backups/restore");
+    expect(request.method).toBe("POST");
+    expect(request.body).toBeInstanceOf(FormData);
+    expect(new Headers(request.headers).has("Content-Type")).toBe(false);
+  });
+
+  test("uses the same-origin backend proxy when the API base URL is not explicitly passed", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ generated_at: "2026-04-26T00:00:00.000Z", items: [] }),
     });
 
     vi.stubGlobal("fetch", fetchMock);
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: new URL("http://192.168.1.204:3000/"),
-    });
 
     const client = buildApiClient();
     await client.getCurrent("GMP");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://192.168.1.204:8000/parking/current?airport_code=GMP",
+      "/api/backend/parking/current?airport_code=GMP",
       expect.objectContaining({ cache: "no-store" })
     );
   });
@@ -51,7 +87,8 @@ describe("api client", () => {
     await client.getByWeekdayHour("GMP", 12);
     await client.getThresholdEvents("GMP", 12);
     await client.getThresholdInsights("GMP", { parkingLotId: 12, days: 21, intervalMinutes: 10 });
-    await client.getTimeSeries("GMP", { parkingLotId: 12, days: 7, intervalMinutes: 30 });
+    await client.getTimeSeries("GMP", { parkingLotId: 12, days: 7 });
+    await client.getHolidayPatterns("GMP", { parkingLotId: 12, limit: 8 });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -80,7 +117,61 @@ describe("api client", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       6,
-      "http://localhost:8000/parking/analytics/timeseries?airport_code=GMP&parking_lot_id=12&days=7&interval_minutes=30",
+      "http://localhost:8000/parking/analytics/timeseries?airport_code=GMP&parking_lot_id=12&days=7&interval_minutes=10&future_hours=0",
+      expect.objectContaining({ cache: "no-store" })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      7,
+      "http://localhost:8000/parking/analytics/holiday-patterns?airport_code=GMP&parking_lot_id=12&limit=8",
+      expect.objectContaining({ cache: "no-store" })
+    );
+  });
+
+  test("requests the holiday summary endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        generated_at: "2026-05-09T00:00:00.000Z",
+        start_date: "2026-04-27",
+        end_date: "2026-05-17",
+        source: "sample_holiday_info",
+        status: "sample",
+        error_message: null,
+        sentence: "5/5 (화) 어린이날 입니다.",
+        items: [],
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const client = buildApiClient("http://localhost:8000");
+    await client.getHolidaySummary();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/holidays/summary",
+      expect.objectContaining({ cache: "no-store" })
+    );
+  });
+
+  test("requests the flight status endpoint for chart markers", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        generated_at: "2026-04-26T00:00:00.000Z",
+        airport_code: "GMP",
+        local_date: "2026-04-26",
+        source: "sample_flight_status",
+        status: "sample",
+        error_message: null,
+        items: [],
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const client = buildApiClient("http://localhost:8000");
+    await client.getFlightStatus("GMP");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/flights/status?airport_code=GMP",
       expect.objectContaining({ cache: "no-store" })
     );
   });
@@ -106,6 +197,9 @@ describe("api client", () => {
         json: async () => ({
           scheduler_enabled: true,
           collect_interval_seconds: 300,
+          effective_collect_interval_seconds: 180,
+          scheduler_safety_buffer_seconds: 120,
+          manual_collect_enabled: true,
           manual_collect_min_interval_seconds: 300,
           client_mode: "live",
           enabled_sources: ["kac_parking"],
@@ -146,7 +240,10 @@ describe("api client", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       "http://localhost:8000/admin/collect",
-      expect.objectContaining({ method: "POST", cache: "no-store" })
+      expect.objectContaining({
+        method: "POST",
+        cache: "no-store",
+      })
     );
   });
 });

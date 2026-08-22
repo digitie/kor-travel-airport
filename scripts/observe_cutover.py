@@ -1,0 +1,87 @@
+"""Repeat the per-lot cutover verifier for the complete five-minute gate."""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+from types import SimpleNamespace
+
+from verify_cutover import validate_release_gate_args, verify
+
+
+STRICT_SAMPLE_COUNT = 7
+STRICT_SAMPLE_INTERVAL_SECONDS = 50
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source-base-url", required=True)
+    parser.add_argument("--target-base-url", required=True)
+    parser.add_argument("--days", type=int, default=1, choices=range(1, 8))
+    parser.add_argument("--max-age-seconds", type=int, default=300, choices=range(60, 1801))
+    parser.add_argument("--max-source-lag-seconds", type=int, default=300, choices=range(60, 1801))
+    parser.add_argument("--max-run-gap-seconds", type=int, default=300, choices=range(60, 1801))
+    parser.add_argument("--allow-empty-source-lot", action="append", default=[])
+    parser.add_argument("--empty-lot-file", type=argparse.FileType("r"))
+    parser.add_argument("--samples", type=int, default=7, choices=range(2, 21))
+    parser.add_argument("--sample-interval-seconds", type=int, default=50, choices=range(5, 3601))
+    args = parser.parse_args()
+    try:
+        validate_observation_gate_args(args)
+    except ValueError as exc:
+        parser.error(str(exc))
+    return args
+
+
+def validate_observation_gate_args(args: argparse.Namespace) -> None:
+    validate_release_gate_args(args)
+    if getattr(args, "samples", None) != STRICT_SAMPLE_COUNT:
+        raise ValueError(f"samples is fixed at {STRICT_SAMPLE_COUNT} for the release cutover gate")
+    if getattr(args, "sample_interval_seconds", None) != STRICT_SAMPLE_INTERVAL_SECONDS:
+        raise ValueError(
+            f"sample_interval_seconds is fixed at {STRICT_SAMPLE_INTERVAL_SECONDS} for the release cutover gate"
+        )
+
+
+async def observe(args: argparse.Namespace) -> int:
+    validate_observation_gate_args(args)
+    loop = asyncio.get_running_loop()
+    gate_started = loop.time()
+    verifier_args = SimpleNamespace(
+        source_base_url=args.source_base_url,
+        target_base_url=args.target_base_url,
+        days=args.days,
+        max_age_seconds=args.max_age_seconds,
+        max_source_lag_seconds=args.max_source_lag_seconds,
+        max_run_gap_seconds=args.max_run_gap_seconds,
+        allow_empty_source_lot=args.allow_empty_source_lot,
+        empty_lot_file=None,
+    )
+    if args.empty_lot_file is not None:
+        payload = json.load(args.empty_lot_file)
+        verifier_args.empty_lot_file = None
+        verifier_args.allow_empty_source_lot.extend(payload.get("allow_empty_source_lots", []))
+    statuses: list[int] = []
+    for sample_index in range(args.samples):
+        statuses.append(await verify(verifier_args))
+        if sample_index + 1 < args.samples:
+            await asyncio.sleep(args.sample_interval_seconds)
+
+    result = {
+        "samples": args.samples,
+        "sample_interval_seconds": args.sample_interval_seconds,
+        "nominal_gate_duration_seconds": (args.samples - 1) * args.sample_interval_seconds,
+        "gate_duration_seconds": round(loop.time() - gate_started, 1),
+        "failed_samples": sum(status != 0 for status in statuses),
+        "max_age_seconds": args.max_age_seconds,
+        "max_source_lag_seconds": args.max_source_lag_seconds,
+        "max_run_gap_seconds": args.max_run_gap_seconds,
+        "allowed_empty_source_lots": verifier_args.allow_empty_source_lot,
+    }
+    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    return 1 if any(statuses) else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(observe(parse_args())))

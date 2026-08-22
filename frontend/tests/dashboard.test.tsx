@@ -5,6 +5,9 @@ import { DashboardScreen } from "@/components/dashboard-screen";
 import type {
   Airport,
   CollectorStatusResponse,
+  FlightStatusResponse,
+  HolidayPatternResponse,
+  HolidaySummaryResponse,
   ParkingStatus,
   ParkingTimeSeriesResponse,
   ThresholdEvent,
@@ -19,8 +22,8 @@ const airports: Airport[] = [
     name_en: "Gimpo",
     source: "kac",
     parking_lots: [
-      { id: 1, name: "국내선 제1주차장", terminal: "국내선", category: "short", is_active: true },
-      { id: 2, name: "국제선 지하주차장", terminal: "국제선", category: "short", is_active: true },
+      { id: 1, source_lot_id: "gmp-1", legacy_source_lot_id: null, name: "국내선 제1주차장", terminal: "국내선", category: "short", is_active: true },
+      { id: 2, source_lot_id: "gmp-2", legacy_source_lot_id: null, name: "국제선 지하주차장", terminal: "국제선", category: "short", is_active: true },
     ],
   },
 ];
@@ -125,6 +128,46 @@ const weekdayHourlyPatterns: WeekdayHourlyPattern[] = [
   },
 ];
 
+const holidaySummary: HolidaySummaryResponse = {
+  generated_at: "2026-05-09T00:00:00.000Z",
+  start_date: "2026-04-27",
+  end_date: "2026-05-17",
+  source: "sample_holiday_info",
+  status: "sample",
+  error_message: null,
+  sentence: "5/5 (화) 어린이날 입니다.",
+  items: [{ local_date: "2026-04-25", name: "테스트 공휴일", weekday: 5, weekday_name: "토" }],
+};
+
+const holidayPatterns: HolidayPatternResponse = {
+  generated_at: "2026-05-09T00:00:00.000Z",
+  airport_code: "GMP",
+  parking_lot_id: 1,
+  source: "sample_holiday_info",
+  status: "sample",
+  error_message: null,
+  items: [
+    {
+      local_date: "2026-04-25",
+      name: "테스트 공휴일",
+      day_type: "holiday",
+      weekday: 5,
+      weekday_name: "토",
+      average_available_spaces: 35,
+      min_available_spaces: 8,
+      max_available_spaces: 70,
+      observations: 24,
+      hourly_buckets: Array.from({ length: 24 }, (_, hour) => ({
+        hour,
+        average_available_spaces: hour === 9 ? 12 : 35 + hour,
+        min_available_spaces: hour === 9 ? 8 : 20,
+        max_available_spaces: hour === 9 ? 30 : 70,
+        observations: 1,
+      })),
+    },
+  ],
+};
+
 const timeSeries: ParkingTimeSeriesResponse = {
   generated_at: "2026-04-25T00:30:00.000Z",
   airport_code: "GMP",
@@ -156,9 +199,36 @@ const timeSeries: ParkingTimeSeriesResponse = {
   ],
 };
 
+const flightStatus: FlightStatusResponse = {
+  generated_at: "2026-04-25T00:30:00.000Z",
+  airport_code: "GMP",
+  local_date: "2026-04-25",
+  source: "sample_flight_status",
+  status: "sample",
+  error_message: null,
+  items: [
+    {
+      airport_code: "GMP",
+      direction: "departure",
+      flight_number: "KE1101",
+      airline: "대한항공",
+      scheduled_at: "2026-04-24T12:30:00.000Z",
+      estimated_at: "2026-04-24T12:40:00.000Z",
+      marker_at: "2026-04-24T12:40:00.000Z",
+      origin_airport: "김포",
+      destination_airport: "제주",
+      status: "출발",
+      line_type: "국내",
+    },
+  ],
+};
+
 const collectorStatus: CollectorStatusResponse = {
   scheduler_enabled: true,
   collect_interval_seconds: 300,
+  effective_collect_interval_seconds: 180,
+  scheduler_safety_buffer_seconds: 120,
+  manual_collect_enabled: true,
   manual_collect_min_interval_seconds: 300,
   client_mode: "live",
   enabled_sources: ["kac_parking"],
@@ -168,6 +238,8 @@ const collectorStatus: CollectorStatusResponse = {
   latest_snapshot_collected_at: "2026-04-25T00:30:00.000Z",
   manual_collect_available_at: "2026-04-25T00:35:00.000Z",
   manual_collect_blocked: false,
+  upstream_rate_limited: false,
+  upstream_rate_limited_until: null,
   last_run: null,
   recent_runs: [],
 };
@@ -186,7 +258,10 @@ describe("DashboardScreen", () => {
         thresholdEvents={thresholdEvents}
         thresholdInsights={thresholdInsights}
         weekdayHourlyPatterns={weekdayHourlyPatterns}
+        holidaySummary={holidaySummary}
+        holidayPatterns={holidayPatterns}
         timeSeries={timeSeries}
+        flightStatus={flightStatus}
         collectorStatus={collectorStatus}
         isMobile={false}
         loading={false}
@@ -195,6 +270,7 @@ describe("DashboardScreen", () => {
         actionMessage={null}
         actionMessageIsError={false}
         onAirportChange={() => undefined}
+        onAnalyticsVisible={() => undefined}
         onParkingLotChange={() => undefined}
         onRefresh={() => undefined}
         onManualCollect={() => undefined}
@@ -204,18 +280,23 @@ describe("DashboardScreen", () => {
     expect(screen.getByTestId("desktop-lot-table")).toBeInTheDocument();
     expect(screen.queryByTestId("mobile-lot-grid")).not.toBeInTheDocument();
     expect(screen.getByTestId("history-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("daily-flight-overlay-chart")).toBeInTheDocument();
     expect(screen.getByTestId("weekday-hour-heatmap")).toBeInTheDocument();
-    expect(screen.getByTestId("weekday-pattern-grid")).toBeInTheDocument();
+    expect(screen.getByTestId("holiday-pattern-heatmap")).toBeInTheDocument();
     expect(screen.getByTestId("threshold-weekday-grid")).toBeInTheDocument();
     expect(screen.getByTestId("threshold-history-scroll")).toBeInTheDocument();
     expect(screen.getByTestId("weekday-hour-cell-0-9")).toHaveTextContent("18");
     expect(screen.getByRole("button", { name: "즉시 수집 실행" })).toBeInTheDocument();
-    expect(screen.getByText("데이터 기준 시각: 04.25 09:20 KST")).toBeInTheDocument();
-    expect(screen.getByText("수집기 마지막 동기화: 04.25 09:30 KST")).toBeInTheDocument();
-    expect(screen.getByText("평균으로 가장 빠듯")).toBeInTheDocument();
-    expect(screen.getByText("색상 범례")).toBeInTheDocument();
+    expect(screen.getByText("데이터 기준 시각: 04.25 09:20")).toBeInTheDocument();
+    expect(screen.queryByText("수집기 마지막 동기화: 04.25 09:30")).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "상태" })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "잔여/전체" })).toBeInTheDocument();
+    expect(screen.getAllByText("최고 혼잡").length).toBeGreaterThan(0);
+    expect(screen.queryByText("평균으로 가장 빠듯")).not.toBeInTheDocument();
+    expect(screen.queryByText("색상 범례")).not.toBeInTheDocument();
+    expect(screen.getByText("5/5 (화) 어린이날 입니다.")).toBeInTheDocument();
     expect(screen.queryByText("출발 전에 보는 공항 주차 레이더")).not.toBeInTheDocument();
-    expect(screen.queryByText("최근 수집 시각: 04.25 09:30 KST")).not.toBeInTheDocument();
+    expect(screen.queryByText("최근 수집 시각: 04.25 09:30")).not.toBeInTheDocument();
   });
 
   test("renders mobile cards in mobile mode", () => {
@@ -231,7 +312,10 @@ describe("DashboardScreen", () => {
         thresholdEvents={thresholdEvents}
         thresholdInsights={thresholdInsights}
         weekdayHourlyPatterns={weekdayHourlyPatterns}
+        holidaySummary={holidaySummary}
+        holidayPatterns={holidayPatterns}
         timeSeries={timeSeries}
+        flightStatus={flightStatus}
         collectorStatus={collectorStatus}
         isMobile
         loading={false}
@@ -240,6 +324,7 @@ describe("DashboardScreen", () => {
         actionMessage={null}
         actionMessageIsError={false}
         onAirportChange={() => undefined}
+        onAnalyticsVisible={() => undefined}
         onParkingLotChange={() => undefined}
         onRefresh={() => undefined}
         onManualCollect={() => undefined}
@@ -248,7 +333,11 @@ describe("DashboardScreen", () => {
 
     expect(screen.getByTestId("mobile-lot-grid")).toBeInTheDocument();
     expect(screen.queryByTestId("desktop-lot-table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "즉시 수집 실행" })).toBeInTheDocument();
     expect(screen.getAllByText("국내선 제1주차장").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("잔여/전체").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("일 단위 잔여 주차면 변화").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("mobile-disclosure").length).toBeGreaterThanOrEqual(4);
   });
 
   test("calls lot change handler when selecting a parking lot", async () => {
@@ -267,7 +356,10 @@ describe("DashboardScreen", () => {
         thresholdEvents={thresholdEvents}
         thresholdInsights={thresholdInsights}
         weekdayHourlyPatterns={weekdayHourlyPatterns}
+        holidaySummary={holidaySummary}
+        holidayPatterns={holidayPatterns}
         timeSeries={timeSeries}
+        flightStatus={flightStatus}
         collectorStatus={collectorStatus}
         isMobile={false}
         loading={false}
@@ -276,6 +368,7 @@ describe("DashboardScreen", () => {
         actionMessage={null}
         actionMessageIsError={false}
         onAirportChange={() => undefined}
+        onAnalyticsVisible={() => undefined}
         onParkingLotChange={onParkingLotChange}
         onRefresh={() => undefined}
         onManualCollect={() => undefined}
@@ -299,7 +392,10 @@ describe("DashboardScreen", () => {
         thresholdEvents={thresholdEvents}
         thresholdInsights={thresholdInsights}
         weekdayHourlyPatterns={weekdayHourlyPatterns}
+        holidaySummary={holidaySummary}
+        holidayPatterns={holidayPatterns}
         timeSeries={timeSeries}
+        flightStatus={flightStatus}
         collectorStatus={collectorStatus}
         isMobile={false}
         loading={false}
@@ -308,6 +404,7 @@ describe("DashboardScreen", () => {
         actionMessage="마지막 업데이트 후 5분이 지나지 않았습니다."
         actionMessageIsError
         onAirportChange={() => undefined}
+        onAnalyticsVisible={() => undefined}
         onParkingLotChange={() => undefined}
         onRefresh={() => undefined}
         onManualCollect={() => undefined}

@@ -4,7 +4,7 @@
 세부 기능 문서가 흩어져 있을 때 먼저 이 문서를 읽고, 필요하면 링크된 개별 문서로 내려가는 것을 권장한다.
 
 최종 확인 기준일:
-- `2026-04-26`
+- `2026-08-22`
 
 ## 1. 현재 구현 범위
 
@@ -12,22 +12,34 @@
 
 - 공항별 현재 주차 현황 조회
 - 세부 주차장 단위 조회
-- 최근 7일, 30분 단위 시계열
+- 최근 7일, 10분 단위 시계열
 - 시계열 hover / touch 툴팁
 - 시계열 X축 6시간 단위 라벨
 - 시계열 계단형(step) 차트
 - 시계열 최신 포인트 기본 활성화 및 오른쪽 최신 구간 우선 노출
+- 공휴일/토요일/일요일 날짜 배경 강조와 이름 표시
+- 하루 흐름과 비행편 오버레이 차트
+  - 0시부터 24시까지 최근 7일 잔여 주차면 겹침 표시
+  - 날짜별 선 숨김 / 다시 표시
+  - 출발편 / 도착편 마커 개별 토글
+  - 공휴일/토요일/일요일 선과 마커 구분 표시
+- 선택 공항 비행편 출도착 시간 마커
+- 공동운항편 묶음 표시
 - 요일 x 시간 평균 잔여 주차면 히트맵
+- 최근 8개 공휴일/토요일/일요일 날짜별 시간대 잔여 주차면 패턴
 - 평균으로 가장 빠듯한 시간 / 가장 여유 있는 시간 요약
-- 요일별 24시간 상세 패턴 카드
+- 요일 x 시간 평균 잔여 주차면 히트맵 내 최고/최저 혼잡 시간 요약
 - 요일별 임계 달성 시간
 - 날짜별 임계 달성 시간 히스토리
 - 10대 / 50대 임계치 이벤트 분석
 - 공항/세부 주차장 스코프 전환
 - 마지막으로 본 공항 / 세부 주차장 복원
 - 주차 요금 계산
+  - 한국공항공사 요금 API
+  - 인천공항공사 요금 API
 - 웹 UI에서 수동 수집 실행
 - 수동 수집 쿨다운 제한
+- 웹 UI 15초 자동 갱신
 - 모바일 / 데스크톱 반응형 대응
 
 ## 2. 기본 실행 모드
@@ -71,15 +83,26 @@ curl http://localhost:8000/admin/collector-status
 - `15063437` 한국공항공사 전국공항 주차장 혼잡도
 - `15038474` 한국공항공사 전국공항 주차요금
 - `15095047` 인천국제공항공사 주차 정보
+- `15095053` 인천국제공항공사 주차요금 정보
+- `15113771` 한국공항공사 실시간 항공운항 현황 정보 상세 조회 서비스
+- `15112968` 인천국제공항공사 여객기 운항 정보
+- `15012690` 한국천문연구원 특일 정보
 
 현재 코드 기준 운영 판단:
 
 - 한국공항공사 실시간 주차 현황은 `15056803`을 기본으로 사용한다.
 - `15063437`은 혼잡도 참고용 후보지만 기본 수집원은 아니다.
-- `15038474`와 `15095047`는 별도 플래그를 켰을 때만 시도한다.
+- `15038474`, `15095047`, `15095053`은 별도 플래그를 켰을 때만 시도한다.
+- `15056803`이 한도 초과 상태여도 `15095047`, `15095053` 인천 전용 소스는 계속 시도한다.
+- 비행편 정보는 주차 수집과 분리된 조회용 API이며, `/flights/status`를 통해 하루 흐름 오버레이 차트 마커에만 사용한다.
+- 공휴일 정보는 주차 수집과 분리된 조회용 API이며, `/holidays/summary`와 `/parking/analytics/holiday-patterns`를 통해 차트 배경과 공휴일/토/일요일 패턴에 사용한다.
+- `2026-05-09` 현재 보유 키로 `15113771` 한국공항공사 실시간 항공운항 현황 정보 상세 조회 서비스는 정상 응답을 확인했다.
+- `2026-05-09` 현재 보유 키로 `15112968` 인천 여객기 운항 정보는 정상 응답을 확인했다.
+- `2026-05-09` 현재 보유 키로 `15012690` 한국천문연구원 특일 정보의 `2026년 5월` 조회는 `resultCode=00`을 반환했다.
+- 기존 `15000126` 계열 `FlightStatusList/getFlightStatusList`는 현재 보유 키로 `SERVICE ACCESS DENIED ERROR.`가 반환되어 live 호출에서 제외한다.
 
 관련 문서:
-- [data-sources.md](</C:/Users/digit/OneDrive/문서/New project/docs/data-sources.md>)
+- [architecture/data-sources.md](</F:/dev/parking-radar/docs/architecture/data-sources.md>)
 
 ## 4. 공항별 세부 주차장 기준
 
@@ -115,7 +138,7 @@ curl http://localhost:8000/admin/collector-status
 - `T2 장기주차장`
 - `T2 예약주차장`
 
-이름 표기가 원본 API에서 흔들리는 경우가 있어, 파서와 시드 데이터 모두 정규화된 lot 이름 기준을 유지한다.
+실제 `15095047` 응답에서는 `T1 단기주차장지하1층`처럼 층 정보가 붙은 이름도 내려온다. 파서는 실데이터 이름을 유지하되 단기/장기/예약/화물 성격을 분류하고, 요금 규칙은 `T1 단기주차장` 같은 접두어 기준으로 연결한다.
 
 ## 5. 시각 기준
 
@@ -123,23 +146,25 @@ curl http://localhost:8000/admin/collector-status
 
 - DB 저장 기준: UTC
 - API 응답 기준: UTC ISO 8601
+- `/health`의 `release_sha`는 14번에 배포한 Git full SHA를 나타내며, deploy script와 CI live
+  E2E에서 candidate 일치를 확인한다.
 - 브라우저 표시 기준: KST
 
 웹 UI에서 보이는 대표 시각:
 
 - `데이터 기준 시각`
   - 원본 데이터가 실제로 관측된 시각
-- `수집기 마지막 동기화`
-  - 전체 시스템 기준 마지막 적재 시각
-
-row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 직접 노출하지 않는다.
+row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔드/API에 남아 있지만, 메인 UI에서는
+직접 노출하지 않는다. 사용자에게 필요한 데이터 기준 시각만 표시한다.
 
 관련 문서:
-- [time-and-collector.md](</C:/Users/digit/OneDrive/문서/New project/docs/time-and-collector.md>)
+- [architecture/collection.md](</F:/dev/parking-radar/docs/architecture/collection.md>)
 
 ## 6. 수동 수집 버튼
 
-웹 UI의 `지금 수집` 버튼은 `POST /admin/collect`를 호출한다.
+로컬 개발 profile에서 `ENABLE_MANUAL_COLLECT=true`이면 웹 UI의 `지금 수집` 버튼이
+`POST /admin/collect`를 호출한다. public server14 profile에서는 버튼과 endpoint가 모두
+비활성화된다.
 
 동작 규칙:
 
@@ -155,7 +180,7 @@ row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 �
 
 실패 시 예시:
 
-- `마지막 업데이트 후 20분이 지나지 않았습니다. 04.26 20:49 KST 이후 다시 시도해 주세요.`
+- `마지막 업데이트 후 10분이 지나지 않았습니다. 04.26 20:49 KST 이후 다시 시도해 주세요.`
 
 ## 7. 스케줄러와 중복 저장
 
@@ -173,9 +198,14 @@ row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 �
 
 이 경우 해석은 아래처럼 한다.
 
-- `raw_response_count=1`이면 호출은 성공
+- `raw_response_count>=1`이면 하나 이상의 원본 소스 호출은 성공
 - `status=success`이면 실행은 정상
 - `snapshot_count=0`이면 중복 저장 방지 가능성 먼저 확인
+
+## Historical: 2026-05 ODROID 관찰 기록
+
+아래 수집기 rate-limit과 ODROID 항목은 13번에서 읽기 전용으로 확인했던 과거 운영 기록이다.
+현재 Docker/PostgreSQL 운영은 192.168.1.14에서만 수행한다.
 
 추가 규칙:
 
@@ -184,6 +214,13 @@ row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 �
 - 이때는 `UPSTREAM_RATE_LIMIT_BACKOFF_SECONDS` 동안만 수집기가 자동으로 API 호출을 건너뛴다.
 - 같은 인증키를 쓰는 live 수집기는 동시에 하나만 유지한다.
 - `2026-04-30` 기준 ODROID에는 별도 프로젝트 `airport-parking-monitor`의 `parking-collector.timer`가 10분마다 같은 키로 `GMP,PUS,CJU,TAE`를 호출하고 있었고, 현재는 중지했다.
+- 현재 ODROID `parking-radar`는 `CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY`를 10분마다 처리하도록 설정한다.
+- 한국공항공사 소스가 한도 초과 상태여도 인천공항 전용 주차/요금 소스는 같은 수집 실행 안에서 계속 시도한다.
+- `2026-05-01 06:13:53 KST` ODROID에서 자동 재시도했지만 원 API가 다시 `resultCode=99`를 반환했다.
+- 같은 시각 ODROID에서 원 API를 직접 호출해도 동일한 99 응답이 반환되어, 최신 데이터가 `2026-04-28 17:18:02 KST`에 멈춘 직접 원인은 앱 내부 중단이 아니라 원 API의 키 제한 상태로 본다.
+- `2026-05-01` 확인 기준 ODROID의 활성 중복 수집기는 발견되지 않았다. 운영 장애 조사 시 사용자가 명시하지 않은 다른 WSL2 프로젝트의 컨테이너/프로세스는 임의로 중지하거나 변경하지 않는다.
+- 임시 운영 조치로 ODROID의 `UPSTREAM_RATE_LIMIT_BACKOFF_SECONDS`를 `409567`로 변경해 다음 원 API 재시도를 `2026-05-06 00:00:00 KST` 이후로 미뤘다.
+- ODROID에는 `parking-radar-restore-backoff.timer`를 등록해 `2026-05-05 06:00:00 KST`에 backoff 값을 `3600`으로 되돌리고 backend 컨테이너를 재생성하도록 예약했다.
 
 ## 8. 프론트엔드 동작 기준
 
@@ -194,80 +231,115 @@ row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 �
 - 세부 주차장 선택:
   - 선택한 주차장 하나 기준으로 모든 패널이 바뀐다.
 - 마지막 선택 정보는 브라우저 localStorage에 저장되고 다음 접속 시 복원된다.
+- 화면 데이터는 15초마다 자동으로 다시 읽는다. 자동 갱신은 원 API 수집을 강제로 실행하지 않고, 백엔드에 이미 저장된 현재/분석 데이터를 다시 조회한다.
+- 브라우저 탭이 숨겨져 있으면 주기 갱신을 건너뛰고, 다시 보이거나 포커스를 얻으면 현재 선택 기준으로 조용히 갱신한다.
+- 하루 흐름 오버레이 차트의 비행편 마커도 같은 대시보드 새로고침 흐름에서 다시 조회한다.
+- 비행편 정보는 보조 데이터이므로 초기 대시보드 로딩을 막지 않는다. 주차 현황, 시계열, 분석 데이터가 먼저 표시되고 비행편 정보는 별도로 반영된다.
+- 비행편 API 응답이 6초 이상 지연되면 주차 현황을 먼저 표시하고 비행편 패널에는 지연 안내 상태를 남긴다.
+- 백엔드는 비행편 API 응답을 5분 동안 캐시해 차트 갱신 때문에 외부 API 호출이 과도하게 늘지 않도록 한다.
+- 백엔드는 공휴일 API 응답을 월 단위로 조회하고 기본 1일 동안 캐시한다.
 
 스코프가 함께 바뀌는 패널:
 
 - 현재 잔여 주차면
 - 현재 점유율
 - 최근 7일 시계열
-- 요일 x 시간 평균 잔여 주차면
-- 요일별 시간대 상세 패턴
+- 하루 흐름 오버레이 차트의 선택 공항 출도착 비행편 마커
+- 지난주/이번주/다음주 공휴일 문장
+- 시계열 공휴일/토요일/일요일 배경
+- 요일 x 시간 평균 잔여 주차면 히트맵 요약
+- 공휴일/토요일/일요일 날짜별 시간대 패턴
 - 요일별 임계 달성 시간
 - 날짜별 임계 달성 시간 히스토리
 - 임계치 이벤트
-- 시계열의 마지막 값은 `지금 주차 여유`와 같은 계산 기준으로 고정한다.
+- 시계열의 마지막 값은 화면 상단 `현재 잔여 주차면`과 같은 계산 기준으로 고정한다.
+- 최근 7일 시계열 주차선은 실제 관측값까지만 그리고, 기본 X축을 미래로 확장하지 않는다.
+- 비행편 마커는 별도 `하루 흐름과 비행편` 차트에서 0시부터 24시까지의 하루 축에 표시한다.
+- `하루 흐름과 비행편` 차트는 최근 7일 선을 겹쳐 보여주고, 날짜별 선과 출발편/도착편 마커를 각각 켜고 끌 수 있다.
+- 공휴일/토요일/일요일 날짜의 선은 점선과 사각 마커로 일반일과 구분한다.
+- 같은 출도착 시각/출발지/도착지를 가진 비행편은 공동운항편으로 묶어 표시한다.
+- 모바일 화면에서는 현재 주차 여유, 빠듯한 주차장, 최근 7일 흐름, 요일별 평균을 우선 보여준다.
+- 모바일 화면에서는 비행편 흐름, 공휴일/토/일요일 패턴, 임계 달성 시간, 임계치 이벤트, 주차요금 계산기를 접힘 섹션으로 내려 스크롤 부담을 줄인다.
+- 모바일 표와 차트는 가로 스크롤을 허용하고, 시간대 히트맵은 첫 열을 고정해 어느 요일/특수일의 값인지 잃지 않게 한다.
 
 ### API 주소 결정
 
 - `NEXT_PUBLIC_API_BASE_URL`이 있으면 그 값을 쓴다.
-- 없으면 브라우저가 접속한 현재 호스트에 `:8000`을 붙여 API 주소를 만든다.
+- 없으면 브라우저는 같은 origin의 `/api/backend`를 호출한다.
+- Next.js 서버가 `/api/backend/*` 요청을 Docker 내부 백엔드 주소인 `BACKEND_INTERNAL_URL`로 프록시한다.
+- server14 기본값은 `BACKEND_INTERNAL_URL=http://backend:8000`이다.
 
-이 규칙은 LAN IP로 접속하는 ODROID 배포에서 프론트가 잘못 `localhost:8000`을 바라보지 않게 하기 위한 것이다.
+이 규칙은 server14 외부 주소(`https://pr.digitie.mywire.org/`)를 같은 빌드로 처리하고, 외부
+HTTPS 페이지에서 HTTP API 포트를 직접 호출하는 문제를 피하기 위한 것이다. 13번 주소는
+cutover read-only source로만 남긴다.
+
+### 공개 서비스 보안
+
+- server14 외부 서비스 기준 주소는 `https://pr.digitie.mywire.org/`이다.
+- 운영 백엔드는 `TRUSTED_HOSTS_CSV`로 허용 Host를 제한한다.
+- server14 운영 CORS는 `http://192.168.1.14:14001`, `https://pr.digitie.mywire.org`,
+  `https://pr-api.digitie.mywire.org`를 기준으로 제한한다.
+- 운영에서는 `ENABLE_API_DOCS=false`로 API 문서를 공개하지 않는다.
+- 운영 server14에서는 `ENABLE_MANUAL_COLLECT=false`로 `POST /admin/collect`를 비활성화한다.
+  로컬 개발 profile에서만 명시적으로 활성화한다.
+- 일반 조회와 자동 갱신은 서버에 저장된 `DATA_GO_KR_SERVICE_KEY`로 동작하며, 브라우저에 공공데이터 API 키를 요구하거나 노출하지 않는다.
+- `GET /admin/collector-status`는 화면 갱신과 운영 상태 확인을 위해 공개 조회로 둔다.
 
 ## 9. 배포 자산
 
-이미 만들어둔 주요 배포 자산:
+현재 운영 배포 자산:
 
-- [docker-compose.odroid.yml](</C:/Users/digit/OneDrive/문서/New project/docker-compose.odroid.yml>)
-- [.env.odroid](</C:/Users/digit/OneDrive/문서/New project/.env.odroid>)
-- [scripts/deploy-odroid.ps1](</C:/Users/digit/OneDrive/문서/New project/scripts/deploy-odroid.ps1>)
-- [scripts/odroid-status.ps1](</C:/Users/digit/OneDrive/문서/New project/scripts/odroid-status.ps1>)
-- [deploy/odroid/remote-deploy.sh](</C:/Users/digit/OneDrive/문서/New project/deploy/odroid/remote-deploy.sh>)
-- [deploy/odroid/bootstrap-docker.sh](</C:/Users/digit/OneDrive/문서/New project/deploy/odroid/bootstrap-docker.sh>)
+- [scripts/deploy-server14.sh](</F:/dev/parking-radar/scripts/deploy-server14.sh>)
+- [.env.server14.example](</F:/dev/parking-radar/.env.server14.example>)
+- [docker-compose.yml](</F:/dev/parking-radar/docker-compose.yml>)
+- `deploy/odroid/*`와 `scripts/deploy-odroid.ps1`는 historical fail-closed 자산이며 실행하지 않는다.
 
-배포 대상 기본값:
+배포 대상:
 
-- IP: `192.168.1.204`
+- IP: `192.168.1.14`
 - 사용자: `digitie`
 - 앱 경로: `/home/digitie/apps/parking-radar`
 
 비밀번호는 저장하지 않는 것이 원칙이다.
 
 관련 문서:
-- [deployment.md](</C:/Users/digit/OneDrive/문서/New project/docs/deployment.md>)
-- [deploy/odroid/README.md](</C:/Users/digit/OneDrive/문서/New project/deploy/odroid/README.md>)
+- [runbooks/deployment.md](</F:/dev/parking-radar/docs/runbooks/deployment.md>)
+- [deploy/odroid/README.md](</F:/dev/parking-radar/deploy/odroid/README.md>)
 
 ## 10. 테스트 기준
 
 현재 기준으로 반드시 유지해야 하는 검증 축:
 
+- WSL2 셸에서 1차 테스트
+- WSL2 Docker에서 2차 테스트
 - 백엔드 pytest
 - 프론트 Vitest
 - Docker 컨테이너 내부 실행
 - 반응형 렌더링 확인
 - 시계열 툴팁 확인
+- 하루 흐름 오버레이 차트의 비행편 마커와 편명/출도착 정보 표시 확인
 - 수동 수집 성공 / 쿨다운 제한 확인
 - `collector-status` 기반 모드 확인
 
 마지막 확인 기준:
 
-- 백엔드: `26 passed`
-- 프론트: `18 passed`
+- 백엔드: `67 passed` (SQLite/WSL 기준; CI에서는 PostgreSQL container와 `alembic check`도 통과)
+- 프론트: `47 passed` 및 TypeScript/build 통과
 
 관련 문서:
-- [testing.md](</C:/Users/digit/OneDrive/문서/New project/docs/testing.md>)
+- [runbooks/testing.md](</F:/dev/parking-radar/docs/runbooks/testing.md>)
 
 ## 11. 운영 중 자주 헷갈리는 점
 
 - `client_mode=sample`이면 실데이터가 아니다.
 - `scheduler_enabled=false`면 자동 수집은 안 돈다.
 - `snapshot_count=0`은 실패가 아닐 수 있다.
-- `데이터 기준 시각`과 `수집기 마지막 동기화`는 서로 달라도 정상일 수 있다.
+- `collected_at`과 `데이터 기준 시각`은 서로 달라도 정상일 수 있다. `collected_at`은 API/운영 점검용이고 메인 UI에는 표시하지 않는다.
 - 프론트 이미지를 다시 빌드했으면 컨테이너 재생성까지 해야 화면이 바뀐다.
 - SQLite 런타임 파일을 OneDrive bind mount에 직접 두면 간헐 오류가 날 수 있다.
 
 관련 문서:
-- [troubleshooting.md](</C:/Users/digit/OneDrive/문서/New project/docs/troubleshooting.md>)
+- [runbooks/troubleshooting.md](</F:/dev/parking-radar/docs/runbooks/troubleshooting.md>)
 
 ## 12. 다음 변경 시 같이 갱신해야 하는 문서
 
@@ -283,13 +355,17 @@ row-level `collected_at`은 백엔드에 남아 있지만, 메인 UI에서는 �
 
 ## 13. WSL 테스트 기준
 
-- 모든 테스트 기준 환경은 `WSL2 + Docker`이다.
-- 로컬 테스트 결과를 문서에 남길 때도 `WSL2`에서 실행한 컨테이너 테스트 결과를 기준으로 적는다.
+- 모든 테스트 기준 환경은 `WSL2`이다.
+- Windows 로컬 테스트는 지양하고 참고 결과로만 취급한다.
+- 1차 테스트는 `WSL2` 셸에서 로컬 런타임으로 실행한다.
+- 2차 테스트는 `WSL2 + Docker`에서 실행한다.
+- server14 배포는 1차/2차 테스트가 모두 통과한 뒤 진행한다.
 - Windows PowerShell은 배포와 원격 상태 확인 보조 환경으로 취급한다.
 ## 14. Live Seed Policy
 
-- ODROID live 운영에서는 `client_mode=live`, `SEED_SAMPLE_DATA=false`를 기본값으로 사용한다.
+- server14 live 운영에서는 `client_mode=live`, `SEED_SAMPLE_DATA=false`를 기본값으로 사용한다.
 - 샘플 시계열은 `client_mode=sample` 개발 모드에서만 시드한다.
 - live 환경 DB에서 `collection_run_id is null` row는 샘플 스냅샷 가능성이 높으므로, 시계열이 이상하게 길어지면 먼저 이 조건을 확인한다.
 - `15056803` 카탈로그에는 개발계정 `5,000` 트래픽이 보이지만, `2026-04-28` 실측에서는 100회 성공 후 101번째부터 `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 발생했다.
-- 그래서 현재 ODROID live 프로파일은 5분이나 10분이 아니라 20분 주기와 20분 수동 수집 제한을 사용한다.
+- 중복 수집기를 제거한 현재 기준으로는 server14 live 프로파일이 5분 configured 주기와
+  5분 수동 수집 제한 계약을 사용한다.

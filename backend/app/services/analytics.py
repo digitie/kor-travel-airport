@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from statistics import mean, median
 from zoneinfo import ZoneInfo
 
@@ -9,6 +9,55 @@ from app.core.time_utils import align_to_interval, ensure_tz, now_utc
 from app.models import Airport, ParkingLot, ParkingSnapshot
 
 WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"]
+
+
+def _snapshot_preference_key(snapshot: ParkingSnapshot) -> tuple[int, float, int]:
+    """Prefer live provider observations when HTTP migration overlaps them."""
+
+    is_migration = 1 if snapshot.source.startswith("migration_") else 0
+    collected_at = ensure_tz(snapshot.collected_at, "UTC").timestamp()
+    return is_migration, -collected_at, -(snapshot.id or 0)
+
+
+def deduplicate_snapshots(snapshots: list[ParkingSnapshot]) -> list[ParkingSnapshot]:
+    """Collapse source-overlapping snapshots to one row per lot and time."""
+
+    selected: dict[tuple[int, datetime], ParkingSnapshot] = {}
+    for snapshot in snapshots:
+        key = (snapshot.parking_lot_id, ensure_tz(snapshot.observed_at, "UTC"))
+        current = selected.get(key)
+        if current is None or _snapshot_preference_key(snapshot) < _snapshot_preference_key(current):
+            selected[key] = snapshot
+    return sorted(
+        selected.values(),
+        key=lambda snapshot: (
+            ensure_tz(snapshot.observed_at, "UTC"),
+            snapshot.parking_lot_id,
+            snapshot.id or 0,
+        ),
+    )
+
+
+def deduplicate_snapshot_rows(
+    rows: list[tuple[ParkingSnapshot, ParkingLot, Airport]],
+) -> list[tuple[ParkingSnapshot, ParkingLot, Airport]]:
+    """Apply the same source preference to joined analytics rows."""
+
+    selected: dict[tuple[int, datetime], tuple[ParkingSnapshot, ParkingLot, Airport]] = {}
+    for row in rows:
+        snapshot = row[0]
+        key = (snapshot.parking_lot_id, ensure_tz(snapshot.observed_at, "UTC"))
+        current = selected.get(key)
+        if current is None or _snapshot_preference_key(snapshot) < _snapshot_preference_key(current[0]):
+            selected[key] = row
+    return sorted(
+        selected.values(),
+        key=lambda row: (
+            ensure_tz(row[0].observed_at, "UTC"),
+            row[0].parking_lot_id,
+            row[0].id or 0,
+        ),
+    )
 
 
 def classify_status_level(available_spaces: int, total_spaces: int) -> str:
@@ -127,7 +176,8 @@ def build_time_series(
     *,
     now: datetime | None = None,
     days: int = 7,
-    interval_minutes: int = 30,
+    interval_minutes: int = 10,
+    future_hours: int = 0,
     tz_name: str = "Asia/Seoul",
 ) -> list[dict[str, int | datetime]]:
     if not snapshots:
@@ -143,9 +193,11 @@ def build_time_series(
         default=ensure_tz(now or now_utc(), "UTC"),
     )
 
-    bucket_count = max(1, int((days * 24 * 60) / interval_minutes))
-    aligned_end = align_to_interval(latest_observed_at, interval_minutes, tz_name)
-    start = aligned_end - timedelta(minutes=interval_minutes * (bucket_count - 1))
+    history_bucket_count = max(1, int((days * 24 * 60) / interval_minutes))
+    future_bucket_count = max(0, int((future_hours * 60) / interval_minutes))
+    bucket_count = history_bucket_count + future_bucket_count
+    aligned_current = align_to_interval(latest_observed_at, interval_minutes, tz_name)
+    start = aligned_current - timedelta(minutes=interval_minutes * (history_bucket_count - 1))
     buckets = [start + timedelta(minutes=interval_minutes * index) for index in range(bucket_count)]
 
     items = [
@@ -164,6 +216,8 @@ def build_time_series(
         current: ParkingSnapshot | None = None
         for item in items:
             bucket_at = item["bucket_at"]
+            if ensure_tz(bucket_at, "UTC") > latest_observed_at:
+                continue
             while snapshot_index < len(lot_snapshots) and ensure_tz(lot_snapshots[snapshot_index].observed_at, "UTC") <= bucket_at:
                 current = lot_snapshots[snapshot_index]
                 snapshot_index += 1
@@ -177,7 +231,8 @@ def build_time_series(
             item["lot_observations"] += 1
 
     if latest_snapshots:
-        items[-1] = {
+        current_index = history_bucket_count - 1
+        items[current_index] = {
             "bucket_at": latest_observed_at,
             "available_spaces": sum(snapshot.available_spaces for snapshot in latest_snapshots),
             "occupied_spaces": sum(snapshot.occupied_spaces for snapshot in latest_snapshots),
@@ -186,6 +241,72 @@ def build_time_series(
         }
 
     return items
+
+
+def build_holiday_patterns(
+    snapshots: list[ParkingSnapshot],
+    holidays: list[tuple[date, str]],
+    tz_name: str = "Asia/Seoul",
+) -> list[dict[str, int | float | str | None | list[dict[str, int | float | None]]]]:
+    return build_special_day_patterns(
+        snapshots,
+        [(local_date, name, "holiday") for local_date, name in holidays],
+        tz_name=tz_name,
+    )
+
+
+def build_special_day_patterns(
+    snapshots: list[ParkingSnapshot],
+    special_days: list[tuple[date, str, str]],
+    tz_name: str = "Asia/Seoul",
+) -> list[dict[str, int | float | str | None | list[dict[str, int | float | None]]]]:
+    tz = ZoneInfo(tz_name)
+    special_day_names = {local_date: name for local_date, name, _day_type in special_days}
+    special_day_types = {local_date: day_type for local_date, _name, day_type in special_days}
+    hourly_totals: dict[date, dict[int, dict[datetime, int]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+
+    for snapshot in snapshots:
+        observed_at_utc = ensure_tz(snapshot.observed_at, "UTC")
+        local_observed_at = observed_at_utc.astimezone(tz)
+        local_date = local_observed_at.date()
+        if local_date not in special_day_names:
+            continue
+        hourly_totals[local_date][local_observed_at.hour][observed_at_utc] += snapshot.available_spaces
+
+    patterns = []
+    for local_date, name, day_type in sorted(special_days, key=lambda item: item[0], reverse=True):
+        hourly_buckets = []
+        date_values: list[int] = []
+
+        for hour in range(24):
+            hour_values = list(hourly_totals.get(local_date, {}).get(hour, {}).values())
+            date_values.extend(hour_values)
+            hourly_buckets.append(
+                {
+                    "hour": hour,
+                    "average_available_spaces": round(mean(hour_values), 2) if hour_values else None,
+                    "min_available_spaces": min(hour_values) if hour_values else None,
+                    "max_available_spaces": max(hour_values) if hour_values else None,
+                    "observations": len(hour_values),
+                }
+            )
+
+        patterns.append(
+            {
+                "local_date": local_date.isoformat(),
+                "name": name,
+                "day_type": special_day_types.get(local_date, day_type),
+                "weekday": local_date.weekday(),
+                "weekday_name": WEEKDAY_LABELS[local_date.weekday()],
+                "average_available_spaces": round(mean(date_values), 2) if date_values else None,
+                "min_available_spaces": min(date_values) if date_values else None,
+                "max_available_spaces": max(date_values) if date_values else None,
+                "observations": len(date_values),
+                "hourly_buckets": hourly_buckets,
+            }
+        )
+
+    return patterns
 
 
 def detect_threshold_events(

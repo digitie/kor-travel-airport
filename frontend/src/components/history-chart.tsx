@@ -5,11 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import {
   formatAxisDateLabel,
   formatAxisTimeLabel,
-  formatDateTimeWithZone,
+  formatDateTime,
   formatNumber,
+  formatSeoulDateKey,
   getSeoulDateParts,
 } from "@/lib/format";
-import type { ParkingTimeSeriesResponse, TimeSeriesPoint } from "@/lib/types";
+import type { HolidayItemSummary, ParkingTimeSeriesResponse, TimeSeriesPoint } from "@/lib/types";
 
 const CHART_MIN_WIDTH = 1280;
 const CHART_HEIGHT = 280;
@@ -17,8 +18,10 @@ const CHART_PADDING_X = 18;
 const CHART_PADDING_Y = 20;
 const GRID_LINES = 4;
 const TOOLTIP_EDGE_PADDING = 88;
+const TOUCH_DRAG_THRESHOLD_PX = 12;
 
 type HistoryChartProps = {
+  holidays: HolidayItemSummary[];
   series: ParkingTimeSeriesResponse | null;
   scopeLabel: string;
 };
@@ -33,6 +36,18 @@ type AxisMarker = {
   x: number;
   dateLabel: string | null;
   timeLabel: string;
+};
+
+type SpecialDayType = "holiday" | "saturday" | "sunday";
+
+type SpecialDaySummary = HolidayItemSummary & {
+  day_type: SpecialDayType;
+};
+
+type HolidayChartBand = SpecialDaySummary & {
+  x: number;
+  width: number;
+  labelX: number;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -62,7 +77,10 @@ function buildLabelIndexes(points: TimeSeriesPoint[]): number[] {
 function buildChartPoints(points: TimeSeriesPoint[], chartWidth: number): ChartPoint[] {
   const innerWidth = chartWidth - CHART_PADDING_X * 2;
   const innerHeight = CHART_HEIGHT - CHART_PADDING_Y * 2;
-  const maxValue = Math.max(...points.map((point) => point.available_spaces), 1);
+  const observedValues = points
+    .filter((point) => point.lot_observations > 0)
+    .map((point) => point.available_spaces);
+  const maxValue = Math.max(...observedValues, 1);
 
   return points.map((point, index) => ({
     ...point,
@@ -118,20 +136,98 @@ function buildStepAreaPath(points: ChartPoint[]): string {
   return path.join(" ");
 }
 
-function findLowestPoint(points: TimeSeriesPoint[]): TimeSeriesPoint {
-  return points.reduce((lowest, point) => (point.available_spaces < lowest.available_spaces ? point : lowest), points[0]);
+function getLocalDateWeekendType(localDate: string): SpecialDayType | null {
+  const [year, month, day] = localDate.split("-").map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  if (weekday === 6) {
+    return "saturday";
+  }
+  if (weekday === 0) {
+    return "sunday";
+  }
+  return null;
 }
 
-function findHighestPoint(points: TimeSeriesPoint[]): TimeSeriesPoint {
-  return points.reduce(
-    (highest, point) => (point.available_spaces > highest.available_spaces ? point : highest),
-    points[0]
+function buildSpecialDays(holidays: HolidayItemSummary[], points: ChartPoint[]): SpecialDaySummary[] {
+  const holidaysByDate = new Map(
+    holidays.map((holiday) => [
+      holiday.local_date,
+      {
+        ...holiday,
+        day_type: "holiday" as const,
+      },
+    ])
   );
+  const localDates = Array.from(new Set(points.map((point) => formatSeoulDateKey(point.bucket_at)))).sort();
+
+  return localDates.flatMap((localDate) => {
+    const holiday = holidaysByDate.get(localDate);
+    if (holiday) {
+      return [holiday];
+    }
+
+    const weekendType = getLocalDateWeekendType(localDate);
+    if (!weekendType) {
+      return [];
+    }
+
+    return [
+      {
+        local_date: localDate,
+        name: weekendType === "saturday" ? "토요일" : "일요일",
+        day_type: weekendType,
+        weekday: weekendType === "saturday" ? 5 : 6,
+        weekday_name: weekendType === "saturday" ? "토" : "일",
+      },
+    ];
+  });
 }
 
-export function HistoryChart({ series, scopeLabel }: HistoryChartProps) {
+function buildSpecialDayBands(
+  specialDays: SpecialDaySummary[],
+  points: ChartPoint[],
+  chartWidth: number
+): HolidayChartBand[] {
+  if (specialDays.length === 0 || points.length === 0) {
+    return [];
+  }
+
+  const pointsByDate = new Map<string, ChartPoint[]>();
+  for (const point of points) {
+    const localDate = formatSeoulDateKey(point.bucket_at);
+    pointsByDate.set(localDate, [...(pointsByDate.get(localDate) ?? []), point]);
+  }
+
+  const stepWidth =
+    points.length > 1 ? (chartWidth - CHART_PADDING_X * 2) / Math.max(points.length - 1, 1) : chartWidth - CHART_PADDING_X * 2;
+
+  return specialDays.flatMap((specialDay) => {
+    const matchedPoints = pointsByDate.get(specialDay.local_date) ?? [];
+    if (matchedPoints.length === 0) {
+      return [];
+    }
+    const firstPoint = matchedPoints[0];
+    const lastPoint = matchedPoints[matchedPoints.length - 1];
+    const x = clamp(firstPoint.x - stepWidth / 2, CHART_PADDING_X, chartWidth - CHART_PADDING_X);
+    const maxX = clamp(lastPoint.x + stepWidth / 2, CHART_PADDING_X, chartWidth - CHART_PADDING_X);
+    return [
+      {
+        ...specialDay,
+        x,
+        width: Math.max(maxX - x, 1),
+        labelX: x + Math.max(maxX - x, 1) / 2,
+      },
+    ];
+  });
+}
+
+export function HistoryChart({ holidays, series, scopeLabel }: HistoryChartProps) {
   const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const touchGestureRef = useRef<{ startX: number; isHorizontalDrag: boolean } | null>(null);
 
   useEffect(() => {
     setActivePointIndex(null);
@@ -163,17 +259,34 @@ export function HistoryChart({ series, scopeLabel }: HistoryChartProps) {
   }
 
   const points = series.items;
+  const observedPoints = points.filter((point) => point.lot_observations > 0);
+  if (observedPoints.length === 0) {
+    return (
+      <article className="panel-surface history-panel">
+        <div className="panel-head">
+          <div>
+            <h3>최근 {series.days}일 잔여 주차면</h3>
+            <p className="history-scope">기준: {scopeLabel}</p>
+          </div>
+        </div>
+        <p className="notice">표시할 주차 관측 데이터가 없습니다.</p>
+      </article>
+    );
+  }
+
   const labelIndexes = buildLabelIndexes(points);
   const chartWidth = Math.max(CHART_MIN_WIDTH, labelIndexes.length * 64);
   const chartPoints = buildChartPoints(points, chartWidth);
+  const observedChartPoints = chartPoints.filter((point) => point.lot_observations > 0);
   const axisMarkers = buildAxisMarkers(chartPoints, labelIndexes);
-  const latestPoint = points[points.length - 1];
-  const lowestPoint = findLowestPoint(points);
-  const highestPoint = findHighestPoint(points);
+  const holidayBands = buildSpecialDayBands(buildSpecialDays(holidays, chartPoints), chartPoints, chartWidth);
+  const latestPoint = observedPoints[observedPoints.length - 1];
   const chartPointByBucket = new Map(chartPoints.map((point) => [point.bucket_at, point] as const));
   const latestChartPoint = chartPointByBucket.get(latestPoint.bucket_at);
-  const lowestChartPoint = chartPointByBucket.get(lowestPoint.bucket_at);
-  const defaultActivePointIndex = Math.max(chartPoints.length - 1, 0);
+  const defaultActivePointIndex = Math.max(
+    chartPoints.findIndex((point) => point.bucket_at === latestPoint.bucket_at),
+    0
+  );
   const resolvedActivePointIndex =
     activePointIndex !== null && activePointIndex < chartPoints.length ? activePointIndex : defaultActivePointIndex;
   const activePoint = chartPoints[resolvedActivePointIndex] ?? null;
@@ -195,6 +308,11 @@ export function HistoryChart({ series, scopeLabel }: HistoryChartProps) {
     return touches[0].clientX;
   }
 
+  function updateActivePointFromTouch(target: HTMLDivElement, clientX: number) {
+    const bounds = target.getBoundingClientRect();
+    updateActivePoint(clientX - bounds.left, bounds.width);
+  }
+
   return (
     <article className="panel-surface history-panel">
       <div className="panel-head">
@@ -202,29 +320,7 @@ export function HistoryChart({ series, scopeLabel }: HistoryChartProps) {
           <h3>최근 {series.days}일 잔여 주차면</h3>
           <p className="history-scope">기준: {scopeLabel}</p>
         </div>
-        <p className="section-hint">마지막 값 {formatDateTimeWithZone(latestPoint.bucket_at)}</p>
-      </div>
-
-      <div className="history-summary">
-        <div className="summary-chip">
-          <span>지금 주차 여유</span>
-          <strong>{formatNumber(latestPoint.available_spaces)}대</strong>
-        </div>
-        <div className="summary-chip">
-          <span>최근 7일 최저</span>
-          <strong>{formatNumber(lowestPoint.available_spaces)}대</strong>
-          <small>{formatDateTimeWithZone(lowestPoint.bucket_at)}</small>
-        </div>
-        <div className="summary-chip">
-          <span>최근 7일 최고</span>
-          <strong>{formatNumber(highestPoint.available_spaces)}대</strong>
-          <small>{formatDateTimeWithZone(highestPoint.bucket_at)}</small>
-        </div>
-        <div className="summary-chip">
-          <span>보는 기준</span>
-          <strong>{scopeLabel}</strong>
-          <small>{series.interval_minutes}분 간격</small>
-        </div>
+        <p className="section-hint">마지막 관측 {formatDateTime(latestPoint.bucket_at)}</p>
       </div>
 
       <div className="history-chart-shell" data-testid="history-chart">
@@ -236,8 +332,10 @@ export function HistoryChart({ series, scopeLabel }: HistoryChartProps) {
                 data-testid="history-tooltip"
                 style={{ left: `${tooltipLeft}px`, top: `${tooltipTop}px` }}
               >
-                <strong>{formatNumber(activePoint.available_spaces)}대</strong>
-                <span>{formatDateTimeWithZone(activePoint.bucket_at)}</span>
+                <strong>
+                  {activePoint.lot_observations > 0 ? `${formatNumber(activePoint.available_spaces)}대` : "주차 정보 없음"}
+                </strong>
+                <span>{formatDateTime(activePoint.bucket_at)}</span>
               </div>
             ) : null}
 
@@ -280,8 +378,24 @@ export function HistoryChart({ series, scopeLabel }: HistoryChartProps) {
                 />
               ))}
 
-              <path className="history-area" d={buildStepAreaPath(chartPoints)} />
-              <path className="history-line" d={buildStepLinePath(chartPoints)} fill="none" />
+              {holidayBands.map((band) => (
+                <g key={`holiday-band-${band.local_date}-${band.day_type}-${band.name}`}>
+                  <rect
+                    className={`holiday-band holiday-band-${band.day_type}`}
+                    data-testid="holiday-band"
+                    height={CHART_HEIGHT - CHART_PADDING_Y * 2}
+                    width={band.width}
+                    x={band.x}
+                    y={CHART_PADDING_Y}
+                  />
+                  <text className="holiday-band-label" textAnchor="middle" x={band.labelX} y={CHART_PADDING_Y - 6}>
+                    {band.name}
+                  </text>
+                </g>
+              ))}
+
+              <path className="history-area" d={buildStepAreaPath(observedChartPoints)} />
+              <path className="history-line" d={buildStepLinePath(observedChartPoints)} fill="none" />
 
               {activePoint ? (
                 <>
@@ -292,11 +406,10 @@ export function HistoryChart({ series, scopeLabel }: HistoryChartProps) {
                     y1={CHART_PADDING_Y}
                     y2={CHART_HEIGHT - CHART_PADDING_Y}
                   />
-                  <circle className="history-point active" cx={activePoint.x} cy={activePoint.y} r="6" />
+                  {activePoint.lot_observations > 0 ? (
+                    <circle className="history-point active" cx={activePoint.x} cy={activePoint.y} r="6" />
+                  ) : null}
                 </>
-              ) : null}
-              {lowestChartPoint ? (
-                <circle className="history-point lowest" cx={lowestChartPoint.x} cy={lowestChartPoint.y} r="5" />
               ) : null}
               {latestChartPoint ? (
                 <circle className="history-point latest" cx={latestChartPoint.x} cy={latestChartPoint.y} r="5" />
@@ -318,16 +431,31 @@ export function HistoryChart({ series, scopeLabel }: HistoryChartProps) {
                 if (clientX === null) {
                   return;
                 }
-                const bounds = event.currentTarget.getBoundingClientRect();
-                updateActivePoint(clientX - bounds.left, bounds.width);
+                const gesture = touchGestureRef.current;
+                if (!gesture) {
+                  return;
+                }
+                if (Math.abs(clientX - gesture.startX) > TOUCH_DRAG_THRESHOLD_PX) {
+                  touchGestureRef.current = { ...gesture, isHorizontalDrag: true };
+                  return;
+                }
+                if (!gesture.isHorizontalDrag) {
+                  updateActivePointFromTouch(event.currentTarget, clientX);
+                }
               }}
               onTouchStart={(event) => {
                 const clientX = getTouchClientX(event.touches);
                 if (clientX === null) {
                   return;
                 }
-                const bounds = event.currentTarget.getBoundingClientRect();
-                updateActivePoint(clientX - bounds.left, bounds.width);
+                touchGestureRef.current = { startX: clientX, isHorizontalDrag: false };
+                updateActivePointFromTouch(event.currentTarget, clientX);
+              }}
+              onTouchEnd={() => {
+                touchGestureRef.current = null;
+              }}
+              onTouchCancel={() => {
+                touchGestureRef.current = null;
               }}
             />
 

@@ -8,26 +8,37 @@
 - 공항별 현재 주차 현황 조회
 - 세부 주차장 단위 조회
   - 예: 김해 `P1 / P2 / P3`
-- 최근 7일 30분 단위 시계열
+- 최근 7일 10분 단위 주차 시계열
 - 시계열 차트 hover / touch 툴팁
 - 시계열 X축 6시간 단위 라벨
 - 시계열 보간 없는 계단형 표시
 - 시계열 기본 커서가 최신 값에 고정되고 오른쪽 끝부터 바로 표시
+- 공휴일 날짜 배경 강조와 그래프 상단 공휴일명 표시
+- 하루 흐름과 비행편 오버레이 차트
+  - 0시부터 24시까지 최근 7일 잔여 주차면 겹침 표시
+  - 원하는 날짜의 선 숨김 / 다시 표시
+  - 출발편 / 도착편 마커 개별 표시 토글
+  - 공휴일 선과 마커를 일반일과 다르게 표시
+- 선택 공항 비행편 출도착 시간 마커
+  - 시간, 편명, 출발공항, 도착공항 표시
+- 같은 시간/출발지/도착지 공동운항편 묶음 표시
 - 요일 x 시간 기준 평균 잔여 주차면 히트맵
+- 최근 8개 공휴일 기준 시간대별 잔여 주차면 패턴
 - 평균으로 가장 빠듯한 시간 / 가장 여유 있는 시간 요약
-- 요일별 시간대 상세 패턴 카드
+- 요일 x 시간 히트맵의 최고/최저 혼잡 시간 요약
 - 요일별 임계 달성 시간 / 날짜별 임계 달성 시간 히스토리
 - 10대 / 50대 임계치 진입 및 회복 이벤트
 - 마지막으로 본 공항 / 세부 주차장 자동 복원
+- 웹페이지 자동 갱신
 - 주차 요금 계산
-  - 인천공항은 현재 가격 정보 미지원
+  - 한국공항공사 요금과 인천공항공사 요금 API를 분리해 사용
 
 ## 기술 스택
 
-- 백엔드: FastAPI, SQLAlchemy 2, SQLite
+- 백엔드: FastAPI, SQLAlchemy 2, PostgreSQL 16, Alembic
 - 프론트엔드: Next.js App Router, React, TypeScript
 - 테스트: pytest, Vitest
-- 실행: Docker Compose
+- 실행: Docker Compose (PostgreSQL 포함)
 - 개발 환경: WSL2 + Docker
 - 운영 목표 환경: Ubuntu 24.04 on Odroid M1S
 
@@ -41,8 +52,18 @@
   [https://www.data.go.kr/data/15038474/openapi.do](https://www.data.go.kr/data/15038474/openapi.do)
 - 인천국제공항공사 주차 정보  
   [https://www.data.go.kr/data/15095047/openapi.do](https://www.data.go.kr/data/15095047/openapi.do)
+- 인천국제공항공사 주차요금 정보
+  [https://www.data.go.kr/data/15095053/openapi.do](https://www.data.go.kr/data/15095053/openapi.do)
+- 한국공항공사 실시간 항공편 운항 정보
+  [https://www.data.go.kr/data/15113771/openapi.do](https://www.data.go.kr/data/15113771/openapi.do)
+- 인천국제공항공사 여객기 운항 정보
+  [https://www.data.go.kr/data/15112968/openapi.do](https://www.data.go.kr/data/15112968/openapi.do)
+- 한국천문연구원 특일 정보
+  [https://www.data.go.kr/data/15012690/openapi.do](https://www.data.go.kr/data/15012690/openapi.do)
 
-현재 실시간 기본 수집원은 `15056803`이며, 인천과 요금 API는 별도 플래그로 분리되어 있다.
+현재 실시간 기본 수집원은 `15056803`이며, 인천 주차/요금 API는 별도 플래그로 분리되어 있다.
+비행편 정보는 주차 현황 수집과 분리된 조회용 API이며, 하루 흐름 오버레이 차트의 마커 표시 용도로만 사용한다.
+공휴일 정보는 주차 현황 수집과 분리된 조회용 API이며, 차트 배경 강조와 공휴일 패턴 분석에 사용한다.
 
 ## 빠른 시작
 
@@ -54,35 +75,69 @@ docker compose up -d
 - 프론트엔드: [http://localhost:3000](http://localhost:3000)
 - 백엔드 문서: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-## ODROID M1S 배포
+## 192.168.1.14 운영 배포
 
-배포 기준 정보는 루트의 [.env.odroid](</C:/Users/digit/OneDrive/문서/New project/.env.odroid>)에 저장한다.
+14번에서만 Docker/PostgreSQL을 실행한다. 운영 공개 포트는 API `14000`, web `14001`이며
+외부 API 주소는 [https://pr-api.digitie.mywire.org](https://pr-api.digitie.mywire.org),
+live E2E 기준 웹 주소는 [https://pr.digitie.mywire.org/](https://pr.digitie.mywire.org/)다.
+13번에서는 Docker를 실행하거나 중지하지 않고, cutover 전까지 source API와 rollback
+기준으로 유지한다.
 
-- 대상 IP: `192.168.1.204`
+운영 환경 파일은 14번의
+`/home/digitie/apps/parking-radar/.env.server14`에만 두며
+[`.env.server14.example`](.env.server14.example)을 시작점으로 사용한다.
+
+```bash
+REMOTE_HOST=192.168.1.14 \
+REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
+./scripts/deploy-server14.sh
+```
+
+배포 후 확인:
+
+```bash
+curl -fsS http://192.168.1.14:14000/health
+curl -fsS http://192.168.1.14:14001/
+curl -fsS https://pr-api.digitie.mywire.org/health
+curl -fsS https://pr.digitie.mywire.org/api/backend/health
+```
+
+데이터 이전과 5분 무손실 cutover는 [`docs/runbooks/migration.md`](docs/runbooks/migration.md)를
+따른다. live UI 검증은 다음처럼 외부 도메인으로 실행한다.
+
+```bash
+cd frontend
+E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e
+```
+
+## Historical: 기존 13번 ODROID 배포 (실행 금지)
+
+배포 기준 정보는 루트의 [.env.odroid](</F:/dev/parking-radar/.env.odroid>)에 저장한다.
+
+- 대상 IP: `192.168.1.13`
+- 기존 13번 외부 주소: [https://pr2.digitie.mywire.org/](https://pr2.digitie.mywire.org/)
 - 사용자: `digitie`
 - 앱 디렉터리: `/home/digitie/apps/parking-radar`
 
-배포 명령:
+13번은 보존된 기존 시스템이며 배포 대상이 아니다. 이 프로젝트의 Docker,
+PostgreSQL, 백업/복원, 수집 스케줄러는 모두 14번에서만 실행한다. 따라서
+13번을 대상으로 하는 배포 스크립트와 `docker compose` 명령은 실행하지 않는다.
+13번은 `https://pr2.digitie.mywire.org/`의 기존 서비스에서 HTTP 읽기만 허용되는
+마이그레이션 원본으로 취급한다.
 
-```powershell
-.\scripts\deploy-odroid.ps1
-```
+14번 배포와 상태 확인은 [server14 배포 런북](docs/runbooks/deployment.md)을 따른다.
 
-이 스크립트는 다음을 자동으로 수행한다.
+운영 프론트는 기본적으로 같은 origin의 `/api/backend`를 호출하고, Next.js 서버가 Docker 내부 백엔드(`BACKEND_INTERNAL_URL=http://backend:8000`)로 프록시한다. 그래서 내부 LAN 주소와 외부 HTTPS 주소를 같은 빌드로 처리한다.
 
-1. 현재 프로젝트를 압축
-2. ODROID로 업로드
-3. 원격에서 `docker compose build`
-4. 원격에서 `docker compose up -d`
-5. 웹 / API 헬스 체크
+운영 보안 기본값:
 
-비밀번호는 저장하지 않으며, 실행 시점에만 입력한다.
-
-배포 후 상태 확인:
-
-```powershell
-.\scripts\odroid-status.ps1
-```
+- 14번 `CORS_ORIGINS_CSV`는 `https://pr.digitie.mywire.org`와
+  `https://pr-api.digitie.mywire.org`를 기준으로 한다. 기존 13번은
+  `https://pr2.digitie.mywire.org`를 사용한다.
+- `TRUSTED_HOSTS_CSV`는 운영 도메인/내부 호스트만 허용한다.
+- `ENABLE_API_DOCS=false`로 공개 API 문서를 닫는다.
+- 백업/복원 UI는 별도 app auth 없이 제공하되 private ACL/gateway 보호를 전제로 한다. `지금 수집`은
+  local development profile에서만 활성화하며, 브라우저에 공공데이터 API 키를 요구하거나 노출하지 않는다.
 
 ## 실데이터 수집
 
@@ -91,18 +146,28 @@ docker compose up -d
 
 ```env
 ENABLE_SCHEDULER=true
+ENABLE_MANUAL_COLLECT=false
 SEED_SAMPLE_DATA=false
 USE_SAMPLE_CLIENT_WHEN_NO_KEY=false
-COLLECT_INTERVAL_SECONDS=1200
-MANUAL_COLLECT_MIN_INTERVAL_SECONDS=1200
+COLLECT_INTERVAL_SECONDS=300
+MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300
 UPSTREAM_RATE_LIMIT_BACKOFF_SECONDS=3600
+HOLIDAY_CACHE_SECONDS=86400
+ENABLE_INCHEON_COLLECTION=true
+ENABLE_INCHEON_FEE_COLLECTION=true
+AIRPORT_CODES_CSV=CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY
 DATA_GO_KR_SERVICE_KEY=...
 ```
 
 - `client_mode=live`로 운영할 때는 `SEED_SAMPLE_DATA=false`를 유지한다.
 - 샘플 시계열은 `client_mode=sample`에서만 시드한다.
 - `15056803` 카탈로그에는 개발계정 `5,000` 트래픽이 보이지만, ODROID 실측에서는 `2026-04-28`에 100회 성공 후 101번째부터 `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 발생했다.
-- 그래서 ODROID live 프로파일은 10분이 아니라 20분(`1200초`) 주기와 20분 수동 수집 제한으로 운영한다.
+- 현재 server14 live는 5분(`300초`) 계약을 지키며, `SCHEDULER_SAFETY_BUFFER_SECONDS=120`에
+  따라 유효 tick 시작 간격은 180초다. 외부 API 응답/DB commit 지연을 흡수하고 public server14
+  profile의 수동 수집 endpoint는 비활성화한다.
+- 현재 server14 live는 `CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY`를 처리한다.
+- 기존 13번/ODROID의 10분(`600초`) 설정은 historical reference이며 현재 배포 계약이 아니다.
+- `15056803`이 한도 초과 상태여도 인천 전용 API(`15095047`, `15095053`)가 활성화되어 있으면 인천 주차/요금 수집은 계속 시도한다.
 - 같은 인증키를 쓰는 live 수집기는 동시에 하나만 유지한다.
 - 빠른 검증용 live 스택을 잠깐 띄웠다면 검증 직후 반드시 내려야 한다.
 - 수집기가 한도 초과를 감지하면 `UPSTREAM_RATE_LIMIT_BACKOFF_SECONDS` 동안 API 호출을 잠시 건너뛰고, `collector-status`에 `upstream_rate_limited=true`와 `upstream_rate_limited_until`을 남긴다.
@@ -113,13 +178,14 @@ DATA_GO_KR_SERVICE_KEY=...
 1. 백엔드 기동 직후 스케줄러가 1회 즉시 수집한다.
 2. 이후 `COLLECT_INTERVAL_SECONDS` 기준으로 반복 수집한다.
 3. 기본 실시간 소스는 `kac_parking`이다.
-4. 동일한 `parking_lot_id + observed_at + source` 조합은 중복 저장하지 않는다.
+4. 동일한 `parking_lot_id + observed_at + source` 조합은 중복 저장하지 않는다. HTTP fallback
+   migration과 live source가 같은 관측시각을 공유하면 API/분석은 live source를 우선해 한 번만 집계한다.
 
 중요:
 
 - `snapshot_count=0`은 항상 실패가 아니다.
 - 공공데이터 원본의 `observed_at`이 이전 수집과 같으면 중복 방지로 저장 건수가 0이 될 수 있다.
-- 이 경우에도 `raw_response_count=1`, `status=success`이면 수집 호출 자체는 정상이다.
+- 이 경우에도 `raw_response_count>=1`, `status=success`이면 하나 이상의 원본 소스 호출 자체는 정상이다.
 
 현재 데이터 즉시 갱신:
 
@@ -137,7 +203,7 @@ curl http://localhost:8000/admin/collector-status
 
 - `scheduler_enabled=true`
 - `client_mode=live`
-- `enabled_sources=["kac_parking"]`
+- `enabled_sources`에 `kac_parking`, `incheon_parking`, `incheon_fee`가 의도대로 포함되는지 확인
 - `data_go_kr_service_key_configured=true`
 - `upstream_rate_limited=false`
 
@@ -149,22 +215,55 @@ curl http://localhost:8000/admin/collector-status
   - 현재 잔여 주차면
   - 최근 7일 시계열
   - 요일 x 시간 평균 잔여 주차면
-  - 요일별 시간대 상세 패턴
+  - 요일 x 시간 히트맵 요약
   - 요일별 임계 달성 시간
   - 날짜별 임계 달성 시간 히스토리
   - 임계치 이벤트
 - `전체 주차장`이면 공항 내 활성 주차장을 합산해서 보여준다.
-- 시계열의 마지막 값은 항상 화면 상단 `지금 주차 여유`와 같은 기준으로 맞춘다.
+- 시계열의 마지막 값은 항상 화면 상단 `현재 잔여 주차면`과 같은 기준으로 맞춘다.
+- 최근 7일 시계열 차트의 주차선은 실제 관측 구간까지만 그리고, 기본 X축을 미래로 확장하지 않는다.
+- 비행편 마커는 별도 `하루 흐름과 비행편` 차트에서 0시부터 24시까지의 X축 시간 위치에 표시한다.
+- `하루 흐름과 비행편` 차트는 최근 7일 선을 겹쳐 보여주며 날짜별 표시 여부를 토글할 수 있다.
+- `하루 흐름과 비행편` 차트에서는 출발편과 도착편 마커를 각각 켜고 끌 수 있으며, 둘 다 끄면 비행편 마커가 모두 숨겨진다.
+- 공휴일 날짜는 `하루 흐름과 비행편` 차트에서도 선 모양과 마커 모양을 일반일과 다르게 표시한다.
+- 같은 출도착 시간, 출발공항, 도착공항을 가진 공동운항편은 하나의 마커로 묶는다.
+- 지난주/이번주/다음주 공휴일은 공항 이름 옆에 문장으로 표시한다.
+- 최근 7일 시계열 안에 공휴일이 있으면 해당 날짜의 배경과 공휴일명을 차트에 표시한다.
+- 최근 8개 공휴일은 날짜별/시간대별 패턴으로 별도 표시한다.
+- 비행편 API 권한이 없거나 응답 오류가 나면 주차장 화면은 유지하고, 하루 흐름 오버레이 차트의 비행편 영역에 오류 상태만 표시한다.
 
 ## 테스트
 
-백엔드:
+검증과 배포 순서:
+
+1. `WSL2` 셸에서 1차 테스트
+2. `WSL2 + Docker`에서 2차 테스트
+3. 192.168.1.14 server14 배포
+4. `https://pr.digitie.mywire.org` live 스모크 체크
+
+Windows 로컬 PowerShell 테스트는 지양하고, 테스트 통과 기준으로 삼지 않는다.
+
+WSL 1차 백엔드:
+
+```bash
+python -m pytest backend/tests -q
+```
+
+WSL 1차 프론트엔드:
+
+```bash
+cd frontend
+npm run test -- --run
+npm run build
+```
+
+WSL Docker 2차 백엔드:
 
 ```bash
 docker compose run --rm --no-deps backend pytest -q
 ```
 
-프론트엔드:
+WSL Docker 2차 프론트엔드:
 
 ```bash
 docker compose run --rm --no-deps frontend npm run test -- --run
@@ -176,6 +275,7 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 - 모바일 / 데스크톱 반응형 화면
 - 시계열 툴팁 동작
 - 시계열 계단형 라인과 X축 라벨 레이아웃
+- 하루 흐름 오버레이 차트의 비행편 마커와 편명/출도착 정보 표시
 - 요일 x 시간 분석 패널 렌더링
 - `GET /admin/collector-status`로 수집 모드 확인
 
@@ -190,26 +290,31 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 - `GET /parking/analytics/by-weekday-hour`
 - `GET /parking/analytics/threshold-events`
 - `GET /parking/analytics/threshold-insights`
+- `GET /flights/status`
 - `POST /fees/calculate`
-- `POST /admin/collect`
+- `POST /admin/collect` (로컬에서 `ENABLE_MANUAL_COLLECT=true`일 때만)
 - `GET /admin/collector-status`
 
 ## 문서
 
-- [docs/current-state.md](</C:/Users/digit/OneDrive/문서/New project/docs/current-state.md>)
-- [docs/data-sources.md](</C:/Users/digit/OneDrive/문서/New project/docs/data-sources.md>)
-- [AGENTS.md](</C:/Users/digit/OneDrive/문서/New project/AGENTS.md>)
-- [deploy/odroid/README.md](</C:/Users/digit/OneDrive/문서/New project/deploy/odroid/README.md>)
-- [docs/architecture.md](</C:/Users/digit/OneDrive/문서/New project/docs/architecture.md>)
-- [docs/analytics.md](</C:/Users/digit/OneDrive/문서/New project/docs/analytics.md>)
-- [docs/testing.md](</C:/Users/digit/OneDrive/문서/New project/docs/testing.md>)
-- [docs/deployment.md](</C:/Users/digit/OneDrive/문서/New project/docs/deployment.md>)
-- [docs/time-and-collector.md](</C:/Users/digit/OneDrive/문서/New project/docs/time-and-collector.md>)
-- [docs/troubleshooting.md](</C:/Users/digit/OneDrive/문서/New project/docs/troubleshooting.md>)
-- [docs/remote-command-safety.md](</C:/Users/digit/OneDrive/문서/New project/docs/remote-command-safety.md>)
+- [docs/current-state.md](</F:/dev/parking-radar/docs/current-state.md>)
+- [docs/architecture/data-sources.md](</F:/dev/parking-radar/docs/architecture/data-sources.md>)
+- [AGENTS.md](</F:/dev/parking-radar/AGENTS.md>)
+- [deploy/odroid/README.md](</F:/dev/parking-radar/deploy/odroid/README.md>)
+- [docs/architecture/architecture.md](</F:/dev/parking-radar/docs/architecture/architecture.md>)
+- [docs/architecture/analytics.md](</F:/dev/parking-radar/docs/architecture/analytics.md>)
+- [docs/runbooks/testing.md](</F:/dev/parking-radar/docs/runbooks/testing.md>)
+- [docs/runbooks/deployment.md](</F:/dev/parking-radar/docs/runbooks/deployment.md>)
+- [docs/architecture/collection.md](</F:/dev/parking-radar/docs/architecture/collection.md>)
+- [docs/runbooks/troubleshooting.md](</F:/dev/parking-radar/docs/runbooks/troubleshooting.md>)
+- [docs/runbooks/remote-command-safety.md](</F:/dev/parking-radar/docs/runbooks/remote-command-safety.md>)
+- [docs/tasks.md](</F:/dev/parking-radar/docs/tasks.md>)
 
 ## WSL 테스트 기준
 
-- 모든 테스트와 기본 검증 기준 환경은 `WSL2 + Docker`이다.
-- `docker compose run --rm --no-deps ...` 형태의 테스트 명령은 `WSL2` 셸에서 실행하는 것을 기준으로 유지한다.
+- 모든 테스트와 기본 검증 기준 환경은 `WSL2`이다.
+- Windows 로컬 테스트는 지양한다.
+- 1차 테스트는 `WSL2` 셸에서 로컬 런타임으로 실행한다.
+- 2차 테스트는 `WSL2 + Docker`에서 `docker compose run --rm --no-deps ...` 형태로 실행한다.
+- 192.168.1.14 server14 배포는 1차/2차 테스트 통과 이후 진행한다.
 - Windows PowerShell은 배포 스크립트와 상태 확인 용도로 사용하되, 테스트 합격 기준은 `WSL2` 결과를 따른다.

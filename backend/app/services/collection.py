@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
@@ -14,13 +15,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.time_utils import now_utc, serialize_utc
 from app.models import Airport, CollectionRun, ParkingFeeRule, ParkingLot, ParkingSnapshot, RawApiResponse
-from app.services.parsers import ParsedFeeRule, ParsedParkingObservation, parse_incheon_parking, parse_kac_fee, parse_kac_parking
+from app.services.parsers import (
+    ParsedFeeRule,
+    ParsedParkingObservation,
+    parse_incheon_fee,
+    parse_incheon_parking,
+    parse_kac_fee,
+    parse_kac_parking,
+)
 
 
 KAC_PARKING_ENDPOINT = "http://openapi.airport.co.kr/service/rest/AirportParking/airportparkingRT"
 INCHEON_PARKING_ENDPOINT = "http://apis.data.go.kr/B551177/StatusOfParking/getTrackingParking"
 KAC_FEE_ENDPOINT = "http://openapi.airport.co.kr/service/rest/AirportParkingFee/parkingfee"
+INCHEON_FEE_ENDPOINT = "http://apis.data.go.kr/B551177/ParkingChargeInfo/getParkingChargeInformation"
 UPSTREAM_RATE_LIMIT_MARKER = "LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR."
+SENSITIVE_REQUEST_KEYS = {"servicekey", "service_key", "apikey", "api_key", "token", "password"}
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +58,26 @@ SAMPLE_INCHEON_JSON = json.dumps(
                         {"floor": "T2 장기주차장", "parking": "832", "parkingarea": "910", "datetm": "2026-04-25 09:20"},
                     ]
                 }
+            },
+        }
+    },
+    ensure_ascii=False,
+)
+
+SAMPLE_INCHEON_FEE_JSON = json.dumps(
+    {
+        "response": {
+            "header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."},
+            "body": {
+                "items": [
+                    {"charid": "FB00000001", "chardesc": "최초 00:30 에 한해 1200원 적용", "datetime": "202605080630"},
+                    {"charid": "FB00000001", "chardesc": "00:15 초과 시 600원 부과", "datetime": "202605080630"},
+                    {"charid": "FB00000002", "chardesc": "01:00 초과 시 1000원 부과", "datetime": "202605080630"},
+                    {"charid": "FB00000003", "chardesc": "00:30 초과 시 1200원 부과", "datetime": "202605080630"},
+                    {"charid": "NF00000001", "chardesc": "일일 최대 24000원 적용", "datetime": "202605080630"},
+                    {"charid": "NF00000002", "chardesc": "일일 최대 9000원 적용", "datetime": "202605080630"},
+                    {"charid": "NF00000003", "chardesc": "일일 최대 12000원 적용", "datetime": "202605080630"},
+                ]
             },
         }
     },
@@ -150,6 +180,9 @@ class PublicDataClient:
     async def fetch_incheon_parking(self) -> SourceResponse:
         raise NotImplementedError
 
+    async def fetch_incheon_fee(self) -> SourceResponse:
+        raise NotImplementedError
+
     async def fetch_kac_fee(self, airport_code: str) -> SourceResponse:
         raise NotImplementedError
 
@@ -171,6 +204,15 @@ class FixturePublicDataClient(PublicDataClient):
             request_params={"type": "json"},
             status_code=200,
             body_text=SAMPLE_INCHEON_JSON,
+        )
+
+    async def fetch_incheon_fee(self) -> SourceResponse:
+        return SourceResponse(
+            source="incheon_fee",
+            endpoint=INCHEON_FEE_ENDPOINT,
+            request_params={"type": "json"},
+            status_code=200,
+            body_text=SAMPLE_INCHEON_FEE_JSON,
         )
 
     async def fetch_kac_fee(self, airport_code: str) -> SourceResponse:
@@ -222,6 +264,18 @@ class LivePublicDataClient(PublicDataClient):
             "incheon_parking",
         )
 
+    async def fetch_incheon_fee(self) -> SourceResponse:
+        return await self._request(
+            INCHEON_FEE_ENDPOINT,
+            {
+                "serviceKey": self.settings.data_go_kr_service_key,
+                "pageNo": 1,
+                "numOfRows": 100,
+                "type": "json",
+            },
+            "incheon_fee",
+        )
+
     async def fetch_kac_fee(self, airport_code: str) -> SourceResponse:
         return await self._request(
             KAC_FEE_ENDPOINT,
@@ -244,13 +298,22 @@ def validate_source_response_body(source: str, body_text: str) -> None:
             raise ValueError(f"{source} API error {result_code}: {result_msg}")
         return
 
-    if source == "incheon_parking":
+    if source in {"incheon_parking", "incheon_fee"}:
         document = json.loads(body_text)
         header = document.get("response", {}).get("header", {})
         result_code = str(header.get("resultCode") or "").strip()
         result_msg = str(header.get("resultMsg") or "").strip()
         if result_code and result_code not in {"00", "0"}:
             raise ValueError(f"{source} API error {result_code}: {result_msg}")
+
+
+def redact_request_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Keep request provenance without persisting reusable credentials."""
+
+    return {
+        key: "[REDACTED]" if key.lower() in SENSITIVE_REQUEST_KEYS else value
+        for key, value in params.items()
+    }
 
 
 def build_public_data_client(settings: Settings) -> PublicDataClient:
@@ -283,6 +346,9 @@ class CollectionService:
     def __init__(self, settings: Settings, client: PublicDataClient | None = None) -> None:
         self.settings = settings
         self.client = client or build_public_data_client(settings)
+        # The deployment runs one backend process. Serialize scheduler/manual
+        # collection so a cooldown check cannot launch two upstream writes.
+        self.operation_lock = asyncio.Lock()
 
     @property
     def client_mode(self) -> str:
@@ -295,6 +361,8 @@ class CollectionService:
             sources.append("incheon_parking")
         if self.settings.enable_fee_collection:
             sources.append("kac_fee")
+        if self.settings.enable_incheon_fee_collection:
+            sources.append("incheon_fee")
         return sources
 
     async def get_upstream_rate_limit_state(self, session: AsyncSession) -> UpstreamRateLimitState:
@@ -325,8 +393,13 @@ class CollectionService:
         )
 
     async def collect(self, session: AsyncSession, trigger: str = "manual") -> dict[str, Any]:
+        async with self.operation_lock:
+            return await self._collect_unlocked(session, trigger)
+
+    async def _collect_unlocked(self, session: AsyncSession, trigger: str = "manual") -> dict[str, Any]:
         rate_limit_state = await self.get_upstream_rate_limit_state(session)
-        if rate_limit_state.is_blocked and rate_limit_state.blocked_until is not None:
+        can_collect_incheon = self.settings.enable_incheon_collection or self.settings.enable_incheon_fee_collection
+        if rate_limit_state.is_blocked and rate_limit_state.blocked_until is not None and not can_collect_incheon:
             return await self._store_rate_limit_skip(session, trigger, rate_limit_state)
 
         started_at = now_utc()
@@ -340,14 +413,20 @@ class CollectionService:
         fee_rule_count = 0
 
         try:
-            response = await self._safe_fetch(session, run, self.client.fetch_kac_parking, errors)
-            if response is not None:
-                raw_count += 1
-                parsed = parse_kac_parking(
-                    response.body_text,
-                    allowed_airport_codes=self.settings.supported_airport_codes,
+            if rate_limit_state.is_blocked:
+                errors.append(
+                    normalize_upstream_rate_limit_error(rate_limit_state.error_message)
+                    or f"kac_parking API error 99: {UPSTREAM_RATE_LIMIT_MARKER}"
                 )
-                snapshot_count += await self._store_observations(session, run.id, parsed)
+            else:
+                response = await self._safe_fetch(session, run, self.client.fetch_kac_parking, errors)
+                if response is not None:
+                    raw_count += 1
+                    parsed = parse_kac_parking(
+                        response.body_text,
+                        allowed_airport_codes=self.settings.supported_airport_codes,
+                    )
+                    snapshot_count += await self._store_observations(session, run.id, parsed)
 
             if self.settings.enable_incheon_collection:
                 response = await self._safe_fetch(session, run, self.client.fetch_incheon_parking, errors)
@@ -358,7 +437,7 @@ class CollectionService:
                     parsed = parse_incheon_parking(response.body_text)
                     snapshot_count += await self._store_observations(session, run.id, parsed)
 
-            if self.settings.enable_fee_collection:
+            if self.settings.enable_fee_collection and not rate_limit_state.is_blocked:
                 for airport_code in self.settings.supported_airport_codes:
                     if airport_code == "ICN":
                         continue
@@ -374,6 +453,13 @@ class CollectionService:
                     parsed_rules = parse_kac_fee(response.body_text, airport_code)
                     fee_rule_count += await self._store_fee_rules(session, parsed_rules)
 
+            if self.settings.enable_incheon_fee_collection:
+                response = await self._safe_fetch(session, run, self.client.fetch_incheon_fee, errors)
+                if response is not None:
+                    raw_count += 1
+                    parsed_rules = parse_incheon_fee(response.body_text)
+                    fee_rule_count += await self._store_fee_rules(session, parsed_rules)
+
             if not errors:
                 run.status = "success"
             elif raw_count == 0 and snapshot_count == 0 and fee_rule_count == 0:
@@ -381,10 +467,21 @@ class CollectionService:
             else:
                 run.status = "partial_success"
         except Exception as exc:
-            run.status = "failed"
-            errors.append(str(exc))
+            failed_at = now_utc()
+            error_message = str(exc)
+            await session.rollback()
+            session.add(
+                CollectionRun(
+                    started_at=started_at,
+                    finished_at=failed_at,
+                    status="failed",
+                    trigger=trigger,
+                    error_message=error_message,
+                )
+            )
+            await session.commit()
             raise
-        finally:
+        else:
             run.finished_at = now_utc()
             run.error_message = "\n".join(errors) if errors else None
             await session.commit()
@@ -463,7 +560,7 @@ class CollectionService:
                 collection_run_id=run.id,
                 source=response.source,
                 endpoint=response.endpoint,
-                request_params_json=response.request_params,
+                request_params_json=redact_request_params(response.request_params),
                 status_code=response.status_code,
                 body_text=response.body_text,
                 received_at=now_utc(),
@@ -539,6 +636,20 @@ class CollectionService:
         lot = await session.scalar(
             select(ParkingLot).where(ParkingLot.airport_id == airport_id, ParkingLot.source_lot_id == source_lot_id)
         )
+        if lot is None:
+            # A source can expose a different identifier for the same named lot
+            # after an import. Reuse the imported reference row so the live
+            # collector does not create a second lot and split its history.
+            named_lots = (
+                await session.scalars(
+                    select(ParkingLot)
+                    .where(ParkingLot.airport_id == airport_id, ParkingLot.name == name)
+                    .order_by(ParkingLot.id)
+                )
+            ).all()
+            if len(named_lots) > 1:
+                raise ValueError(f"ambiguous parking lot identity for airport_id={airport_id}, name={name!r}")
+            lot = named_lots[0] if named_lots else None
         timestamp = now_utc()
         if lot is None:
             lot = ParkingLot(
@@ -624,51 +735,69 @@ class CollectionService:
         for rule in rules:
             airport = await session.scalar(select(Airport).where(Airport.code == rule.airport_code))
             if airport is None:
-                airport = await self._get_or_create_airport(session, rule.airport_code, rule.airport_name, None, "kac")
+                airport = await self._get_or_create_airport(
+                    session,
+                    rule.airport_code,
+                    rule.airport_name,
+                    None,
+                    "incheon" if rule.airport_code == "ICN" else "kac",
+                )
 
-            lot_id = None
+            lot_ids = [None]
             if rule.parking_lot_name:
                 lot = await session.scalar(
                     select(ParkingLot).where(ParkingLot.airport_id == airport.id, ParkingLot.name == rule.parking_lot_name)
                 )
                 if lot is not None:
-                    lot_id = lot.id
+                    lot_ids = [lot.id]
+                elif rule.airport_code == "ICN":
+                    matching_lots = (
+                        await session.execute(
+                            select(ParkingLot).where(
+                                ParkingLot.airport_id == airport.id,
+                                ParkingLot.name.startswith(rule.parking_lot_name),
+                            )
+                        )
+                    ).scalars().all()
+                    if matching_lots:
+                        lot_ids = [matching_lot.id for matching_lot in matching_lots]
 
-            existing = await session.scalar(
-                select(ParkingFeeRule).where(
-                    ParkingFeeRule.airport_id == airport.id,
-                    ParkingFeeRule.parking_lot_id == lot_id,
-                    ParkingFeeRule.vehicle_size == rule.vehicle_size,
-                    ParkingFeeRule.day_type == rule.day_type,
+            for lot_id in lot_ids:
+                existing = await session.scalar(
+                    select(ParkingFeeRule).where(
+                        ParkingFeeRule.airport_id == airport.id,
+                        ParkingFeeRule.parking_lot_id == lot_id,
+                        ParkingFeeRule.vehicle_size == rule.vehicle_size,
+                        ParkingFeeRule.day_type == rule.day_type,
+                    )
                 )
-            )
 
-            if existing is None:
-                existing = ParkingFeeRule(
-                    airport_id=airport.id,
-                    parking_lot_id=lot_id,
-                    vehicle_size=rule.vehicle_size,
-                    day_type=rule.day_type,
-                    free_minutes=rule.free_minutes,
-                    basic_minutes=rule.basic_minutes,
-                    basic_fee=rule.basic_fee,
-                    unit_minutes=rule.unit_minutes,
-                    unit_fee=rule.unit_fee,
-                    daily_max_fee=rule.daily_max_fee,
-                    source_updated_at=rule.source_updated_at,
-                    raw_item_json=rule.raw_item,
-                )
-                session.add(existing)
-                stored += 1
-            else:
-                existing.free_minutes = rule.free_minutes
-                existing.basic_minutes = rule.basic_minutes
-                existing.basic_fee = rule.basic_fee
-                existing.unit_minutes = rule.unit_minutes
-                existing.unit_fee = rule.unit_fee
-                existing.daily_max_fee = rule.daily_max_fee
-                existing.source_updated_at = rule.source_updated_at
-                existing.raw_item_json = rule.raw_item
+                if existing is None:
+                    existing = ParkingFeeRule(
+                        airport_id=airport.id,
+                        parking_lot_id=lot_id,
+                        vehicle_size=rule.vehicle_size,
+                        day_type=rule.day_type,
+                        free_minutes=rule.free_minutes,
+                        basic_minutes=rule.basic_minutes,
+                        basic_fee=rule.basic_fee,
+                        unit_minutes=rule.unit_minutes,
+                        unit_fee=rule.unit_fee,
+                        daily_max_fee=rule.daily_max_fee,
+                        source_updated_at=rule.source_updated_at,
+                        raw_item_json=rule.raw_item,
+                    )
+                    session.add(existing)
+                    stored += 1
+                else:
+                    existing.free_minutes = rule.free_minutes
+                    existing.basic_minutes = rule.basic_minutes
+                    existing.basic_fee = rule.basic_fee
+                    existing.unit_minutes = rule.unit_minutes
+                    existing.unit_fee = rule.unit_fee
+                    existing.daily_max_fee = rule.daily_max_fee
+                    existing.source_updated_at = rule.source_updated_at
+                    existing.raw_item_json = rule.raw_item
 
         await session.flush()
         return stored

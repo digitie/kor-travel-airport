@@ -5,12 +5,16 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextlib import suppress
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings, get_settings
 from app.core.time_utils import now_utc, serialize_utc, to_seoul
@@ -18,12 +22,22 @@ from app.db.session import create_engine_and_session_factory, init_database
 from app.models import Airport, CollectionRun, ParkingFeeRule, ParkingLot, ParkingSnapshot, RawApiResponse
 from app.schemas import (
     AirportSummary,
+    BackupFile,
+    BackupListResponse,
+    BackupRestoreResponse,
     CollectionSummary,
     CollectionRunStatus,
     CollectorStatusResponse,
+    DashboardAnalyticsResponse,
+    DashboardBootstrapResponse,
     FeeCalculationRequest,
     FeeCalculationResponse,
+    FlightStatusResponse,
     HealthResponse,
+    HolidayItemSummary,
+    HolidayPatternItem,
+    HolidayPatternResponse,
+    HolidaySummaryResponse,
     HourlyBucket,
     ParkingCurrentResponse,
     ParkingHistoryResponse,
@@ -39,16 +53,51 @@ from app.schemas import (
     WeekdayHourlyPattern,
 )
 from app.services.analytics import (
+    build_special_day_patterns,
     build_threshold_insights,
     build_hourly_buckets,
     build_time_series,
     build_weekday_buckets,
     build_weekday_hour_patterns,
     classify_status_level,
+    deduplicate_snapshot_rows,
+    deduplicate_snapshots,
     detect_threshold_events,
+)
+from app.services.analytics_cache import (
+    DEFAULT_THRESHOLD_EVENTS_DAYS,
+    DEFAULT_THRESHOLD_EVENTS_LIMIT,
+    DEFAULT_THRESHOLD_INSIGHTS_DAYS,
+    DEFAULT_THRESHOLD_INSIGHTS_INTERVAL_MINUTES,
+    DEFAULT_TIMESERIES_DAYS,
+    DEFAULT_TIMESERIES_FUTURE_HOURS,
+    DEFAULT_TIMESERIES_INTERVAL_MINUTES,
+    DEFAULT_WEEKDAY_HOUR_DAYS,
+    METRIC_THRESHOLD_EVENTS,
+    METRIC_THRESHOLD_INSIGHTS,
+    METRIC_TIMESERIES,
+    METRIC_WEEKDAY_HOUR,
+    load_cached_analytics,
+    refresh_default_analytics_cache,
+)
+from app.services.backup_restore import (
+    backup_path_for_download,
+    create_backup,
+    list_backups,
+    remove_backup,
+    restore_backup,
+    save_uploaded_backup,
 )
 from app.services.collection import CollectionService
 from app.services.fee_calculator import calculate_total_fee
+from app.services.flight_status import FlightStatusService
+from app.services.holidays import (
+    HolidayItem,
+    HolidayService,
+    WEEKDAY_LABELS as HOLIDAY_WEEKDAY_LABELS,
+    collapse_holidays_by_date,
+    format_holiday_sentence,
+)
 from app.services.sample_data import seed_sample_database
 
 logger = logging.getLogger(__name__)
@@ -65,17 +114,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.session_factory = session_factory
         app.state.settings = resolved_settings
         app.state.collection_service = CollectionService(resolved_settings)
+        app.state.flight_status_service = FlightStatusService(resolved_settings)
+        app.state.holiday_service = HolidayService(resolved_settings)
         app.state.scheduler_task = None
 
         if resolved_settings.seed_sample_data and app.state.collection_service.client_mode == "sample":
             async with session_factory() as session:
                 await seed_sample_database(session)
+                await refresh_default_analytics_cache(session, resolved_settings)
+                await session.commit()
         elif resolved_settings.seed_sample_data:
             logger.info("sample seeding skipped because client_mode=%s", app.state.collection_service.client_mode)
 
         if resolved_settings.enable_scheduler:
             logger.info(
-                "scheduler enabled interval_seconds=%s client_mode=%s sources=%s airports=%s",
+                "scheduler enabled effective_interval_seconds=%s configured_interval_seconds=%s client_mode=%s sources=%s airports=%s",
+                resolved_settings.effective_collect_interval_seconds,
                 resolved_settings.collect_interval_seconds,
                 app.state.collection_service.client_mode,
                 ",".join(app.state.collection_service.enabled_sources),
@@ -93,14 +147,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await scheduler_task
             await engine.dispose()
 
-    app = FastAPI(title=resolved_settings.app_name, lifespan=lifespan)
+    app = FastAPI(
+        title=resolved_settings.app_name,
+        lifespan=lifespan,
+        docs_url="/docs" if resolved_settings.enable_api_docs else None,
+        redoc_url="/redoc" if resolved_settings.enable_api_docs else None,
+        openapi_url="/openapi.json" if resolved_settings.enable_api_docs else None,
+    )
+    if resolved_settings.trusted_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=resolved_settings.trusted_hosts)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type"],
     )
+
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        if forwarded_proto == "https":
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        return response
 
     def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
         return request.app.state.session_factory
@@ -114,20 +188,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def get_collection_service(request: Request) -> CollectionService:
         return request.app.state.collection_service
 
+    def get_flight_status_service(request: Request) -> FlightStatusService:
+        return request.app.state.flight_status_service
+
+    def get_holiday_service(request: Request) -> HolidayService:
+        return request.app.state.holiday_service
+
     @app.get("/health", response_model=HealthResponse)
     async def health(session: AsyncSession = Depends(get_db)) -> HealthResponse:
         seeded = await session.scalar(select(func.count(ParkingSnapshot.id)))
-        return HealthResponse(status="ok", database="ready", seeded=bool(seeded))
+        return HealthResponse(
+            status="ok",
+            database="ready",
+            seeded=bool(seeded),
+            release_sha=resolved_settings.release_sha,
+        )
 
     @app.get("/airports", response_model=list[AirportSummary])
     async def airports(session: AsyncSession = Depends(get_db)) -> list[AirportSummary]:
-        result = await session.execute(select(Airport).order_by(Airport.code))
+        result = await session.execute(
+            select(Airport).options(selectinload(Airport.parking_lots)).order_by(Airport.code)
+        )
         airports = result.scalars().all()
         payload: list[AirportSummary] = []
         for airport in airports:
-            lots = await session.execute(
-                select(ParkingLot).where(ParkingLot.airport_id == airport.id).order_by(ParkingLot.name)
-            )
+            lots = sorted(airport.parking_lots, key=lambda parking_lot: parking_lot.name)
             payload.append(
                 AirportSummary(
                     code=airport.code,
@@ -137,12 +222,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     parking_lots=[
                         ParkingLotSummary(
                             id=lot.id,
+                            source_lot_id=lot.source_lot_id,
+                            legacy_source_lot_id=lot.legacy_source_lot_id,
                             name=lot.name,
                             terminal=lot.terminal,
                             category=lot.category,
                             is_active=lot.is_active,
                         )
-                        for lot in lots.scalars().all()
+                        for lot in lots
                     ],
                 )
             )
@@ -153,20 +240,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         airport_code: str | None = Query(default=None),
         session: AsyncSession = Depends(get_db),
     ) -> ParkingCurrentResponse:
+        airport_id: int | None = None
+        if airport_code:
+            airport_id = await session.scalar(select(Airport.id).where(Airport.code == airport_code.upper()))
+            if airport_id is None:
+                return ParkingCurrentResponse(generated_at=now_utc(), items=[])
+
+        latest_snapshot_id = (
+            select(ParkingSnapshot.id)
+            .where(
+                ParkingSnapshot.airport_id == ParkingLot.airport_id,
+                ParkingSnapshot.parking_lot_id == ParkingLot.id,
+            )
+            .order_by(ParkingSnapshot.observed_at.desc(), ParkingSnapshot.id.desc())
+            .limit(1)
+            .correlate(ParkingLot)
+            .scalar_subquery()
+        )
         query = (
             select(ParkingSnapshot, ParkingLot, Airport)
-            .join(ParkingLot, ParkingLot.id == ParkingSnapshot.parking_lot_id)
-            .join(Airport, Airport.id == ParkingSnapshot.airport_id)
-            .order_by(ParkingLot.id, ParkingSnapshot.observed_at.desc())
+            .select_from(ParkingLot)
+            .join(Airport, Airport.id == ParkingLot.airport_id)
+            .join(ParkingSnapshot, ParkingSnapshot.id == latest_snapshot_id)
+            .order_by(ParkingLot.id)
         )
-        if airport_code:
-            query = query.where(Airport.code == airport_code.upper())
+        if airport_id is not None:
+            query = query.where(ParkingLot.airport_id == airport_id)
 
         rows = (await session.execute(query)).all()
-        latest_by_lot: dict[int, tuple[ParkingSnapshot, ParkingLot, Airport]] = {}
-        for snapshot, lot, airport in rows:
-            latest_by_lot.setdefault(lot.id, (snapshot, lot, airport))
-
         items = [
             ParkingStatus(
                 airport_code=airport.code,
@@ -184,7 +285,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 congestion_ratio=snapshot.congestion_ratio,
                 status_level=classify_status_level(snapshot.available_spaces, snapshot.total_spaces),
             )
-            for snapshot, lot, airport in latest_by_lot.values()
+            for snapshot, lot, airport in rows
         ]
         items.sort(key=lambda item: (item.airport_code, item.available_spaces))
         return ParkingCurrentResponse(generated_at=now_utc(), items=items)
@@ -207,7 +308,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return ParkingHistoryResponse(items=[])
             query = query.where(ParkingSnapshot.airport_id == airport.id)
 
-        snapshots = (await session.execute(query)).scalars().all()
+        snapshots = deduplicate_snapshots((await session.execute(query)).scalars().all())
         return ParkingHistoryResponse(
             items=[
                 {
@@ -247,6 +348,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         days: int = Query(default=14, ge=1, le=60),
         session: AsyncSession = Depends(get_db),
     ) -> list[WeekdayHourlyPattern]:
+        if airport_code and days == DEFAULT_WEEKDAY_HOUR_DAYS:
+            cached = await load_cached_analytics(
+                session,
+                metric=METRIC_WEEKDAY_HOUR,
+                airport_code=airport_code,
+                parking_lot_id=parking_lot_id,
+                days=days,
+            )
+            if cached is not None:
+                return [WeekdayHourlyPattern(**pattern) for pattern in cached]
+
         snapshots = await _load_snapshots(session, airport_code, parking_lot_id, days)
         return [WeekdayHourlyPattern(**pattern) for pattern in build_weekday_hour_patterns(snapshots)]
 
@@ -255,9 +367,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
         days: int = Query(default=7, ge=1, le=30),
-        interval_minutes: int = Query(default=30, ge=10, le=60),
+        interval_minutes: int = Query(default=DEFAULT_TIMESERIES_INTERVAL_MINUTES, ge=10, le=60),
+        future_hours: int = Query(default=0, ge=0, le=12),
         session: AsyncSession = Depends(get_db),
     ) -> ParkingTimeSeriesResponse:
+        if (
+            airport_code
+            and days == DEFAULT_TIMESERIES_DAYS
+            and interval_minutes == DEFAULT_TIMESERIES_INTERVAL_MINUTES
+            and future_hours == DEFAULT_TIMESERIES_FUTURE_HOURS
+        ):
+            cached = await load_cached_analytics(
+                session,
+                metric=METRIC_TIMESERIES,
+                airport_code=airport_code,
+                parking_lot_id=parking_lot_id,
+                days=days,
+                interval_minutes=interval_minutes,
+                future_hours=future_hours,
+            )
+            if cached is not None:
+                return ParkingTimeSeriesResponse(**cached)
+
         snapshots = await _load_snapshots(
             session,
             airport_code,
@@ -271,8 +402,102 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             parking_lot_id=parking_lot_id,
             days=days,
             interval_minutes=interval_minutes,
-            items=[TimeSeriesPoint(**point) for point in build_time_series(snapshots, days=days, interval_minutes=interval_minutes)],
+            future_hours=future_hours,
+            items=[
+                TimeSeriesPoint(**point)
+                for point in build_time_series(
+                    snapshots,
+                    days=days,
+                    interval_minutes=interval_minutes,
+                    future_hours=future_hours,
+                    tz_name=resolved_settings.app_timezone,
+                )
+            ],
         )
+
+    @app.get("/holidays/summary", response_model=HolidaySummaryResponse)
+    async def holiday_summary(
+        start_date: str | None = Query(default=None),
+        end_date: str | None = Query(default=None),
+        service: HolidayService = Depends(get_holiday_service),
+    ) -> HolidaySummaryResponse:
+        today = to_seoul(now_utc()).date()
+        week_start = today - timedelta(days=today.weekday())
+        resolved_start = _parse_local_date_query(start_date, "start_date") if start_date else week_start - timedelta(days=7)
+        resolved_end = _parse_local_date_query(end_date, "end_date") if end_date else week_start + timedelta(days=20)
+        if resolved_end < resolved_start:
+            raise HTTPException(status_code=400, detail="end_date는 start_date보다 빠를 수 없습니다.")
+
+        result = await service.get_holidays(resolved_start, resolved_end)
+        collapsed_items = collapse_holidays_by_date(result.items)
+        summary_items = [_build_holiday_summary_item(item.local_date, item.name) for item in collapsed_items]
+        return HolidaySummaryResponse(
+            generated_at=now_utc(),
+            start_date=resolved_start.isoformat(),
+            end_date=resolved_end.isoformat(),
+            source=result.source,
+            status=result.status,
+            error_message=result.error_message,
+            sentence=format_holiday_sentence(collapsed_items),
+            items=summary_items,
+        )
+
+    @app.get("/parking/analytics/holiday-patterns", response_model=HolidayPatternResponse)
+    async def holiday_patterns(
+        airport_code: str | None = Query(default=None),
+        parking_lot_id: int | None = Query(default=None),
+        limit: int = Query(default=8, ge=1, le=16),
+        session: AsyncSession = Depends(get_db),
+        service: HolidayService = Depends(get_holiday_service),
+    ) -> HolidayPatternResponse:
+        today = to_seoul(now_utc()).date()
+        lookback_days = max(90, limit * 14)
+        holiday_result = await service.get_holidays(today - timedelta(days=lookback_days), today)
+        holiday_items = collapse_holidays_by_date(holiday_result.items)
+        special_days = _build_recent_special_days(today, holiday_items, limit)
+        snapshots: list[ParkingSnapshot] = []
+        if special_days:
+            local_dates = [local_date for local_date, _name, _day_type in special_days]
+            snapshots = await _load_snapshots_between_local_dates(
+                session,
+                airport_code,
+                parking_lot_id,
+                min(local_dates),
+                max(local_dates),
+            )
+
+        return HolidayPatternResponse(
+            generated_at=now_utc(),
+            airport_code=airport_code.upper() if airport_code else None,
+            parking_lot_id=parking_lot_id,
+            source=holiday_result.source,
+            status=holiday_result.status,
+            error_message=holiday_result.error_message,
+            items=[
+                HolidayPatternItem(**pattern)
+                for pattern in build_special_day_patterns(
+                    snapshots,
+                    special_days,
+                    tz_name=resolved_settings.app_timezone,
+                )
+            ],
+        )
+
+    @app.get("/flights/status", response_model=FlightStatusResponse)
+    async def flight_status(
+        airport_code: str = Query(..., min_length=3, max_length=3),
+        local_date: str | None = Query(default=None),
+        service: FlightStatusService = Depends(get_flight_status_service),
+    ) -> FlightStatusResponse:
+        if local_date is None:
+            query_date = to_seoul(now_utc()).date()
+        else:
+            try:
+                query_date = date.fromisoformat(local_date)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="local_date는 YYYY-MM-DD 형식이어야 합니다.") from exc
+
+        return FlightStatusResponse(**await service.get_status(airport_code, query_date))
 
     @app.get("/parking/analytics/threshold-events", response_model=list[ThresholdEvent])
     async def threshold_events(
@@ -282,6 +507,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         limit: int = Query(default=20, ge=1, le=100),
         session: AsyncSession = Depends(get_db),
     ) -> list[ThresholdEvent]:
+        if airport_code and days == DEFAULT_THRESHOLD_EVENTS_DAYS and limit == DEFAULT_THRESHOLD_EVENTS_LIMIT:
+            cached = await load_cached_analytics(
+                session,
+                metric=METRIC_THRESHOLD_EVENTS,
+                airport_code=airport_code,
+                parking_lot_id=parking_lot_id,
+                days=days,
+                limit=limit,
+            )
+            if cached is not None:
+                return [ThresholdEvent(**event) for event in cached]
+
         rows = await _load_snapshot_rows(session, airport_code, parking_lot_id, days)
         return [
             ThresholdEvent(**{**event, "crossed_at": serialize_utc(event["crossed_at"])})
@@ -296,6 +533,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         interval_minutes: int = Query(default=10, ge=10, le=60),
         session: AsyncSession = Depends(get_db),
     ) -> ThresholdInsightsResponse:
+        if (
+            airport_code
+            and days == DEFAULT_THRESHOLD_INSIGHTS_DAYS
+            and interval_minutes == DEFAULT_THRESHOLD_INSIGHTS_INTERVAL_MINUTES
+        ):
+            cached = await load_cached_analytics(
+                session,
+                metric=METRIC_THRESHOLD_INSIGHTS,
+                airport_code=airport_code,
+                parking_lot_id=parking_lot_id,
+                days=days,
+                interval_minutes=interval_minutes,
+            )
+            if cached is not None:
+                return ThresholdInsightsResponse(**cached)
+
         snapshots = await _load_snapshots(
             session,
             airport_code,
@@ -337,24 +590,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if airport is None:
             raise HTTPException(status_code=404, detail="지원하지 않는 공항입니다.")
 
-        if airport.code == "ICN":
-            return FeeCalculationResponse(
-                supported=False,
-                airport_code=airport.code,
-                vehicle_size=payload.vehicle_size,
-                message="인천공항은 현재 요금 계산을 지원하지 않습니다.",
+        if payload.parking_lot_id is not None:
+            lot = await session.scalar(
+                select(ParkingLot).where(
+                    ParkingLot.id == payload.parking_lot_id,
+                    ParkingLot.airport_id == airport.id,
+                )
             )
+            if lot is None:
+                raise HTTPException(status_code=404, detail="해당 공항의 주차장을 찾지 못했습니다.")
 
         query = select(ParkingFeeRule).where(
             ParkingFeeRule.airport_id == airport.id,
             ParkingFeeRule.vehicle_size == payload.vehicle_size,
+        ).order_by(
+            ParkingFeeRule.parking_lot_id.is_(None).desc(),
+            ParkingFeeRule.parking_lot_id,
+            ParkingFeeRule.day_type,
         )
         if payload.parking_lot_id is not None:
             query = query.where(
                 (ParkingFeeRule.parking_lot_id == payload.parking_lot_id) | (ParkingFeeRule.parking_lot_id.is_(None))
             )
 
-        rules = (await session.execute(query)).scalars().all()
+        fetched_rules = (await session.execute(query)).scalars().all()
+        # Generic rules are the fallback; a lot-specific rule must win
+        # deterministically when both rows exist.
+        generic_rules = [rule for rule in fetched_rules if rule.parking_lot_id is None]
+        if payload.parking_lot_id is not None:
+            rules = generic_rules + [
+                rule for rule in fetched_rules if rule.parking_lot_id == payload.parking_lot_id
+            ]
+        elif generic_rules:
+            rules = generic_rules
+        else:
+            # Some providers publish only lot-specific rules. For an airport
+            # wide quote, use the lowest-id lot deterministically instead of
+            # letting database row order decide which rule wins.
+            lot_ids = sorted({rule.parking_lot_id for rule in fetched_rules if rule.parking_lot_id is not None})
+            rules = [rule for rule in fetched_rules if rule.parking_lot_id == (lot_ids[0] if lot_ids else None)]
         if not rules:
             return FeeCalculationResponse(
                 supported=False,
@@ -377,8 +651,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session: AsyncSession = Depends(get_db),
         service: CollectionService = Depends(get_collection_service),
     ) -> CollectionSummary:
+        if not resolved_settings.manual_collect_enabled:
+            raise HTTPException(status_code=404, detail="수동 수집 endpoint가 비활성화되어 있습니다.")
         rate_limit_state = await service.get_upstream_rate_limit_state(session)
-        if rate_limit_state.is_blocked and rate_limit_state.blocked_until is not None:
+        can_collect_incheon = resolved_settings.enable_incheon_collection or resolved_settings.enable_incheon_fee_collection
+        if rate_limit_state.is_blocked and rate_limit_state.blocked_until is not None and not can_collect_incheon:
             blocked_until_kst = to_seoul(rate_limit_state.blocked_until).strftime("%Y-%m-%d %H:%M:%S KST")
             raise HTTPException(
                 status_code=429,
@@ -406,6 +683,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     ),
                 )
         summary = await service.collect(session, trigger="manual")
+        if summary["snapshot_count"] > 0:
+            await refresh_default_analytics_cache(session, resolved_settings)
+            await session.commit()
         if summary["status"] == "failed":
             rate_limit_state = await service.get_upstream_rate_limit_state(session)
             if rate_limit_state.is_blocked and rate_limit_state.blocked_until is not None:
@@ -446,6 +726,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return CollectorStatusResponse(
             scheduler_enabled=resolved_settings.enable_scheduler,
             collect_interval_seconds=resolved_settings.collect_interval_seconds,
+            effective_collect_interval_seconds=resolved_settings.effective_collect_interval_seconds,
+            scheduler_safety_buffer_seconds=resolved_settings.scheduler_safety_buffer_seconds,
+            manual_collect_enabled=resolved_settings.manual_collect_enabled,
             manual_collect_min_interval_seconds=resolved_settings.manual_collect_min_interval_seconds,
             client_mode=service.client_mode,
             enabled_sources=service.enabled_sources,
@@ -461,6 +744,159 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ),
             last_run=last_run,
             recent_runs=recent_runs,
+        )
+
+    @app.get("/admin/backups", response_model=BackupListResponse)
+    async def admin_backups() -> BackupListResponse:
+        items = await list_backups(resolved_settings.backup_dir)
+        return BackupListResponse(
+            items=[BackupFile(filename=item.filename, size_bytes=item.size_bytes, created_at=item.created_at) for item in items]
+        )
+
+    @app.post("/admin/backups", response_model=BackupFile, status_code=201)
+    async def admin_create_backup(
+        service: CollectionService = Depends(get_collection_service),
+    ) -> BackupFile:
+        async with service.operation_lock:
+            try:
+                item = await create_backup(
+                    resolved_settings.backup_dir,
+                    resolved_settings.database_url,
+                    resolved_settings.backup_retention_count,
+                    resolved_settings.backup_command_timeout_seconds,
+                    resolved_settings.backup_storage_limit_bytes,
+                )
+            except (RuntimeError, ValueError) as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return BackupFile(filename=item.filename, size_bytes=item.size_bytes, created_at=item.created_at)
+
+    @app.get("/admin/backups/{filename}")
+    async def admin_download_backup(filename: str) -> FileResponse:
+        try:
+            path = backup_path_for_download(resolved_settings.backup_dir, filename)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if path.is_symlink() or not path.is_file():
+            raise HTTPException(status_code=404, detail="백업 파일을 찾지 못했습니다.")
+        return FileResponse(path, media_type="application/octet-stream", filename=filename)
+
+    @app.post("/admin/backups/restore", response_model=BackupRestoreResponse)
+    async def admin_restore_backup(
+        file: UploadFile = File(...),
+        service: CollectionService = Depends(get_collection_service),
+    ) -> BackupRestoreResponse:
+        if not file.filename or not file.filename.lower().endswith(".dump"):
+            raise HTTPException(status_code=400, detail=".dump 형식의 PostgreSQL 백업만 복원할 수 있습니다.")
+        if resolved_settings.enable_scheduler:
+            raise HTTPException(
+                status_code=409,
+                detail="수집 scheduler가 실행 중입니다. 5분 데이터 연속성을 위해 유지보수 창에서 scheduler를 중지한 뒤 복원하세요.",
+            )
+        async with service.operation_lock:
+            uploaded = None
+            try:
+                pre_restore = await create_backup(
+                    resolved_settings.backup_dir,
+                    resolved_settings.database_url,
+                    resolved_settings.backup_retention_count,
+                    resolved_settings.backup_command_timeout_seconds,
+                    resolved_settings.backup_storage_limit_bytes,
+                )
+                uploaded = await save_uploaded_backup(
+                    file,
+                    resolved_settings.backup_dir,
+                    resolved_settings.backup_storage_limit_bytes,
+                    protected_filenames={pre_restore.filename},
+                    upload_timeout_seconds=resolved_settings.backup_upload_timeout_seconds,
+                )
+                restored = await restore_backup(
+                    resolved_settings.backup_dir,
+                    resolved_settings.database_url,
+                    uploaded.filename,
+                    resolved_settings.backup_command_timeout_seconds,
+                )
+            except FileNotFoundError as exc:
+                raise HTTPException(status_code=404, detail="업로드한 백업 파일을 찾지 못했습니다.") from exc
+            except (RuntimeError, ValueError) as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+            finally:
+                if uploaded is not None:
+                    await remove_backup(resolved_settings.backup_dir, uploaded.filename)
+        return BackupRestoreResponse(
+            status="restored",
+            restored_from=BackupFile(
+                filename=restored.filename,
+                size_bytes=restored.size_bytes,
+                created_at=restored.created_at,
+            ),
+            pre_restore_backup=BackupFile(
+                filename=pre_restore.filename,
+                size_bytes=pre_restore.size_bytes,
+                created_at=pre_restore.created_at,
+            ),
+        )
+
+    @app.get("/dashboard/bootstrap", response_model=DashboardBootstrapResponse)
+    async def dashboard_bootstrap(
+        airport_code: str | None = Query(default=None),
+        session: AsyncSession = Depends(get_db),
+        collection_service: CollectionService = Depends(get_collection_service),
+        holiday_service: HolidayService = Depends(get_holiday_service),
+    ) -> DashboardBootstrapResponse:
+        """Return the first-paint payload in one request instead of four N+1 calls."""
+
+        return DashboardBootstrapResponse(
+            airports=await airports(session),
+            current=await parking_current(airport_code, session),
+            collector=await admin_collector_status(session, collection_service),
+            holidays=await holiday_summary(None, None, holiday_service),
+        )
+
+    @app.get("/dashboard/analytics", response_model=DashboardAnalyticsResponse)
+    async def dashboard_analytics(
+        airport_code: str = Query(..., min_length=3, max_length=3),
+        parking_lot_id: int | None = Query(default=None),
+        session: AsyncSession = Depends(get_db),
+        holiday_service: HolidayService = Depends(get_holiday_service),
+    ) -> DashboardAnalyticsResponse:
+        """Return the database-backed analytics together; flight data stays isolated."""
+
+        return DashboardAnalyticsResponse(
+            threshold_events=await threshold_events(
+                airport_code,
+                parking_lot_id,
+                DEFAULT_THRESHOLD_EVENTS_DAYS,
+                DEFAULT_THRESHOLD_EVENTS_LIMIT,
+                session,
+            ),
+            threshold_insights=await threshold_insights(
+                airport_code,
+                parking_lot_id,
+                DEFAULT_THRESHOLD_INSIGHTS_DAYS,
+                DEFAULT_THRESHOLD_INSIGHTS_INTERVAL_MINUTES,
+                session,
+            ),
+            weekday_hour_patterns=await parking_by_weekday_hour(
+                airport_code,
+                parking_lot_id,
+                DEFAULT_WEEKDAY_HOUR_DAYS,
+                session,
+            ),
+            holiday_patterns=await holiday_patterns(
+                airport_code,
+                parking_lot_id,
+                8,
+                session,
+                holiday_service,
+            ),
+            time_series=await parking_time_series(
+                airport_code,
+                parking_lot_id,
+                DEFAULT_TIMESERIES_DAYS,
+                DEFAULT_TIMESERIES_INTERVAL_MINUTES,
+                DEFAULT_TIMESERIES_FUTURE_HOURS,
+                session,
+            ),
         )
 
     async def _load_snapshots(
@@ -481,7 +917,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 return []
             query = query.where(ParkingSnapshot.airport_id == airport.id)
 
-        return (await session.execute(query)).scalars().all()
+        return deduplicate_snapshots((await session.execute(query)).scalars().all())
+
+    async def _load_snapshots_between_local_dates(
+        session: AsyncSession,
+        airport_code: str | None,
+        parking_lot_id: int | None,
+        start_date: date,
+        end_date: date,
+    ) -> list[ParkingSnapshot]:
+        tz = ZoneInfo(resolved_settings.app_timezone)
+        start_at = datetime.combine(start_date, time.min, tzinfo=tz).astimezone(ZoneInfo("UTC"))
+        end_at = (datetime.combine(end_date, time.min, tzinfo=tz) + timedelta(days=1)).astimezone(ZoneInfo("UTC"))
+        query = select(ParkingSnapshot).where(
+            ParkingSnapshot.observed_at >= start_at,
+            ParkingSnapshot.observed_at < end_at,
+        )
+
+        if parking_lot_id:
+            query = query.where(ParkingSnapshot.parking_lot_id == parking_lot_id)
+        elif airport_code:
+            airport = await session.scalar(select(Airport).where(Airport.code == airport_code.upper()))
+            if airport is None:
+                return []
+            query = query.where(ParkingSnapshot.airport_id == airport.id)
+
+        return deduplicate_snapshots((await session.execute(query)).scalars().all())
 
     async def _load_snapshot_rows(
         session: AsyncSession,
@@ -500,9 +961,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             query = query.where(ParkingSnapshot.parking_lot_id == parking_lot_id)
         elif airport_code:
             query = query.where(Airport.code == airport_code.upper())
-        return (await session.execute(query)).all()
+        return deduplicate_snapshot_rows((await session.execute(query)).all())
 
     return app
+
+
+def _parse_local_date_query(value: str, field_name: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"{field_name}는 YYYY-MM-DD 형식이어야 합니다.") from exc
+
+
+def _build_holiday_summary_item(local_date: date, name: str) -> HolidayItemSummary:
+    weekday = local_date.weekday()
+    return HolidayItemSummary(
+        local_date=local_date.isoformat(),
+        name=name,
+        weekday=weekday,
+        weekday_name=HOLIDAY_WEEKDAY_LABELS[weekday],
+    )
+
+
+def _build_recent_special_days(
+    today: date,
+    holiday_items: list[HolidayItem],
+    limit: int,
+) -> list[tuple[date, str, str]]:
+    holiday_names = {item.local_date: item.name for item in holiday_items}
+    special_days: list[tuple[date, str, str]] = []
+    cursor = today
+    while len(special_days) < limit:
+        if cursor in holiday_names:
+            special_days.append((cursor, holiday_names[cursor], "holiday"))
+        elif cursor.weekday() == 5:
+            special_days.append((cursor, "토요일", "saturday"))
+        elif cursor.weekday() == 6:
+            special_days.append((cursor, "일요일", "sunday"))
+        cursor -= timedelta(days=1)
+    return special_days
 
 
 async def _run_scheduler(app: FastAPI) -> None:
@@ -510,6 +1007,8 @@ async def _run_scheduler(app: FastAPI) -> None:
     service: CollectionService = app.state.collection_service
     settings: Settings = app.state.settings
 
+    loop = asyncio.get_running_loop()
+    next_deadline = loop.time()
     while True:
         async with session_factory() as session:
             try:
@@ -523,10 +1022,23 @@ async def _run_scheduler(app: FastAPI) -> None:
                     summary["snapshot_count"],
                     summary["fee_rule_count"],
                 )
+                if summary["snapshot_count"] > 0:
+                    refreshed = await refresh_default_analytics_cache(session, settings)
+                    await session.commit()
+                    logger.info("analytics cache refreshed scopes=%s", refreshed)
             except Exception:
                 await session.rollback()
                 logger.exception("scheduler tick failed")
-        await asyncio.sleep(settings.collect_interval_seconds)
+        next_deadline += settings.effective_collect_interval_seconds
+        delay = next_deadline - loop.time()
+        if delay < 0:
+            logger.warning(
+                "scheduler collection overran interval by %.1f seconds; starting next tick immediately",
+                -delay,
+            )
+            next_deadline = loop.time()
+            delay = 0
+        await asyncio.sleep(delay)
 
 
 async def _load_collection_run_statuses(

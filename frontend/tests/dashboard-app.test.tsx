@@ -1,11 +1,18 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { DashboardApp } from "@/components/dashboard-app";
-import { DASHBOARD_SELECTION_STORAGE_KEY } from "@/lib/dashboard-preferences";
+import {
+  DASHBOARD_SELECTION_COOKIE_KEY,
+  DASHBOARD_SELECTION_STORAGE_KEY,
+} from "@/lib/dashboard-preferences";
 import type {
   Airport,
   CollectorStatusResponse,
+  DashboardAnalyticsResponse,
+  FlightStatusResponse,
+  HolidayPatternResponse,
+  HolidaySummaryResponse,
   ParkingCurrentResponse,
   ParkingTimeSeriesResponse,
   ThresholdInsightsResponse,
@@ -17,14 +24,14 @@ const airports: Airport[] = [
     name_ko: "Gimpo",
     name_en: "Gimpo",
     source: "kac",
-    parking_lots: [{ id: 1, name: "Domestic P1", terminal: null, category: null, is_active: true }],
+    parking_lots: [{ id: 1, source_lot_id: "gmp-1", legacy_source_lot_id: null, name: "Domestic P1", terminal: null, category: null, is_active: true }],
   },
   {
     code: "PUS",
     name_ko: "Gimhae",
     name_en: "Gimhae",
     source: "kac",
-    parking_lots: [{ id: 5, name: "Passenger P1", terminal: null, category: null, is_active: true }],
+    parking_lots: [{ id: 5, source_lot_id: "pus-1", legacy_source_lot_id: null, name: "Passenger P1", terminal: null, category: null, is_active: true }],
   },
 ];
 
@@ -50,6 +57,20 @@ const currentPayload: ParkingCurrentResponse = {
   ],
 };
 
+const refreshedCurrentPayload: ParkingCurrentResponse = {
+  ...currentPayload,
+  generated_at: "2026-04-26T00:01:00.000Z",
+  items: [
+    {
+      ...currentPayload.items[0],
+      observed_at: "2026-04-26T00:01:00.000Z",
+      collected_at: "2026-04-26T00:11:00.000Z",
+      occupied_spaces: 136,
+      available_spaces: 64,
+    },
+  ],
+};
+
 const timeSeriesPayload: ParkingTimeSeriesResponse = {
   generated_at: "2026-04-26T00:00:00.000Z",
   airport_code: "GMP",
@@ -67,6 +88,27 @@ const timeSeriesPayload: ParkingTimeSeriesResponse = {
   ],
 };
 
+const holidaySummaryPayload: HolidaySummaryResponse = {
+  generated_at: "2026-05-09T00:00:00.000Z",
+  start_date: "2026-04-27",
+  end_date: "2026-05-17",
+  source: "sample_holiday_info",
+  status: "sample",
+  error_message: null,
+  sentence: "5/5 (화) 어린이날 입니다.",
+  items: [{ local_date: "2026-05-05", name: "어린이날", weekday: 1, weekday_name: "화" }],
+};
+
+const holidayPatternPayload: HolidayPatternResponse = {
+  generated_at: "2026-05-09T00:00:00.000Z",
+  airport_code: "GMP",
+  parking_lot_id: null,
+  source: "sample_holiday_info",
+  status: "sample",
+  error_message: null,
+  items: [],
+};
+
 const thresholdInsightsPayload: ThresholdInsightsResponse = {
   generated_at: "2026-04-26T00:00:00.000Z",
   airport_code: "GMP",
@@ -77,10 +119,21 @@ const thresholdInsightsPayload: ThresholdInsightsResponse = {
   history_items: [],
 };
 
+const flightStatusPayload: FlightStatusResponse = {
+  generated_at: "2026-04-26T00:00:00.000Z",
+  airport_code: "GMP",
+  local_date: "2026-04-26",
+  source: "sample_flight_status",
+  status: "sample",
+  error_message: null,
+  items: [],
+};
+
 function buildCollectorStatus(overrides: Partial<CollectorStatusResponse> = {}): CollectorStatusResponse {
   return {
     scheduler_enabled: true,
     collect_interval_seconds: 300,
+    manual_collect_enabled: true,
     manual_collect_min_interval_seconds: 300,
     client_mode: "live",
     enabled_sources: ["kac_parking"],
@@ -90,19 +143,41 @@ function buildCollectorStatus(overrides: Partial<CollectorStatusResponse> = {}):
     latest_snapshot_collected_at: "2026-04-26T00:10:00.000Z",
     manual_collect_available_at: "2026-04-26T00:15:00.000Z",
     manual_collect_blocked: false,
+    upstream_rate_limited: false,
+    upstream_rate_limited_until: null,
     last_run: null,
     recent_runs: [],
     ...overrides,
+    effective_collect_interval_seconds: overrides.effective_collect_interval_seconds ?? 180,
+    scheduler_safety_buffer_seconds: overrides.scheduler_safety_buffer_seconds ?? 120,
   };
 }
 
+const dashboardAnalyticsPayload: DashboardAnalyticsResponse = {
+  threshold_events: [],
+  threshold_insights: thresholdInsightsPayload,
+  weekday_hour_patterns: [],
+  holiday_patterns: holidayPatternPayload,
+  time_series: timeSeriesPayload,
+};
+
 const apiClient = {
   getAirports: vi.fn(async () => airports),
+  getDashboardBootstrap: vi.fn(async () => ({
+    airports,
+    current: currentPayload,
+    collector: buildCollectorStatus(),
+    holidays: holidaySummaryPayload,
+  })),
   getCurrent: vi.fn(async () => currentPayload),
+  getDashboardAnalytics: vi.fn(async (): Promise<DashboardAnalyticsResponse> => dashboardAnalyticsPayload),
   getThresholdEvents: vi.fn(async () => []),
   getThresholdInsights: vi.fn(async () => thresholdInsightsPayload),
   getByWeekdayHour: vi.fn(async () => []),
+  getHolidaySummary: vi.fn(async () => holidaySummaryPayload),
+  getHolidayPatterns: vi.fn(async () => holidayPatternPayload),
   getTimeSeries: vi.fn(async () => timeSeriesPayload),
+  getFlightStatus: vi.fn(async () => flightStatusPayload),
   getCollectorStatus: vi.fn(async () => buildCollectorStatus()),
   runCollector: vi.fn(async () => ({
     collection_run_id: 1,
@@ -117,6 +192,15 @@ const apiClient = {
 };
 
 vi.mock("@/lib/api", () => ({
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      readonly status: number
+    ) {
+      super(message);
+      this.name = "ApiError";
+    }
+  },
   buildApiClient: () => apiClient,
 }));
 
@@ -126,9 +210,19 @@ vi.mock("@/components/fee-calculator", () => ({
 
 describe("DashboardApp", () => {
   beforeEach(() => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
     localStorage.clear();
+    document.cookie = `${DASHBOARD_SELECTION_COOKIE_KEY}=; Max-Age=0; Path=/`;
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     apiClient.getCollectorStatus.mockResolvedValue(buildCollectorStatus());
+    apiClient.getDashboardBootstrap.mockResolvedValue({
+      airports,
+      current: currentPayload,
+      collector: buildCollectorStatus(),
+      holidays: holidaySummaryPayload,
+    });
+    apiClient.getDashboardAnalytics.mockResolvedValue(dashboardAnalyticsPayload);
   });
 
   test("restores the last selected airport and parking lot from localStorage", async () => {
@@ -165,6 +259,17 @@ describe("DashboardApp", () => {
         manual_collect_blocked: true,
       })
     );
+    apiClient.getDashboardBootstrap.mockResolvedValue({
+      airports,
+      current: currentPayload,
+      collector: buildCollectorStatus({
+        collect_interval_seconds: 1200,
+        manual_collect_min_interval_seconds: 1200,
+        manual_collect_available_at: "2026-04-26T00:30:00.000Z",
+        manual_collect_blocked: true,
+      }),
+      holidays: holidaySummaryPayload,
+    });
 
     render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
 
@@ -172,7 +277,155 @@ describe("DashboardApp", () => {
     await user.click(screen.getByTestId("manual-collect-button"));
 
     expect(
-      await screen.findByText("마지막 업데이트 후 20분이 지나지 않았습니다. 04.26 09:30 KST 이후 다시 시도해 주세요.")
+      await screen.findByText("마지막 업데이트 후 20분이 지나지 않았습니다. 04.26 09:30 이후 다시 시도해 주세요.")
     ).toBeInTheDocument();
+  });
+
+  test("does not ask for a token while loading read-only dashboard data", async () => {
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue(null);
+
+    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
+
+    await screen.findByTestId("history-chart");
+    expect(promptSpy).not.toHaveBeenCalled();
+
+    promptSpy.mockRestore();
+  });
+
+  test("runs manual collection without asking for a token", async () => {
+    const user = userEvent.setup();
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("unused-token");
+
+    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
+
+    await screen.findByTestId("history-chart");
+    await user.click(screen.getByTestId("manual-collect-button"));
+
+    expect(promptSpy).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(apiClient.runCollector).toHaveBeenCalledWith();
+    });
+
+    promptSpy.mockRestore();
+  });
+
+  test("shows parking data before delayed flight status finishes", async () => {
+    apiClient.getFlightStatus.mockImplementationOnce(() => new Promise<FlightStatusResponse>(() => undefined));
+
+    render(<DashboardApp apiBaseUrl="http://localhost:8000" flightStatusTimeoutMs={20} />);
+
+    await screen.findByTestId("history-chart");
+    expect(screen.queryByText("데이터를 불러오는 중입니다.")).not.toBeInTheDocument();
+    expect(screen.getAllByText("현재 잔여 주차면").length).toBeGreaterThan(0);
+  });
+
+  test("shows current parking data before delayed analytics finish", async () => {
+    apiClient.getDashboardAnalytics.mockImplementationOnce(
+      () => new Promise<DashboardAnalyticsResponse>(() => undefined)
+    );
+
+    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
+
+    await screen.findByText("100/200대");
+    expect(screen.queryByText("데이터를 불러오는 중입니다.")).not.toBeInTheDocument();
+    expect(apiClient.getDashboardAnalytics).toHaveBeenCalled();
+  });
+
+  test("defers analytics requests until the analytics section is near the viewport", async () => {
+    let intersectionCallback: IntersectionObserverCallback | null = null;
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class MockIntersectionObserver implements IntersectionObserver {
+        readonly root = null;
+        readonly rootMargin = "120px 0px";
+        readonly scrollMargin = "0px";
+        readonly thresholds = [0];
+
+        constructor(callback: IntersectionObserverCallback) {
+          intersectionCallback = callback;
+        }
+
+        disconnect = vi.fn();
+        observe = vi.fn();
+        takeRecords = vi.fn(() => []);
+        unobserve = vi.fn();
+      }
+    );
+
+    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
+
+    await screen.findByText((_, element) => element?.textContent === "100/200대");
+    expect(apiClient.getDashboardBootstrap).toHaveBeenCalled();
+    expect(apiClient.getDashboardAnalytics).not.toHaveBeenCalled();
+    expect(apiClient.getFlightStatus).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(intersectionCallback).not.toBeNull();
+    });
+
+    act(() => {
+      intersectionCallback?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    });
+
+    await waitFor(() => {
+      expect(apiClient.getDashboardAnalytics).toHaveBeenCalled();
+    });
+    expect(apiClient.getFlightStatus).toHaveBeenCalled();
+  });
+
+  test("refreshes dashboard data automatically when backend snapshots change", async () => {
+    apiClient.getDashboardBootstrap
+      .mockResolvedValueOnce({
+        airports,
+        current: currentPayload,
+        collector: buildCollectorStatus(),
+        holidays: holidaySummaryPayload,
+      })
+      .mockResolvedValue({
+        airports,
+        current: refreshedCurrentPayload,
+        collector: buildCollectorStatus({
+          latest_snapshot_observed_at: "2026-04-26T00:01:00.000Z",
+          latest_snapshot_collected_at: "2026-04-26T00:11:00.000Z",
+        }),
+        holidays: holidaySummaryPayload,
+      });
+    apiClient.getCollectorStatus
+      .mockResolvedValueOnce(buildCollectorStatus())
+      .mockResolvedValueOnce(
+        buildCollectorStatus({
+          latest_snapshot_observed_at: "2026-04-26T00:01:00.000Z",
+          latest_snapshot_collected_at: "2026-04-26T00:11:00.000Z",
+        })
+      )
+      .mockResolvedValue(
+        buildCollectorStatus({
+          latest_snapshot_observed_at: "2026-04-26T00:01:00.000Z",
+          latest_snapshot_collected_at: "2026-04-26T00:11:00.000Z",
+        })
+      );
+
+    render(<DashboardApp apiBaseUrl="http://localhost:8000" autoRefreshIntervalMs={20} />);
+
+    await screen.findByTestId("history-chart");
+    expect(apiClient.getDashboardBootstrap).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => {
+      expect(apiClient.getDashboardBootstrap.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText((_, element) => element?.textContent === "64/200대").length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText("데이터를 불러오는 중입니다.")).not.toBeInTheDocument();
+  });
+
+  test("skips full dashboard reloads while backend snapshots are unchanged", async () => {
+    render(<DashboardApp apiBaseUrl="http://localhost:8000" autoRefreshIntervalMs={20} />);
+
+    await screen.findByTestId("history-chart");
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(apiClient.getCollectorStatus.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(apiClient.getDashboardBootstrap).toHaveBeenCalledTimes(1);
   });
 });

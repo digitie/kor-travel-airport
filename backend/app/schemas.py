@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ParkingLotSummary(BaseModel):
     id: int
+    source_lot_id: str
+    legacy_source_lot_id: str | None = None
     name: str
     terminal: str | None = None
     category: str | None = None
@@ -68,7 +71,33 @@ class ParkingTimeSeriesResponse(BaseModel):
     parking_lot_id: int | None = None
     days: int
     interval_minutes: int
+    future_hours: int = 0
     items: list[TimeSeriesPoint]
+
+
+class FlightStatusItem(BaseModel):
+    airport_code: str
+    direction: str
+    flight_number: str
+    codeshare_flight_numbers: list[str] = Field(default_factory=list)
+    airline: str | None = None
+    scheduled_at: datetime
+    estimated_at: datetime | None = None
+    marker_at: datetime
+    origin_airport: str
+    destination_airport: str
+    status: str | None = None
+    line_type: str | None = None
+
+
+class FlightStatusResponse(BaseModel):
+    generated_at: datetime
+    airport_code: str
+    local_date: str
+    source: str
+    status: str
+    error_message: str | None = None
+    items: list[FlightStatusItem]
 
 
 class HourlyBucket(BaseModel):
@@ -104,6 +133,47 @@ class WeekdayHourlyPattern(BaseModel):
     max_available_spaces: int | None = None
     observations: int
     hourly_buckets: list[WeekdayHourBucket]
+
+
+class HolidayItemSummary(BaseModel):
+    local_date: str
+    name: str
+    weekday: int
+    weekday_name: str
+
+
+class HolidaySummaryResponse(BaseModel):
+    generated_at: datetime
+    start_date: str
+    end_date: str
+    source: str
+    status: str
+    error_message: str | None = None
+    sentence: str
+    items: list[HolidayItemSummary]
+
+
+class HolidayPatternItem(BaseModel):
+    local_date: str
+    name: str
+    day_type: Literal["holiday", "saturday", "sunday"] = "holiday"
+    weekday: int
+    weekday_name: str
+    average_available_spaces: float | None = None
+    min_available_spaces: int | None = None
+    max_available_spaces: int | None = None
+    observations: int
+    hourly_buckets: list[WeekdayHourBucket]
+
+
+class HolidayPatternResponse(BaseModel):
+    generated_at: datetime
+    airport_code: str | None = None
+    parking_lot_id: int | None = None
+    source: str
+    status: str
+    error_message: str | None = None
+    items: list[HolidayPatternItem]
 
 
 class ThresholdEvent(BaseModel):
@@ -149,9 +219,15 @@ class ThresholdInsightsResponse(BaseModel):
 class FeeCalculationRequest(BaseModel):
     airport_code: str
     parking_lot_id: int | None = None
-    vehicle_size: str = Field(default="small")
+    vehicle_size: Literal["small", "large"] = Field(default="small")
     entry_at: datetime
     exit_at: datetime
+
+    @model_validator(mode="after")
+    def validate_interval(self) -> "FeeCalculationRequest":
+        if self.exit_at <= self.entry_at:
+            raise ValueError("출차 시각은 입차 시각보다 늦어야 합니다.")
+        return self
 
 
 class FeeBreakdown(BaseModel):
@@ -195,6 +271,9 @@ class CollectionRunStatus(BaseModel):
 class CollectorStatusResponse(BaseModel):
     scheduler_enabled: bool
     collect_interval_seconds: int
+    effective_collect_interval_seconds: int
+    scheduler_safety_buffer_seconds: int
+    manual_collect_enabled: bool
     manual_collect_min_interval_seconds: int
     client_mode: str
     enabled_sources: list[str]
@@ -214,3 +293,39 @@ class HealthResponse(BaseModel):
     status: str
     database: str
     seeded: bool
+    release_sha: str
+
+
+class BackupFile(BaseModel):
+    filename: str
+    size_bytes: int
+    created_at: datetime
+
+
+class BackupListResponse(BaseModel):
+    items: list[BackupFile]
+
+
+class BackupRestoreResponse(BaseModel):
+    status: Literal["restored"]
+    restored_from: BackupFile
+    pre_restore_backup: BackupFile
+
+
+class DashboardBootstrapResponse(BaseModel):
+    """The minimum payload required to paint the first dashboard view."""
+
+    airports: list[AirportSummary]
+    current: ParkingCurrentResponse
+    collector: CollectorStatusResponse
+    holidays: HolidaySummaryResponse
+
+
+class DashboardAnalyticsResponse(BaseModel):
+    """Cached, lazy-loaded analytics returned in one network round trip."""
+
+    threshold_events: list[ThresholdEvent]
+    threshold_insights: ThresholdInsightsResponse
+    weekday_hour_patterns: list[WeekdayHourlyPattern]
+    holiday_patterns: HolidayPatternResponse
+    time_series: ParkingTimeSeriesResponse

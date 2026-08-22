@@ -1,5 +1,7 @@
 export type ParkingLot = {
   id: number;
+  source_lot_id: string;
+  legacy_source_lot_id: string | null;
   name: string;
   terminal: string | null;
   category: string | null;
@@ -60,6 +62,9 @@ export type CollectionRunStatus = {
 export type CollectorStatusResponse = {
   scheduler_enabled: boolean;
   collect_interval_seconds: number;
+  effective_collect_interval_seconds: number;
+  scheduler_safety_buffer_seconds: number;
+  manual_collect_enabled: boolean;
   manual_collect_min_interval_seconds: number;
   client_mode: string;
   enabled_sources: string[];
@@ -89,7 +94,33 @@ export type ParkingTimeSeriesResponse = {
   parking_lot_id: number | null;
   days: number;
   interval_minutes: number;
+  future_hours?: number;
   items: TimeSeriesPoint[];
+};
+
+export type FlightStatusItem = {
+  airport_code: string;
+  direction: "departure" | "arrival" | "unknown";
+  flight_number: string;
+  codeshare_flight_numbers?: string[];
+  airline: string | null;
+  scheduled_at: string;
+  estimated_at: string | null;
+  marker_at: string;
+  origin_airport: string;
+  destination_airport: string;
+  status: string | null;
+  line_type: string | null;
+};
+
+export type FlightStatusResponse = {
+  generated_at: string;
+  airport_code: string;
+  local_date: string;
+  source: string;
+  status: string;
+  error_message: string | null;
+  items: FlightStatusItem[];
 };
 
 export type HourlyBucket = {
@@ -125,6 +156,47 @@ export type WeekdayHourlyPattern = {
   max_available_spaces: number | null;
   observations: number;
   hourly_buckets: WeekdayHourBucket[];
+};
+
+export type HolidayItemSummary = {
+  local_date: string;
+  name: string;
+  weekday: number;
+  weekday_name: string;
+};
+
+export type HolidaySummaryResponse = {
+  generated_at: string;
+  start_date: string;
+  end_date: string;
+  source: string;
+  status: string;
+  error_message: string | null;
+  sentence: string;
+  items: HolidayItemSummary[];
+};
+
+export type HolidayPatternItem = {
+  local_date: string;
+  name: string;
+  day_type: "holiday" | "saturday" | "sunday";
+  weekday: number;
+  weekday_name: string;
+  average_available_spaces: number | null;
+  min_available_spaces: number | null;
+  max_available_spaces: number | null;
+  observations: number;
+  hourly_buckets: WeekdayHourBucket[];
+};
+
+export type HolidayPatternResponse = {
+  generated_at: string;
+  airport_code: string | null;
+  parking_lot_id: number | null;
+  source: string;
+  status: string;
+  error_message: string | null;
+  items: HolidayPatternItem[];
 };
 
 export type ThresholdEvent = {
@@ -190,4 +262,35 @@ export type FeeCalculationResponse = {
   currency: string;
   message: string | null;
   breakdown: FeeBreakdown[];
+};
+
+export type BackupFile = {
+  filename: string;
+  size_bytes: number;
+  created_at: string;
+};
+
+export type BackupListResponse = {
+  items: BackupFile[];
+};
+
+export type BackupRestoreResponse = {
+  status: "restored";
+  restored_from: BackupFile;
+  pre_restore_backup?: BackupFile;
+};
+
+export type DashboardBootstrapResponse = {
+  airports: Airport[];
+  current: ParkingCurrentResponse;
+  collector: CollectorStatusResponse;
+  holidays: HolidaySummaryResponse;
+};
+
+export type DashboardAnalyticsResponse = {
+  threshold_events: ThresholdEvent[];
+  threshold_insights: ThresholdInsightsResponse;
+  weekday_hour_patterns: WeekdayHourlyPattern[];
+  holiday_patterns: HolidayPatternResponse;
+  time_series: ParkingTimeSeriesResponse;
 };
