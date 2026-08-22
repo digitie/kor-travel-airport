@@ -104,7 +104,7 @@ async def latest_lot_history(
     airport_code: str,
     lot: dict[str, Any],
     days: int,
-) -> tuple[str, str, str, datetime | None, str | None]:
+) -> tuple[str, str, str, datetime | None, str | None, datetime]:
     identity = str(lot.get("legacy_source_lot_id") or lot["id"])
     try:
         payload = await fetch_json(
@@ -114,11 +114,12 @@ async def latest_lot_history(
             parking_lot_id=lot["id"],
             days=days,
         )
+        checked_at = datetime.now(timezone.utc)
         items = payload.get("items", [])
         latest = max((parse_timestamp(item.get("observed_at")) for item in items), default=None)
-        return airport_code, identity, lot["name"], latest, None
+        return airport_code, identity, lot["name"], latest, None, checked_at
     except Exception as exc:  # pragma: no cover - exercised against live systems
-        return airport_code, identity, lot["name"], None, str(exc)
+        return airport_code, identity, lot["name"], None, str(exc), datetime.now(timezone.utc)
 
 
 async def verify(args: argparse.Namespace) -> int:
@@ -132,6 +133,7 @@ async def verify(args: argparse.Namespace) -> int:
             fetch_json(client, args.target_base_url, "/airports"),
             fetch_json(client, args.target_base_url, "/admin/collector-status"),
         )
+        target_status_checked_at = datetime.now(timezone.utc)
 
         failures: list[str] = []
         target_by_key: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -156,7 +158,7 @@ async def verify(args: argparse.Namespace) -> int:
         source_keys: set[tuple[str, str]] = set()
         source_by_key: dict[tuple[str, str], tuple[str, datetime | None]] = {}
         target_checks = []
-        for airport_code, legacy_id, lot_name, source_latest, error in source_results:
+        for airport_code, legacy_id, lot_name, source_latest, error, _source_checked_at in source_results:
             key = (airport_code, legacy_id)
             if key in source_keys:
                 failures.append(f"{airport_code}/{legacy_id}: duplicate source identity")
@@ -184,8 +186,7 @@ async def verify(args: argparse.Namespace) -> int:
                 failures.append(f"{target_key[0]}/{target_key[1]}: unexpected target parking lot")
 
         target_results = await asyncio.gather(*target_checks)
-        now = datetime.now(timezone.utc)
-        for airport_code, legacy_id, lot_name, target_latest, error in target_results:
+        for airport_code, legacy_id, lot_name, target_latest, error, target_checked_at in target_results:
             key = (airport_code, legacy_id)
             source_name, source_latest = source_by_key[key]
             if error:
@@ -212,18 +213,18 @@ async def verify(args: argparse.Namespace) -> int:
                     f"{airport_code}/{legacy_id}/{lot_name}: source leads target by {source_lag_seconds:.1f}s "
                     f"> {args.max_source_lag_seconds}s"
                 )
-            if (now - target_latest).total_seconds() > args.max_age_seconds:
+            if (target_checked_at - target_latest).total_seconds() > args.max_age_seconds:
                 failures.append(
-                    f"{airport_code}/{legacy_id}/{lot_name}: target freshness is {(now - target_latest).total_seconds():.1f}s "
+                    f"{airport_code}/{legacy_id}/{lot_name}: target freshness is {(target_checked_at - target_latest).total_seconds():.1f}s "
                     f"> {args.max_age_seconds}s"
                 )
 
         latest_target_observed = parse_timestamp(target_status.get("latest_snapshot_observed_at"))
         if latest_target_observed is None:
             failures.append("target has no global latest observation")
-        elif (now - latest_target_observed).total_seconds() > args.max_age_seconds:
+        elif (target_status_checked_at - latest_target_observed).total_seconds() > args.max_age_seconds:
             failures.append(
-                f"target global freshness is {(now - latest_target_observed).total_seconds():.1f}s "
+                f"target global freshness is {(target_status_checked_at - latest_target_observed).total_seconds():.1f}s "
                 f"> {args.max_age_seconds}s"
             )
         if not target_status.get("scheduler_enabled"):
