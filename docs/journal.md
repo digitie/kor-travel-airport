@@ -160,3 +160,29 @@
   배포해 live 검증 완료: `release_sha=9961579`, KAC(`GMP`)와 IIAC(`ICN`) 양쪽
   `/v1/flights/status`가 실제 서비스 키로 `status=success`와 실제 항공편 데이터를
   반환했다.
+
+## 2026-08-24
+
+- 사용자 요청으로 운영 호스트 `192.168.1.14`의 별칭을 "server14"/"14번"에서 "n150"으로
+  통일했다(과거 기록 문서는 그대로 보존). `docs/journal.md`/`docs/tasks-done.md`/
+  `docs/runbooks/migration.md`처럼 히스토리를 다루는 문서는 고치지 않았다.
+- n150이 느리다는 신고를 받아 조사했다: CPU 4코어에 load average `30.57`(1분), swap
+  `4.0Gi/4.0Gi`(거의 꽉 참), 컨테이너 42개가 동시에 떠 있었다(kor-travel-map,
+  kor-travel-geo, pinvi, tvnm05 등 parking-radar 외 다른 프로젝트가 대부분). 원인은
+  parking-radar 자체가 아니라 여러 프로젝트가 4코어 호스트를 공유하며 용량을 초과한
+  것으로 판단했다. `tvnm05-current-*`/`tvnm05-live-*`가 동시에 떠 있어 중복처럼 보였지만
+  생성 시각을 확인해 보니 candidate/live 두 환경이 의도적으로 공존하는 blue/green
+  패턴이라 정리 대상이 아니라고 판단하고 손대지 않았다. `vm.swappiness`가 아무 파일에도
+  설정돼 있지 않아(커널 기본값 60) `/etc/sysctl.d/99-parking-radar-swappiness.conf`에
+  `vm.swappiness=10`을 등록해 적용했다(load average `30.57`→`25.01`로 소폭 개선). 이미
+  swap에 올라간 4GiB를 강제로 비우는 `swapoff -a && swapon -a`는 당시 free 메모리가
+  2.1GiB뿐이라 OOM 위험이 있어 실행하지 않았다.
+- 사용자 요청으로 PostgreSQL dump를 3일마다 자동 생성하도록
+  `scripts/n150-backup-cron.sh`를 추가했다(PR
+  [#13](https://github.com/digitie/parking-radar/pull/13)). 앱 코드 변경 없이
+  `POST /v1/admin/backups`를 `localhost:14001`로 호출만 하는 독립 스크립트이며, 오래된
+  dump 정리는 기존 `BACKUP_RETENTION_COUNT`가 그대로 담당한다. n150의 crontab(다른
+  프로젝트 백업 job과 공존, `CRON_TZ=UTC`)에 `0 18 */3 * *`(3일마다 03:00 KST)로
+  등록하고 dry-run으로 실제 dump 생성을 확인했다. Windows 로컬 체크아웃의
+  `core.autocrlf`가 `scp`로 옮긴 스크립트를 CRLF로 깨뜨려(`deploy-server14.sh`와 동일한
+  문제) 원격에서 `sed -i 's/\r$//'`로 정규화해야 했다.
