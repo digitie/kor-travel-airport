@@ -2,12 +2,21 @@
 
 ## 현재 상태
 
-- 기준일: 2026-08-23
-- 작업 브랜치: `main` (로컬/원격 모두 `9961579`).
-- `digitie/parking-radar` PR #2~#10 모두 **MERGED** 상태다. 이 세션에서 다룬 마지막
-  PR은 [#10](https://github.com/digitie/parking-radar/pull/10)(`T-029`)이다.
+- 기준일: 2026-08-24
+- 작업 브랜치: `main` (로컬/원격 모두 `9911e19`).
+- `digitie/parking-radar` PR #2~#13 모두 **MERGED** 상태다. 이 세션에서 다룬 마지막
+  코드/운영 PR은 [#13](https://github.com/digitie/parking-radar/pull/13)(n150 백업
+  cron)이다.
 - `docs/tasks.md`의 진행 중 백로그가 비어 있다 — `T-029`/`T-031`을 포함해 이 세션에서
   파악한 항목은 모두 완료·머지·live 검증까지 끝났다.
+- 운영 호스트 `192.168.1.14`의 별칭을 "server14"/"14번"에서 "n150"으로 통일했다(PR
+  [#12](https://github.com/digitie/parking-radar/pull/12)). IP·실제 파일명은 그대로다.
+- n150에 `vm.swappiness=10`을 영구 적용했다(`/etc/sysctl.d/99-parking-radar-swappiness.conf`).
+  4코어에 load average 30대, swap 거의 꽉 참, 컨테이너 42개(대부분 다른 프로젝트) 상태였고,
+  parking-radar 자체 문제가 아니라 호스트 공유 용량 초과로 판단했다. 근본 해결(코어
+  증설/다른 프로젝트와 용량 조정)은 여전히 미해결.
+- `scripts/n150-backup-cron.sh`를 n150의 crontab에 등록해(3일마다 03:00 KST) PostgreSQL
+  dump 자동 생성을 활성화했다. dry-run으로 실제 백업 생성 확인 완료.
 - PR #3(`T-030`) 검증 중 발견한 두 버그(krairport의 KAC HTTPS 스킴 버그,
   `parse_kac_fee`의 SCREAMING_SNAKE_CASE 필드명 버그)는 모두 수정·머지 완료.
   `docs/adr/004-*.md` "후속" 참고.

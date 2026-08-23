@@ -24,15 +24,24 @@ web의 `/v1/admin/backups*` proxy는 `BACKUP_PROXY_TIMEOUT_MS=900000`으로 설�
 로직은 두지 않는다 — 오래된 dump 삭제는 endpoint 자체의 `BACKUP_RETENTION_COUNT`가
 담당한다.
 
-n150 crontab 등록(3일마다 03:00 KST = 18:00 UTC):
+n150 crontab에 2026-08-23부터 등록해 실제로 동작 중이다(`CRON_TZ=UTC` 전제,
+3일마다 18:00 UTC = 03:00 KST):
 
-```bash
-crontab -e
-# 추가:
+```
 0 18 */3 * * /home/digitie/apps/parking-radar/scripts/n150-backup-cron.sh >> /home/digitie/apps/parking-radar/backups/cron.log 2>&1
 ```
 
+n150은 다른 프로젝트(kor-travel-*, pinvi)의 백업 cron도 같은 crontab에 함께 등록돼 있다
+— 새 항목을 추가할 때는 `crontab -l`로 기존 줄을 먼저 확인하고 append한다(`crontab -e`나
+덮어쓰기로 기존 줄을 지우지 않는다).
+
 `cron.log`는 `backups/` bind mount 안에 있어 git에 들어가지 않는다.
+
+**Windows 로컬 체크아웃 주의**: `core.autocrlf`로 인해 이 저장소를 Windows에서 체크아웃한
+뒤 `scp`로 그대로 옮기면 스크립트가 CRLF로 깨진다(`env: $'bash\r': No such file or
+directory`). n150에 배포/갱신할 때는 원격에서 `sed -i 's/\r$//' scripts/n150-backup-cron.sh`로
+LF 정규화가 필요할 수 있다(`scripts/deploy-server14.sh`도 같은 문제가 있어 이미 이 방식으로
+우회하고 있다).
 
 ## 운영 주의
 
