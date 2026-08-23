@@ -31,7 +31,7 @@ REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
 운영 scheduler가 켜진 동안에는 restore endpoint가 `409`를 반환하므로, 복원은 scheduler를 중지한
 유지보수 창에서만 수행한다.
 
-보안 예외: 사용자가 별도 application auth를 요구한 backup/restore UI와 `/admin/backups*`만
+보안 예외: 사용자가 별도 application auth를 요구한 backup/restore UI와 `/v1/admin/backups*`만
 의도적으로 인증 없이 남겨 둔다. 수동 수집 endpoint는 public server14에서 비활성화하고
 웹 proxy에도 노출하지 않는다. 백업 endpoint는 DB dump 다운로드와 복원을 포함하는
 destructive 운영 API이므로, 외부 gateway가 private ACL/mTLS 등으로 차단되었음을 확인하기
@@ -241,7 +241,7 @@ Windows 로컬 PowerShell 테스트만으로 ODROID에 배포하지 않는다. P
 - 운영에서는 `ENABLE_API_DOCS=false`로 `/docs`, `/redoc`, `/openapi.json`을 공개하지 않는다.
 - `TRUSTED_HOSTS_CSV`에는 운영 도메인과 필요한 내부 호스트만 넣는다.
 - `CORS_ORIGINS_CSV`에는 실제 웹 origin만 넣고 와일드카드를 쓰지 않는다.
-- `ENABLE_MANUAL_COLLECT=false`인 운영 profile에서는 `POST /admin/collect`가 404로
+- `ENABLE_MANUAL_COLLECT=false`인 운영 profile에서는 `POST /v1/admin/collect`가 404로
   비활성화되고 웹 proxy도 해당 경로를 전달하지 않는다.
 - 브라우저에는 공공데이터 API 키를 요구하거나 노출하지 않는다.
 - 백엔드는 `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, HTTPS 접근 시 `Strict-Transport-Security`를 응답 헤더로 내려준다.
@@ -278,7 +278,7 @@ docker compose -f docker-compose.live.yml --project-name parking-radar-live down
 ## 수집 상태 확인
 
 ```bash
-curl http://localhost:8000/admin/collector-status
+curl http://localhost:8000/v1/admin/collector-status
 ```
 
 중요 필드:
@@ -302,7 +302,7 @@ curl http://localhost:8000/admin/collector-status
 ## 현재 데이터 즉시 갱신
 
 ```bash
-curl -X POST http://localhost:8000/admin/collect
+curl -X POST http://localhost:8000/v1/admin/collect
 ```
 
 다만 원본 관측 시각이 직전 수집과 같으면 `snapshot_count=0`이 나올 수 있다.  

@@ -6,11 +6,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextlib import suppress
 from datetime import date, datetime, time, timedelta
+from http import HTTPStatus
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -154,6 +155,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url="/redoc" if resolved_settings.enable_api_docs else None,
         openapi_url="/openapi.json" if resolved_settings.enable_api_docs else None,
     )
+    @app.exception_handler(HTTPException)
+    async def problem_json_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+        # RFC 7807 (ADR-005): every error response uses the same shape,
+        # regardless of which route raised it. `detail` is kept so existing
+        # clients reading `payload.detail` (frontend/src/lib/api.ts) still work.
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "type": "about:blank",
+                "title": HTTPStatus(exc.status_code).phrase,
+                "status": exc.status_code,
+                "detail": exc.detail,
+                "instance": request.url.path,
+            },
+            headers=exc.headers,
+            media_type="application/problem+json",
+        )
+
     if resolved_settings.trusted_hosts:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=resolved_settings.trusted_hosts)
     app.add_middleware(
@@ -204,7 +223,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             release_sha=resolved_settings.release_sha,
         )
 
-    @app.get("/airports", response_model=list[AirportSummary])
+    router = APIRouter()
+
+    @router.get("/airports", response_model=list[AirportSummary])
     async def airports(session: AsyncSession = Depends(get_db)) -> list[AirportSummary]:
         result = await session.execute(
             select(Airport).options(selectinload(Airport.parking_lots)).order_by(Airport.code)
@@ -235,7 +256,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return payload
 
-    @app.get("/parking/current", response_model=ParkingCurrentResponse)
+    @router.get("/parking/current", response_model=ParkingCurrentResponse)
     async def parking_current(
         airport_code: str | None = Query(default=None),
         session: AsyncSession = Depends(get_db),
@@ -290,7 +311,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         items.sort(key=lambda item: (item.airport_code, item.available_spaces))
         return ParkingCurrentResponse(generated_at=now_utc(), items=items)
 
-    @app.get("/parking/history", response_model=ParkingHistoryResponse)
+    @router.get("/parking/history", response_model=ParkingHistoryResponse)
     async def parking_history(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -321,7 +342,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ]
         )
 
-    @app.get("/parking/analytics/by-hour", response_model=list[HourlyBucket])
+    @router.get("/parking/analytics/by-hour", response_model=list[HourlyBucket])
     async def parking_by_hour(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -331,7 +352,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         snapshots = await _load_snapshots(session, airport_code, parking_lot_id, days)
         return [HourlyBucket(**bucket) for bucket in build_hourly_buckets(snapshots)]
 
-    @app.get("/parking/analytics/by-weekday", response_model=list[WeekdayBucket])
+    @router.get("/parking/analytics/by-weekday", response_model=list[WeekdayBucket])
     async def parking_by_weekday(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -341,7 +362,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         snapshots = await _load_snapshots(session, airport_code, parking_lot_id, days)
         return [WeekdayBucket(**bucket) for bucket in build_weekday_buckets(snapshots)]
 
-    @app.get("/parking/analytics/by-weekday-hour", response_model=list[WeekdayHourlyPattern])
+    @router.get("/parking/analytics/by-weekday-hour", response_model=list[WeekdayHourlyPattern])
     async def parking_by_weekday_hour(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -362,7 +383,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         snapshots = await _load_snapshots(session, airport_code, parking_lot_id, days)
         return [WeekdayHourlyPattern(**pattern) for pattern in build_weekday_hour_patterns(snapshots)]
 
-    @app.get("/parking/analytics/timeseries", response_model=ParkingTimeSeriesResponse)
+    @router.get("/parking/analytics/timeseries", response_model=ParkingTimeSeriesResponse)
     async def parking_time_series(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -415,7 +436,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ],
         )
 
-    @app.get("/holidays/summary", response_model=HolidaySummaryResponse)
+    @router.get("/holidays/summary", response_model=HolidaySummaryResponse)
     async def holiday_summary(
         start_date: str | None = Query(default=None),
         end_date: str | None = Query(default=None),
@@ -442,7 +463,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             items=summary_items,
         )
 
-    @app.get("/parking/analytics/holiday-patterns", response_model=HolidayPatternResponse)
+    @router.get("/parking/analytics/holiday-patterns", response_model=HolidayPatternResponse)
     async def holiday_patterns(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -483,7 +504,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ],
         )
 
-    @app.get("/flights/status", response_model=FlightStatusResponse)
+    @router.get("/flights/status", response_model=FlightStatusResponse)
     async def flight_status(
         airport_code: str = Query(..., min_length=3, max_length=3),
         local_date: str | None = Query(default=None),
@@ -499,7 +520,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         return FlightStatusResponse(**await service.get_status(airport_code, query_date))
 
-    @app.get("/parking/analytics/threshold-events", response_model=list[ThresholdEvent])
+    @router.get("/parking/analytics/threshold-events", response_model=list[ThresholdEvent])
     async def threshold_events(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -525,7 +546,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             for event in detect_threshold_events(rows, limit=limit)
         ]
 
-    @app.get("/parking/analytics/threshold-insights", response_model=ThresholdInsightsResponse)
+    @router.get("/parking/analytics/threshold-insights", response_model=ThresholdInsightsResponse)
     async def threshold_insights(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -581,7 +602,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ],
         )
 
-    @app.post("/fees/calculate", response_model=FeeCalculationResponse)
+    @router.post("/fees/calculate", response_model=FeeCalculationResponse)
     async def calculate_fees(
         payload: FeeCalculationRequest,
         session: AsyncSession = Depends(get_db),
@@ -646,7 +667,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             breakdown=calculated.breakdown,
         )
 
-    @app.post("/admin/collect", response_model=CollectionSummary)
+    @router.post("/admin/collect", response_model=CollectionSummary)
     async def admin_collect(
         session: AsyncSession = Depends(get_db),
         service: CollectionService = Depends(get_collection_service),
@@ -703,7 +724,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return CollectionSummary(**summary)
 
-    @app.get("/admin/collector-status", response_model=CollectorStatusResponse)
+    @router.get("/admin/collector-status", response_model=CollectorStatusResponse)
     async def admin_collector_status(
         session: AsyncSession = Depends(get_db),
         service: CollectionService = Depends(get_collection_service),
@@ -746,14 +767,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             recent_runs=recent_runs,
         )
 
-    @app.get("/admin/backups", response_model=BackupListResponse)
+    @router.get("/admin/backups", response_model=BackupListResponse)
     async def admin_backups() -> BackupListResponse:
         items = await list_backups(resolved_settings.backup_dir)
         return BackupListResponse(
             items=[BackupFile(filename=item.filename, size_bytes=item.size_bytes, created_at=item.created_at) for item in items]
         )
 
-    @app.post("/admin/backups", response_model=BackupFile, status_code=201)
+    @router.post("/admin/backups", response_model=BackupFile, status_code=201)
     async def admin_create_backup(
         service: CollectionService = Depends(get_collection_service),
     ) -> BackupFile:
@@ -770,7 +791,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise HTTPException(status_code=503, detail=str(exc)) from exc
         return BackupFile(filename=item.filename, size_bytes=item.size_bytes, created_at=item.created_at)
 
-    @app.get("/admin/backups/{filename}")
+    @router.get("/admin/backups/{filename}")
     async def admin_download_backup(filename: str) -> FileResponse:
         try:
             path = backup_path_for_download(resolved_settings.backup_dir, filename)
@@ -780,7 +801,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="백업 파일을 찾지 못했습니다.")
         return FileResponse(path, media_type="application/octet-stream", filename=filename)
 
-    @app.post("/admin/backups/restore", response_model=BackupRestoreResponse)
+    @router.post("/admin/backups/restore", response_model=BackupRestoreResponse)
     async def admin_restore_backup(
         file: UploadFile = File(...),
         service: CollectionService = Depends(get_collection_service),
@@ -836,7 +857,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ),
         )
 
-    @app.get("/dashboard/bootstrap", response_model=DashboardBootstrapResponse)
+    @router.get("/dashboard/bootstrap", response_model=DashboardBootstrapResponse)
     async def dashboard_bootstrap(
         airport_code: str | None = Query(default=None),
         session: AsyncSession = Depends(get_db),
@@ -852,7 +873,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             holidays=await holiday_summary(None, None, holiday_service),
         )
 
-    @app.get("/dashboard/analytics", response_model=DashboardAnalyticsResponse)
+    @router.get("/dashboard/analytics", response_model=DashboardAnalyticsResponse)
     async def dashboard_analytics(
         airport_code: str = Query(..., min_length=3, max_length=3),
         parking_lot_id: int | None = Query(default=None),
@@ -962,6 +983,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         elif airport_code:
             query = query.where(Airport.code == airport_code.upper())
         return deduplicate_snapshot_rows((await session.execute(query)).all())
+
+    # `/health` stays unversioned (kor-travel-map convention: health/version are
+    # fixed, everything else is versioned). All other routes live under `/v1`
+    # (ADR-005) -- a clean-cut, no legacy unprefixed alias.
+    app.include_router(router, prefix="/v1")
 
     return app
 

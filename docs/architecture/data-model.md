@@ -60,7 +60,7 @@ Alembic migration이 PostgreSQL 인덱스를 생성한다. SQLite 테스트에�
 사용하되 dialect 호환 인덱스 생성만 수행한다.
 
 - `parking_snapshots (airport_id, parking_lot_id, observed_at)` supports airport-scoped history and analytics scans.
-- `parking_snapshots (airport_id, parking_lot_id, observed_at DESC, id DESC)` supports latest snapshot ranking for `/parking/current`.
+- `parking_snapshots (airport_id, parking_lot_id, observed_at DESC, id DESC)` supports latest snapshot ranking for `/v1/parking/current`.
 - `parking_snapshots (collected_at)` supports collector status metadata.
 - `parking_snapshots (collection_run_id)` and `raw_api_responses (collection_run_id)` support recent collector run summaries.
 

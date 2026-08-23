@@ -87,7 +87,7 @@
   - `LINE`
   - `RMK_KOR`
 - 주차 현황 수집과 별개로 조회하며 `parking_snapshots`에는 저장하지 않는다.
-- 백엔드는 `/flights/status`에서 응답을 정규화해 프론트에 전달한다.
+- 백엔드는 `/v1/flights/status`에서 응답을 정규화해 프론트에 전달한다.
 - provider 라이브러리 방향: 이 호출/파싱은 `python-krairport-api`(`krairport`)의
   `departures()`/`arrivals()`로 대체하기로 결정했다
   ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)). 현재

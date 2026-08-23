@@ -123,7 +123,7 @@ def test_trusted_host_rejects_unexpected_hosts(tmp_path: Path) -> None:
 
 
 def test_airports(client) -> None:
-    response = client.get("/airports")
+    response = client.get("/v1/airports")
     assert response.status_code == 200
     payload = response.json()
     assert len(payload) >= 4
@@ -135,7 +135,7 @@ def test_airports(client) -> None:
 
 
 def test_dashboard_aggregate_endpoints(client) -> None:
-    bootstrap = client.get("/dashboard/bootstrap")
+    bootstrap = client.get("/v1/dashboard/bootstrap")
     assert bootstrap.status_code == 200
     bootstrap_payload = bootstrap.json()
     assert bootstrap_payload["airports"]
@@ -143,7 +143,7 @@ def test_dashboard_aggregate_endpoints(client) -> None:
     assert bootstrap_payload["collector"]["latest_snapshot_observed_at"]
     assert "sentence" in bootstrap_payload["holidays"]
 
-    analytics = client.get("/dashboard/analytics", params={"airport_code": "GMP"})
+    analytics = client.get("/v1/dashboard/analytics", params={"airport_code": "GMP"})
     assert analytics.status_code == 200
     analytics_payload = analytics.json()
     assert analytics_payload["time_series"]["items"]
@@ -152,7 +152,7 @@ def test_dashboard_aggregate_endpoints(client) -> None:
 
 
 def test_current_and_analytics(client) -> None:
-    current = client.get("/parking/current", params={"airport_code": "GMP"})
+    current = client.get("/v1/parking/current", params={"airport_code": "GMP"})
     assert current.status_code == 200
     current_payload = current.json()
     assert current_payload["items"]
@@ -160,21 +160,21 @@ def test_current_and_analytics(client) -> None:
     assert_is_utc_iso(current_payload["items"][0]["observed_at"])
     assert_is_utc_iso(current_payload["items"][0]["collected_at"])
 
-    hourly = client.get("/parking/analytics/by-hour", params={"airport_code": "GMP"})
-    weekday = client.get("/parking/analytics/by-weekday", params={"airport_code": "GMP"})
-    weekday_hour = client.get("/parking/analytics/by-weekday-hour", params={"airport_code": "GMP"})
+    hourly = client.get("/v1/parking/analytics/by-hour", params={"airport_code": "GMP"})
+    weekday = client.get("/v1/parking/analytics/by-weekday", params={"airport_code": "GMP"})
+    weekday_hour = client.get("/v1/parking/analytics/by-weekday-hour", params={"airport_code": "GMP"})
     timeseries = client.get(
-        "/parking/analytics/timeseries",
+        "/v1/parking/analytics/timeseries",
         params={"airport_code": "GMP", "days": 7},
     )
     holiday_summary = client.get(
-        "/holidays/summary",
+        "/v1/holidays/summary",
         params={"start_date": "2026-05-01", "end_date": "2026-05-31"},
     )
-    holiday_patterns = client.get("/parking/analytics/holiday-patterns", params={"airport_code": "GMP"})
-    thresholds = client.get("/parking/analytics/threshold-events", params={"airport_code": "GMP"})
+    holiday_patterns = client.get("/v1/parking/analytics/holiday-patterns", params={"airport_code": "GMP"})
+    thresholds = client.get("/v1/parking/analytics/threshold-events", params={"airport_code": "GMP"})
     threshold_insights = client.get(
-        "/parking/analytics/threshold-insights",
+        "/v1/parking/analytics/threshold-insights",
         params={"airport_code": "GMP", "days": 21, "interval_minutes": 10},
     )
     assert hourly.status_code == 200
@@ -235,7 +235,7 @@ def test_default_time_series_uses_precomputed_cache(client) -> None:
     asyncio.run(replace_default_timeseries_cache(client))
 
     response = client.get(
-        "/parking/analytics/timeseries",
+        "/v1/parking/analytics/timeseries",
         params={"airport_code": "GMP", "days": 7},
     )
 
@@ -246,7 +246,7 @@ def test_default_time_series_uses_precomputed_cache(client) -> None:
 
 
 def test_flight_status_returns_sample_markers(client) -> None:
-    response = client.get("/flights/status", params={"airport_code": "GMP", "local_date": "2026-04-25"})
+    response = client.get("/v1/flights/status", params={"airport_code": "GMP", "local_date": "2026-04-25"})
     assert response.status_code == 200
     payload = response.json()
 
@@ -263,7 +263,7 @@ def test_flight_status_returns_sample_markers(client) -> None:
 
 
 def test_flight_status_rejects_invalid_local_date(client) -> None:
-    response = client.get("/flights/status", params={"airport_code": "GMP", "local_date": "2026/04/25"})
+    response = client.get("/v1/flights/status", params={"airport_code": "GMP", "local_date": "2026/04/25"})
     assert response.status_code == 400
     assert "YYYY-MM-DD" in response.json()["detail"]
 
@@ -272,7 +272,7 @@ def test_fee_calculation(client) -> None:
     entry = datetime(2026, 4, 24, 9, 0, tzinfo=ZoneInfo("Asia/Seoul"))
     exit_at = entry + timedelta(hours=2)
     response = client.post(
-        "/fees/calculate",
+        "/v1/fees/calculate",
         json={
             "airport_code": "GMP",
             "vehicle_size": "small",
@@ -290,7 +290,7 @@ def test_fee_calculation(client) -> None:
 def test_incheon_fee_calculation_is_supported(client) -> None:
     entry = datetime(2026, 4, 24, 9, 0, tzinfo=ZoneInfo("Asia/Seoul"))
     response = client.post(
-        "/fees/calculate",
+        "/v1/fees/calculate",
         json={
             "airport_code": "ICN",
             "vehicle_size": "small",
@@ -307,14 +307,14 @@ def test_incheon_fee_calculation_is_supported(client) -> None:
 
 def test_admin_collect_returns_cooldown_error(tmp_path: Path) -> None:
     with build_client(tmp_path, manual_collect_min_interval_seconds=999999999) as client:
-        response = client.post("/admin/collect")
+        response = client.post("/v1/admin/collect")
         assert response.status_code == 409
         assert response.json()["detail"]
 
 
 def test_admin_collect_is_disabled_without_explicit_enablement(tmp_path: Path) -> None:
     with build_client(tmp_path, manual_collect_enabled=False) as client:
-        response = client.post("/admin/collect")
+        response = client.post("/v1/admin/collect")
 
     assert response.status_code == 404
 
@@ -322,7 +322,7 @@ def test_admin_collect_is_disabled_without_explicit_enablement(tmp_path: Path) -
 def test_admin_restore_requires_a_scheduler_maintenance_window(tmp_path: Path) -> None:
     with build_client(tmp_path, enable_scheduler=True, seed_sample_data=False) as client:
         response = client.post(
-            "/admin/backups/restore",
+            "/v1/admin/backups/restore",
             files={"file": ("restore.dump", b"dump", "application/octet-stream")},
         )
 
@@ -332,7 +332,7 @@ def test_admin_restore_requires_a_scheduler_maintenance_window(tmp_path: Path) -
 
 def test_admin_collect_succeeds_when_cooldown_is_disabled(tmp_path: Path) -> None:
     with build_client(tmp_path, manual_collect_min_interval_seconds=0) as client:
-        response = client.post("/admin/collect")
+        response = client.post("/v1/admin/collect")
         assert response.status_code == 200
         payload = response.json()
         assert payload["status"] in {"success", "partial_success"}
@@ -341,7 +341,7 @@ def test_admin_collect_succeeds_when_cooldown_is_disabled(tmp_path: Path) -> Non
 
 
 def test_admin_collector_status(client) -> None:
-    response = client.get("/admin/collector-status")
+    response = client.get("/v1/admin/collector-status")
     assert response.status_code == 200
     payload = response.json()
 
@@ -379,7 +379,7 @@ def test_admin_collector_status_reports_upstream_rate_limit(tmp_path: Path) -> N
             )
         )
 
-        response = client.get("/admin/collector-status")
+        response = client.get("/v1/admin/collector-status")
         assert response.status_code == 200
         payload = response.json()
         assert payload["upstream_rate_limited"] is True
@@ -404,7 +404,7 @@ def test_admin_collect_returns_upstream_rate_limit_error(tmp_path: Path) -> None
             )
         )
 
-        response = client.post("/admin/collect")
+        response = client.post("/v1/admin/collect")
         assert response.status_code == 429
         assert "공공데이터 API 요청 한도" in response.json()["detail"]
 
@@ -433,7 +433,7 @@ def test_admin_collect_continues_incheon_when_kac_rate_limited(tmp_path: Path) -
             "get_upstream_rate_limit_state",
             new=AsyncMock(return_value=blocked_state),
         ):
-            response = client.post("/admin/collect")
+            response = client.post("/v1/admin/collect")
 
         assert response.status_code == 200
         payload = response.json()
@@ -474,7 +474,7 @@ def test_admin_collector_status_does_not_extend_rate_limit_from_skipped_runs(tmp
             )
         )
 
-        response = client.get("/admin/collector-status")
+        response = client.get("/v1/admin/collector-status")
         assert response.status_code == 200
         payload = response.json()
         assert payload["upstream_rate_limited"] is False
@@ -524,7 +524,7 @@ def test_admin_collect_raises_429_when_collection_fails_due_to_rate_limit(tmp_pa
             "get_upstream_rate_limit_state",
             new=AsyncMock(side_effect=[unblocked_state, blocked_state]),
         ):
-            response = client.post("/admin/collect")
+            response = client.post("/v1/admin/collect")
 
         assert response.status_code == 429
         assert "공공데이터 API 요청 한도" in response.json()["detail"]

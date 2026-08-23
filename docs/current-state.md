@@ -62,7 +62,7 @@
 실제 수집 모드 여부는 항상 아래 API로 확인한다.
 
 ```bash
-curl http://localhost:8000/admin/collector-status
+curl http://localhost:8000/v1/admin/collector-status
 ```
 
 핵심 확인 필드:
@@ -94,8 +94,8 @@ curl http://localhost:8000/admin/collector-status
 - `15063437`은 혼잡도 참고용 후보지만 기본 수집원은 아니다.
 - `15038474`, `15095047`, `15095053`은 별도 플래그를 켰을 때만 시도한다.
 - `15056803`이 한도 초과 상태여도 `15095047`, `15095053` 인천 전용 소스는 계속 시도한다.
-- 비행편 정보는 주차 수집과 분리된 조회용 API이며, `/flights/status`를 통해 하루 흐름 오버레이 차트 마커에만 사용한다.
-- 공휴일 정보는 주차 수집과 분리된 조회용 API이며, `/holidays/summary`와 `/parking/analytics/holiday-patterns`를 통해 차트 배경과 공휴일/토/일요일 패턴에 사용한다.
+- 비행편 정보는 주차 수집과 분리된 조회용 API이며, `/v1/flights/status`를 통해 하루 흐름 오버레이 차트 마커에만 사용한다.
+- 공휴일 정보는 주차 수집과 분리된 조회용 API이며, `/v1/holidays/summary`와 `/v1/parking/analytics/holiday-patterns`를 통해 차트 배경과 공휴일/토/일요일 패턴에 사용한다.
 - `2026-05-09` 현재 보유 키로 `15113771` 한국공항공사 실시간 항공운항 현황 정보 상세 조회 서비스는 정상 응답을 확인했다.
 - `2026-05-09` 현재 보유 키로 `15112968` 인천 여객기 운항 정보는 정상 응답을 확인했다.
 - `2026-05-09` 현재 보유 키로 `15012690` 한국천문연구원 특일 정보의 `2026년 5월` 조회는 `resultCode=00`을 반환했다.
@@ -163,7 +163,7 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 ## 6. 수동 수집 버튼
 
 로컬 개발 profile에서 `ENABLE_MANUAL_COLLECT=true`이면 웹 UI의 `지금 수집` 버튼이
-`POST /admin/collect`를 호출한다. public server14 profile에서는 버튼과 endpoint가 모두
+`POST /v1/admin/collect`를 호출한다. public server14 profile에서는 버튼과 endpoint가 모두
 비활성화된다.
 
 동작 규칙:
@@ -280,10 +280,10 @@ cutover read-only source로만 남긴다.
 - server14 운영 CORS는 `http://192.168.1.14:14002`(web, T-032 이후), `https://pr.digitie.mywire.org`,
   `https://pr-api.digitie.mywire.org`를 기준으로 제한한다.
 - 운영에서는 `ENABLE_API_DOCS=false`로 API 문서를 공개하지 않는다.
-- 운영 server14에서는 `ENABLE_MANUAL_COLLECT=false`로 `POST /admin/collect`를 비활성화한다.
+- 운영 server14에서는 `ENABLE_MANUAL_COLLECT=false`로 `POST /v1/admin/collect`를 비활성화한다.
   로컬 개발 profile에서만 명시적으로 활성화한다.
 - 일반 조회와 자동 갱신은 서버에 저장된 `DATA_GO_KR_SERVICE_KEY`로 동작하며, 브라우저에 공공데이터 API 키를 요구하거나 노출하지 않는다.
-- `GET /admin/collector-status`는 화면 갱신과 운영 상태 확인을 위해 공개 조회로 둔다.
+- `GET /v1/admin/collector-status`는 화면 갱신과 운영 상태 확인을 위해 공개 조회로 둔다.
 
 ## 9. 배포 자산
 
