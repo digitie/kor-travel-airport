@@ -17,6 +17,23 @@ web의 `/v1/admin/backups*` proxy는 `BACKUP_PROXY_TIMEOUT_MS=900000`으로 설�
 수집 scheduler가 켜진 운영 profile에서는 복원을 `409`로 거부한다. 복원은 현재 PostgreSQL을 덮어쓰므로,
 5분 freshness를 깨뜨리지 않도록 scheduler를 중지한 명시적 유지보수 창에서만 실행한다.
 
+## 자동 백업 (n150 cron)
+
+`scripts/n150-backup-cron.sh`가 n150의 crontab에서 3일마다 `POST /v1/admin/backups`를
+`localhost:14001`로 호출한다. 앱 코드/배포와 무관하게 독립적으로 동작하며, 별도 보존
+로직은 두지 않는다 — 오래된 dump 삭제는 endpoint 자체의 `BACKUP_RETENTION_COUNT`가
+담당한다.
+
+n150 crontab 등록(3일마다 03:00 KST = 18:00 UTC):
+
+```bash
+crontab -e
+# 추가:
+0 18 */3 * * /home/digitie/apps/parking-radar/scripts/n150-backup-cron.sh >> /home/digitie/apps/parking-radar/backups/cron.log 2>&1
+```
+
+`cron.log`는 `backups/` bind mount 안에 있어 git에 들어가지 않는다.
+
 ## 운영 주의
 
 이 API에는 별도 인증이 없다. 사용자가 요청한 운영 범위에 맞춘 내부 도구이므로 n150 서버의 LAN/게이트웨이 접근 제어 뒤에서만 노출한다. 복원은 현재 데이터를 덮어쓰므로 UI 확인창과 자동 사전 백업을 둔다. 복원 후 backend를 재기동하거나 화면을 새로고침해 analytics cache와 현재 상태를 재확인한다.
