@@ -2,6 +2,28 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-08-23 (T-031)
+
+### `T-031` — Docker 컨테이너에서 `test_cutover_guards.py` import 경로가 깨지는 사전 존재 버그 수정
+
+- `T-030`(krairport 주차 마이그레이션) 검증 중 `docker compose run --rm --no-deps backend
+  pytest -q`에서 발견한 뒤 `--ignore`로 우회하고 넘어갔던 버그를 실제로 고쳤다.
+- 원인: `sys.path.insert(0, str(Path(__file__).parents[2] / "scripts"))`가 로컬 디렉터리
+  깊이(`parking-radar/backend/tests/...` → `parents[2]` = 레포 루트)를 하드코딩하고
+  있었다. Docker 이미지 안에서는 `Dockerfile`의 `COPY backend /app`으로 `backend/`가
+  통째로 `/app`으로 flatten돼 `tests/`가 한 단계만 아래(`/app/tests/`)에 있어,
+  `parents[2]`가 `/`(파일시스템 루트)를 가리키게 되고 `/scripts`(존재하지 않음)를
+  찾다가 `ModuleNotFoundError: No module named 'observe_cutover'`로 깨졌다.
+- 고친 방법: `parents[1]`(Docker)과 `parents[2]`(로컬) 둘 다 시도해 실제로 존재하는
+  `scripts/` 디렉터리를 찾는 `_scripts_dir()` helper로 교체했다 — 디렉터리 깊이를
+  하드코딩하지 않는다.
+- CI의 `backend` job(`uv run pytest tests -q`, `.github/workflows/ci.yml`)은 레포 루트
+  체크아웃 구조를 그대로 쓰기 때문에 `parents[2]`가 우연히 맞아떨어져 이 버그가 CI에서는
+  전혀 드러나지 않았다 — Docker 2차 게이트(`docker compose run --rm --no-deps backend
+  pytest`)에서만 재현됐다.
+- WSL 1차 `pytest 82 passed`, Docker 2차(재빌드 후) `pytest 82 passed`(제외 없이 전부
+  통과, 이전까지 `--ignore`로 제외하던 3개 포함).
+
 ## 2026-08-23 (ADR-006)
 
 ### 공휴일 수집을 `python-kasi-api`로 전환
