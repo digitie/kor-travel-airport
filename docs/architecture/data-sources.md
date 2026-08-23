@@ -88,10 +88,14 @@
   - `RMK_KOR`
 - 주차 현황 수집과 별개로 조회하며 `parking_snapshots`에는 저장하지 않는다.
 - 백엔드는 `/v1/flights/status`에서 응답을 정규화해 프론트에 전달한다.
-- provider 라이브러리 방향: 이 호출/파싱은 `python-krairport-api`(`krairport`)의
-  `departures()`/`arrivals()`로 대체하기로 결정했다
-  ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)). 현재
-  코드는 아직 전환 전이다.
+- provider 라이브러리: `python-krairport-api`(`krairport`)의
+  `kac_flight_status_detail_raw_items()`로 대체했다(`T-029`,
+  [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)). ODCloud
+  `FlightStatusListDTL`은 KAC의 다른 서비스와 달리 `openapi.airport.co.kr`이 아닌
+  `api.odcloud.kr` 호스트를 쓰는 별도 provider라 krairport의 기존
+  `departures()`/`arrivals()`(`StatusOfFlights` 계열)로는 닿지 않는다 — krairport에
+  이 endpoint 전용 raw-item escape hatch를 새로 추가했다. 파싱은 여전히
+  `parse_kac_flight_detail_json`이 담당한다.
 
 ## 7. 인천국제공항공사 여객기 운항 정보
 
@@ -113,8 +117,11 @@
 - 주의:
   - 도착편은 `airport -> 인천`, 출발편은 `인천 -> airport`로 정규화한다.
   - 비행편 API는 주차 스냅샷 수집과 별개이며 `parking_snapshots`에는 저장하지 않는다.
-  - `python-krairport-api`가 KAC/IIAC를 하나의 client로 함께 다루므로, §6과 동일하게
-    이 호출도 `krairport`로 전환할 계획이다([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)).
+  - provider 라이브러리: `python-krairport-api`(`krairport`)의
+    `iiac_raw_items("StatusOfPassengerFlightsDeOdp", "getPassengerDeparturesDeOdp"/
+    "getPassengerArrivalsDeOdp", ...)`로 대체했다(`T-029`,
+    [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)) — 기존
+    endpoint와 정확히 일치해 krairport 쪽 수정 없이 바로 전환 가능했다.
 
 ## 8. 한국천문연구원 특일 정보
 

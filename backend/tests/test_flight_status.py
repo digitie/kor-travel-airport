@@ -3,17 +3,38 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import date
+from unittest.mock import AsyncMock, patch
 
 import httpx
+import pytest
+from krairport.exceptions import KrairportRateLimitError
 
 from app.core.config import Settings
 from app.services.flight_status import (
     FlightSourceResponse,
     FlightStatusService,
+    KrairportFlightStatusClient,
     parse_flight_status_xml,
     parse_incheon_flight_status_json,
     parse_kac_flight_detail_json,
 )
+
+
+def _mock_krairport_client(**method_results: object) -> AsyncMock:
+    """Build a mock standing in for `async with AsyncKrairportClient(...) as client`."""
+
+    client = AsyncMock()
+    for name, result in method_results.items():
+        method = getattr(client, name)
+        if isinstance(result, Exception):
+            method.side_effect = result
+        else:
+            method.return_value = result
+
+    context_manager = AsyncMock()
+    context_manager.__aenter__.return_value = client
+    context_manager.__aexit__.return_value = False
+    return context_manager
 
 
 class _FlakyFlightStatusClient:
@@ -240,6 +261,104 @@ def test_parse_kac_flight_detail_json_groups_codeshare_markers() -> None:
     assert items[0]["codeshare_flight_numbers"] == ["DL9123", "KE123"]
     assert items[0]["origin_airport"] == "김포"
     assert items[0]["destination_airport"] == "제주"
+
+
+def test_parse_incheon_flight_status_json_accepts_pre_extracted_item_lists() -> None:
+    body = json.dumps(
+        {
+            "departures": [
+                {
+                    "airline": "에티오피아항공",
+                    "flightId": "ET673",
+                    "scheduleDateTime": "202605090020",
+                    "estimatedDateTime": "202605090043",
+                    "airport": "아디스아바바/볼레",
+                    "remark": "출발",
+                    "typeOfFlight": "I",
+                }
+            ],
+            "arrivals": [
+                {
+                    "airline": "에어로케이항공",
+                    "flightId": "RF313",
+                    "scheduleDateTime": "202605090005",
+                    "estimatedDateTime": "202605090011",
+                    "airport": "오사카/ 간사이",
+                    "remark": "도착",
+                    "typeOfFlight": "I",
+                }
+            ],
+        }
+    )
+
+    items, error_message = parse_incheon_flight_status_json(body, date(2026, 5, 9))
+
+    assert error_message is None
+    assert len(items) == 2
+    assert items[0]["direction"] == "arrival"
+    assert items[1]["direction"] == "departure"
+
+
+def test_krairport_flight_status_client_fetch_kac_status_builds_json_source_response() -> None:
+    settings = Settings(data_go_kr_service_key="test-key")
+    items = [
+        {
+            "AIR_FLN": "KE1101",
+            "AIRLINE_KOREAN": "대한항공",
+            "BOARDING_KOR": "김포",
+            "ARRIVED_KOR": "제주",
+            "IO": "O",
+            "STD": "0830",
+            "ETD": "0840",
+            "FLIGHT_DATE": "20260509",
+        }
+    ]
+    mock_client = _mock_krairport_client(kac_flight_status_detail_raw_items=items)
+
+    with patch("app.services.flight_status.AsyncKrairportClient", return_value=mock_client):
+        client = KrairportFlightStatusClient(settings)
+        response = asyncio.run(client.fetch_status("GMP", date(2026, 5, 9)))
+
+    assert response.source == "kac_flight_detail_status"
+    parsed_items, error_message = parse_kac_flight_detail_json(response.body_text, "GMP", date(2026, 5, 9))
+    assert error_message is None
+    assert parsed_items[0]["flight_number"] == "KE1101"
+
+
+def test_krairport_flight_status_client_fetch_incheon_status_calls_both_directions() -> None:
+    settings = Settings(data_go_kr_service_key="test-key")
+    mock_client = _mock_krairport_client(
+        iiac_raw_items=[
+            {
+                "airline": "대한항공",
+                "flightId": "KE901",
+                "scheduleDateTime": "202605090930",
+                "airport": "파리",
+                "remark": "출발",
+                "typeOfFlight": "I",
+            }
+        ]
+    )
+
+    with patch("app.services.flight_status.AsyncKrairportClient", return_value=mock_client):
+        client = KrairportFlightStatusClient(settings)
+        response = asyncio.run(client.fetch_status("ICN", date(2026, 5, 9)))
+
+    assert response.source == "incheon_flight_status"
+    document = json.loads(response.body_text)
+    assert "departures" in document and "arrivals" in document
+
+
+def test_krairport_flight_status_client_rate_limit_error_propagates() -> None:
+    settings = Settings(data_go_kr_service_key="test-key")
+    mock_client = _mock_krairport_client(
+        kac_flight_status_detail_raw_items=KrairportRateLimitError("LIMITED")
+    )
+
+    with patch("app.services.flight_status.AsyncKrairportClient", return_value=mock_client):
+        client = KrairportFlightStatusClient(settings)
+        with pytest.raises(KrairportRateLimitError):
+            asyncio.run(client.fetch_status("GMP", date(2026, 5, 9)))
 
 
 def test_parse_incheon_flight_status_json_normalizes_departures_and_arrivals() -> None:

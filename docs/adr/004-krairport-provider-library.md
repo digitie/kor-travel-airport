@@ -1,7 +1,8 @@
 # ADR-004: 비행편·주차 현황·주차요금 데이터는 `python-krairport-api`(krairport)를 provider 라이브러리로 사용한다
 
-- **상태**: accepted (주차 현황/요금은 구현 완료 — `T-030`; 비행편은 구현 미완료 — "후속" 참고)
-- **날짜**: 2026-08-23 (비행편 결정) / 2026-08-23 갱신 (주차 현황·요금으로 범위 확장 + 구현)
+- **상태**: accepted, 구현 완료 (주차 현황/요금 — `T-030`; 비행편 — `T-029`)
+- **날짜**: 2026-08-23 (비행편 결정) / 2026-08-23 갱신 (주차 현황·요금으로 범위 확장 + 구현) /
+  2026-08-23 갱신 (비행편 구현 완료 — `T-029`)
 - **결정자**: agent + human
 - **컨텍스트**: `backend/app/services/flight_status.py`(비행편)와
   `backend/app/services/collection.py`(주차 현황·주차요금)는 한국공항공사(KAC)/인천국제공항공사(IIAC)
@@ -59,9 +60,21 @@
     모두 대체했고, `parsers.py`는 입력 형태만(XML/JSON envelope → 사전 추출된 item
     list) 넓혔을 뿐 파싱 로직은 그대로다. WSL 1차(72 passed)와 Docker 2차(69 passed,
     `test_cutover_guards.py` 3개 제외 — 아래 참고) 모두 통과했다.
-  - **미완료(비행편, T-029)**: KAC ODCloud(`FlightStatusListDTL`) 지원이 krairport에
-    없어 `flight_status.py`는 아직 `httpx` 직접 구현 상태다. `T-029`(`docs/tasks.md`)로
-    남겨둔다.
+  - **완료(비행편, T-029)**: `flight_status.py`의 `LiveFlightStatusClient`를
+    `KrairportFlightStatusClient`로 교체했다. KAC ODCloud(`FlightStatusListDTL`)는
+    krairport에 지원이 없었으므로, `openapi.airport.co.kr`이 아닌 `api.odcloud.kr`
+    호스트를 쓰는 `KacClient.flight_status_detail_raw_items()`(sync/async 둘 다)를
+    krairport 쪽에 새로 추가하고 `KrairportClient`/`AsyncKrairportClient` facade에
+    `kac_flight_status_detail_raw_items()`로 노출했다
+    (`python-krairport-api` PR [#7](https://github.com/digitie/python-krairport-api/pull/7),
+    `cbe4d13`). IIAC는 기존 `iiac_raw_items("StatusOfPassengerFlightsDeOdp",
+    "getPassengerDeparturesDeOdp"/"getPassengerArrivalsDeOdp", ...)`가 endpoint와
+    정확히 일치해 krairport 쪽 수정 없이 바로 전환했다. `parse_incheon_flight_status_json`에
+    krairport의 사전 추출된 raw item list를 받는 분기(`_incheon_flight_section_items`)를
+    추가했다 — `parse_kac_flight_detail_json`은 이미 `{"data": [...]}` 형태를 그대로
+    파싱하므로 변경이 필요 없었다. 죽은 코드였던 `_fetch_legacy_kac_status`(한 번도
+    호출되지 않던 구 XML endpoint)와 `_raise_for_upstream_status`/
+    `MAX_UPSTREAM_ERROR_BODY_LENGTH`(httpx 직접 호출 전용)도 함께 제거했다.
   - **관련 없는 발견**: 이번 검증 중 `backend/tests/test_cutover_guards.py`가 Docker
     컨테이너 안에서 `ModuleNotFoundError: No module named 'observe_cutover'`로 깨지는
     것을 발견했다 — `Path(__file__).parents[2]`가 로컬 디렉터리 깊이(`.../parking-radar/backend/tests/`)

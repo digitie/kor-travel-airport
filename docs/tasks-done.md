@@ -2,6 +2,32 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-08-23 (T-029)
+
+### `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
+
+- [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)의 마지막 남은
+  범위(비행편)를 완료했다. `LiveFlightStatusClient`를 `KrairportFlightStatusClient`로
+  교체했다.
+- KAC ODCloud(`FlightStatusListDTL`)는 krairport의 다른 KAC 서비스(`openapi.airport.co.kr`)와
+  다른 호스트(`api.odcloud.kr`)를 쓰는 별도 provider라 기존 `kac_raw_items`/
+  `departures()`/`arrivals()`로는 닿지 않았다 — `python-krairport-api`에
+  `KacClient.flight_status_detail_raw_items()`(sync/async)를 새로 추가하고
+  `KrairportClient`/`AsyncKrairportClient` facade에
+  `kac_flight_status_detail_raw_items()`로 노출했다(`python-krairport-api` PR
+  [#7](https://github.com/digitie/python-krairport-api/pull/7), 커밋 `cbe4d13`). 이
+  라이브러리 자체 테스트 91 passed(신규 3개 포함).
+- IIAC 비행편은 krairport의 기존 `iiac_raw_items("StatusOfPassengerFlightsDeOdp",
+  "getPassengerDeparturesDeOdp"/"getPassengerArrivalsDeOdp", ...)`가 endpoint와 정확히
+  일치해 krairport 쪽 수정 없이 바로 전환했다.
+- parking-radar 쪽: `parse_incheon_flight_status_json`에 krairport의 사전 추출된 raw item
+  list를 받는 `_incheon_flight_section_items` 분기를 추가했다.
+  `parse_kac_flight_detail_json`은 이미 `{"data": [...]}` 형태를 파싱하므로 변경이 필요
+  없었다. 죽은 코드(한 번도 호출되지 않던 `_fetch_legacy_kac_status`, httpx 직접 호출
+  전용이던 `_raise_for_upstream_status`/`MAX_UPSTREAM_ERROR_BODY_LENGTH`)도 함께 제거했다.
+- `/v1/flights/status` 응답 스키마는 변경하지 않았다 — 파서 함수의 출력 형태가 그대로다.
+- WSL 1차 `pytest 86 passed`(신규 4개 포함).
+
 ## 2026-08-23 (T-031)
 
 ### `T-031` — Docker 컨테이너에서 `test_cutover_guards.py` import 경로가 깨지는 사전 존재 버그 수정

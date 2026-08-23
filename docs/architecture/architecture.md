@@ -107,12 +107,13 @@
   - 주차 요금 계산
 - `backend/app/services/flight_status.py`
   - 한국공항공사 `15113771` / 인천공항공사 `15112968` 비행편 출도착 조회, 정규화, 캐시
-  - 현재는 `httpx` 직접 호출 + 수동 파싱으로 구현되어 있지만, 같은 KAC/IIAC 경계를 이미
-    타입 있는 client로 제공하는 형제 라이브러리 `python-krairport-api`(`krairport`,
-    `F:\dev\python-krairport-api`)를 provider 라이브러리로 쓰기로 결정했다
-    ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)) — 아직
-    마이그레이션 전이다. `krairport`에 필요한 기능이 없으면 이 파일 안에 우회 로직을 추가하지
-    않고 `krairport` 자체를 고친다.
+  - `KrairportFlightStatusClient`가 형제 라이브러리 `python-krairport-api`(`krairport`)를
+    통해 fetch를 수행한다(`T-029`,
+    [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)). KAC는
+    `kac_flight_status_detail_raw_items()`(ODCloud `FlightStatusListDTL` — krairport에
+    새로 추가한 endpoint), IIAC는 `iiac_raw_items("StatusOfPassengerFlightsDeOdp", ...)`를
+    쓴다. 파싱은 여전히 이 파일의 `parse_kac_flight_detail_json`/
+    `parse_incheon_flight_status_json`이 담당한다.
 - `backend/app/services/holidays.py`
   - 한국천문연구원(KASI) 특일 정보(`15012690`) 조회, 월별 캐시
   - `KasiHolidayClient`가 형제 라이브러리 `python-kasi-api`(`kasi`)의 `AsyncKasiClient.holidays()`를

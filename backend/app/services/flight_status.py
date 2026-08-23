@@ -9,6 +9,8 @@ from xml.etree import ElementTree
 from zoneinfo import ZoneInfo
 
 import httpx
+from krairport import AsyncKrairportClient
+from krairport.exceptions import KrairportError
 
 from app.core.config import Settings
 from app.core.time_utils import now_utc, serialize_utc
@@ -18,7 +20,6 @@ KAC_FLIGHT_DETAIL_STATUS_ENDPOINT = "https://api.odcloud.kr/api/FlightStatusList
 INCHEON_FLIGHT_ARRIVALS_ENDPOINT = "http://apis.data.go.kr/B551177/StatusOfPassengerFlightsDeOdp/getPassengerArrivalsDeOdp"
 INCHEON_FLIGHT_DEPARTURES_ENDPOINT = "http://apis.data.go.kr/B551177/StatusOfPassengerFlightsDeOdp/getPassengerDeparturesDeOdp"
 SUCCESS_RESULT_CODES = {"00", "0"}
-MAX_UPSTREAM_ERROR_BODY_LENGTH = 300
 SERVICE_KEY_PATTERN = re.compile(r"(serviceKey=)[^&'\"\s]+", re.IGNORECASE)
 
 SAMPLE_FLIGHT_ITEMS: dict[str, list[dict[str, str]]] = {
@@ -157,7 +158,14 @@ class FixtureFlightStatusClient(FlightStatusClient):
         )
 
 
-class LiveFlightStatusClient(FlightStatusClient):
+class KrairportFlightStatusClient(FlightStatusClient):
+    """`python-krairport-api`(`krairport`)를 통해 비행편 현황을 조회한다
+    (ADR-004, T-029). KAC는 `kac_flight_status_detail_raw_items()`(ODCloud
+    `FlightStatusListDTL`), IIAC는 `iiac_raw_items()`(`StatusOfPassengerFlightsDeOdp`)
+    escape hatch를 쓴다 — 두 endpoint 모두 krairport의 typed model이 아닌 raw item
+    dict를 그대로 돌려주므로, 파싱은 여전히 이 파일의 `parse_kac_flight_detail_json`/
+    `parse_incheon_flight_status_json`이 담당한다."""
+
     def __init__(self, settings: Settings) -> None:
         if not settings.data_go_kr_service_key:
             raise ValueError("공공데이터 서비스 키가 필요합니다.")
@@ -166,93 +174,57 @@ class LiveFlightStatusClient(FlightStatusClient):
     async def fetch_status(self, airport_code: str, local_date: date) -> FlightSourceResponse:
         if airport_code.upper() == "ICN":
             return await self._fetch_incheon_status(local_date)
+        return await self._fetch_kac_status(airport_code, local_date)
 
-        params = {
-            "serviceKey": self.settings.data_go_kr_service_key,
-            "page": 1,
-            "perPage": 1000,
-            "returnType": "JSON",
-            "cond[FLIGHT_DATE::EQ]": local_date.strftime("%Y%m%d"),
-            "cond[AIRPORT::EQ]": airport_code.upper(),
-        }
-        async with httpx.AsyncClient(timeout=self.settings.api_timeout_seconds) as client:
-            response = await client.get(KAC_FLIGHT_DETAIL_STATUS_ENDPOINT, params=params)
-            _raise_for_upstream_status(
-                "kac_flight_detail_status",
-                response,
-                self.settings.data_go_kr_service_key,
+    async def _fetch_kac_status(self, airport_code: str, local_date: date) -> FlightSourceResponse:
+        async with AsyncKrairportClient(
+            kac_service_key=self.settings.data_go_kr_service_key,
+            iiac_service_key=self.settings.data_go_kr_service_key,
+            timeout=self.settings.api_timeout_seconds,
+        ) as client:
+            items = await client.kac_flight_status_detail_raw_items(
+                airport_code=airport_code,
+                flight_date=local_date.strftime("%Y%m%d"),
+                page=1,
+                per_page=1000,
             )
-            return FlightSourceResponse(
-                source="kac_flight_detail_status",
-                endpoint=KAC_FLIGHT_DETAIL_STATUS_ENDPOINT,
-                request_params=params,
-                status_code=response.status_code,
-                body_text=response.text,
-            )
-
-    async def _fetch_legacy_kac_status(self, airport_code: str) -> FlightSourceResponse:
-        params = {
-            "serviceKey": self.settings.data_go_kr_service_key,
-            "schAirCode": airport_code.upper(),
-            "schStTime": "0000",
-            "schEdTime": "2359",
-            "pageNo": 1,
-            "numOfRows": 300,
-        }
-        async with httpx.AsyncClient(timeout=self.settings.api_timeout_seconds) as client:
-            response = await client.get(KAC_FLIGHT_STATUS_ENDPOINT, params=params)
-            _raise_for_upstream_status(
-                "kac_flight_status",
-                response,
-                self.settings.data_go_kr_service_key,
-            )
-            return FlightSourceResponse(
-                source="kac_flight_status",
-                endpoint=KAC_FLIGHT_STATUS_ENDPOINT,
-                request_params=params,
-                status_code=response.status_code,
-                body_text=response.text,
-            )
+        return FlightSourceResponse(
+            source="kac_flight_detail_status",
+            endpoint=KAC_FLIGHT_DETAIL_STATUS_ENDPOINT,
+            request_params={"airport_code": airport_code.upper(), "local_date": local_date.isoformat()},
+            status_code=200,
+            body_text=json.dumps({"data": items}, ensure_ascii=False),
+        )
 
     async def _fetch_incheon_status(self, local_date: date) -> FlightSourceResponse:
         request_date = local_date.strftime("%Y%m%d")
         base_params = {
-            "serviceKey": self.settings.data_go_kr_service_key,
             "pageNo": 1,
             "numOfRows": 500,
-            "type": "json",
             "searchday": request_date,
             "from_time": "0000",
             "to_time": "2400",
             "lang": "K",
             "inqtimechcd": "E",
         }
-        async with httpx.AsyncClient(timeout=self.settings.api_timeout_seconds) as client:
-            arrivals_response = await client.get(INCHEON_FLIGHT_ARRIVALS_ENDPOINT, params=base_params)
-            departures_response = await client.get(INCHEON_FLIGHT_DEPARTURES_ENDPOINT, params=base_params)
-            _raise_for_upstream_status(
-                "incheon_flight_status arrivals",
-                arrivals_response,
-                self.settings.data_go_kr_service_key,
+        async with AsyncKrairportClient(
+            kac_service_key=self.settings.data_go_kr_service_key,
+            iiac_service_key=self.settings.data_go_kr_service_key,
+            timeout=self.settings.api_timeout_seconds,
+        ) as client:
+            departures = await client.iiac_raw_items(
+                "StatusOfPassengerFlightsDeOdp", "getPassengerDeparturesDeOdp", base_params
             )
-            _raise_for_upstream_status(
-                "incheon_flight_status departures",
-                departures_response,
-                self.settings.data_go_kr_service_key,
+            arrivals = await client.iiac_raw_items(
+                "StatusOfPassengerFlightsDeOdp", "getPassengerArrivalsDeOdp", base_params
             )
-            return FlightSourceResponse(
-                source="incheon_flight_status",
-                endpoint=INCHEON_FLIGHT_DEPARTURES_ENDPOINT,
-                request_params={**base_params, "endpoints": ["arrivals", "departures"]},
-                status_code=max(arrivals_response.status_code, departures_response.status_code),
-                body_text=json.dumps(
-                    {
-                        "arrivals": json.loads(arrivals_response.text),
-                        "departures": json.loads(departures_response.text),
-                    },
-                    ensure_ascii=False,
-                ),
-            )
+        return FlightSourceResponse(
+            source="incheon_flight_status",
+            endpoint=INCHEON_FLIGHT_DEPARTURES_ENDPOINT,
+            request_params={**base_params, "endpoints": ["arrivals", "departures"]},
+            status_code=200,
+            body_text=json.dumps({"departures": departures, "arrivals": arrivals}, ensure_ascii=False),
+        )
 
 
 class FlightStatusService:
@@ -315,7 +287,13 @@ class FlightStatusService:
                     local_date,
                     self.settings.app_timezone,
                 )
-        except (FlightStatusUpstreamError, httpx.HTTPError, ElementTree.ParseError, ValueError) as exc:
+        except (
+            FlightStatusUpstreamError,
+            httpx.HTTPError,
+            ElementTree.ParseError,
+            ValueError,
+            KrairportError,
+        ) as exc:
             return {
                 **base_payload,
                 "status": "upstream_error",
@@ -398,15 +376,12 @@ def parse_incheon_flight_status_json(
     errors: list[str] = []
 
     for key, direction in (("departures", "departure"), ("arrivals", "arrival")):
-        response = document.get(key, {})
-        header = response.get("response", {}).get("header", {})
-        result_code = str(header.get("resultCode") or "").strip()
-        result_message = str(header.get("resultMsg") or "").strip()
-        if result_code and result_code not in SUCCESS_RESULT_CODES:
-            errors.append(f"incheon_flight_status {key} API error {result_code}: {result_message}")
+        raw_items, error = _incheon_flight_section_items(document.get(key), key)
+        if error:
+            errors.append(error)
             continue
 
-        for item in _json_items(response):
+        for item in raw_items:
             parsed = _parse_incheon_flight_item(item, direction, local_date, tz_name)
             if parsed is not None:
                 items.append(parsed)
@@ -418,21 +393,10 @@ def parse_incheon_flight_status_json(
 
 def _build_client(settings: Settings) -> FlightStatusClient | None:
     if settings.data_go_kr_service_key:
-        return LiveFlightStatusClient(settings)
+        return KrairportFlightStatusClient(settings)
     if settings.use_sample_client_when_no_key:
         return FixtureFlightStatusClient()
     return None
-
-
-def _raise_for_upstream_status(source: str, response: httpx.Response, service_key: str | None) -> None:
-    if response.status_code < 400:
-        return
-
-    body = _sanitize_upstream_error(response.text, service_key)
-    if len(body) > MAX_UPSTREAM_ERROR_BODY_LENGTH:
-        body = f"{body[:MAX_UPSTREAM_ERROR_BODY_LENGTH].rstrip()}..."
-    detail = f": {body}" if body else ""
-    raise FlightStatusUpstreamError(f"{source} HTTP {response.status_code}{detail}")
 
 
 def _build_flight_api_error_message(exc: Exception, service_key: str | None) -> str:
@@ -661,6 +625,25 @@ def _find_text(root: ElementTree.Element, tag_name: str) -> str | None:
 
 def _text(item: ElementTree.Element, tag_name: str) -> str:
     return _find_text(item, tag_name) or ""
+
+
+def _incheon_flight_section_items(
+    section: Any,
+    key: str,
+) -> tuple[list[dict[str, Any]], str | None]:
+    if isinstance(section, list):
+        # krairport's iiac_raw_items() escape hatch already validated the
+        # envelope (raises KrairportError on a bad result code) and returns
+        # a flat item list, not the {"response": {...}} wrapper.
+        return [item for item in section if isinstance(item, dict)], None
+
+    section = section or {}
+    header = section.get("response", {}).get("header", {})
+    result_code = str(header.get("resultCode") or "").strip()
+    result_message = str(header.get("resultMsg") or "").strip()
+    if result_code and result_code not in SUCCESS_RESULT_CODES:
+        return [], f"incheon_flight_status {key} API error {result_code}: {result_message}"
+    return _json_items(section), None
 
 
 def _json_items(document: dict[str, Any]) -> list[dict[str, Any]]:
