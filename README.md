@@ -81,7 +81,7 @@ docker compose up -d
 
 ## 192.168.1.14 운영 배포
 
-14번에서만 Docker/PostgreSQL을 실행한다. PostgreSQL은 `docker-compose.db.yml`로 앱과
+n150에서만 Docker/PostgreSQL을 실행한다. PostgreSQL은 `docker-compose.db.yml`로 앱과
 분리된 독립 컨테이너에서 운영한다(T-032). 운영 공개 포트는 API `14001`, web `14002`이며
 DB는 `14000`(loopback 전용, 외부 미노출)이다. 외부 API 주소는
 [https://pr-api.digitie.mywire.org](https://pr-api.digitie.mywire.org),
@@ -89,7 +89,7 @@ live E2E 기준 웹 주소는 [https://pr.digitie.mywire.org/](https://pr.digiti
 13번에서는 Docker를 실행하거나 중지하지 않고, cutover 전까지 source API와 rollback
 기준으로 유지한다.
 
-운영 환경 파일은 14번의
+운영 환경 파일은 n150의
 `/home/digitie/apps/parking-radar/.env.server14`에만 두며
 [`.env.server14.example`](.env.server14.example)을 시작점으로 사용한다.
 
@@ -126,18 +126,18 @@ E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e
 - 앱 디렉터리: `/home/digitie/apps/parking-radar`
 
 13번은 보존된 기존 시스템이며 배포 대상이 아니다. 이 프로젝트의 Docker,
-PostgreSQL, 백업/복원, 수집 스케줄러는 모두 14번에서만 실행한다. 따라서
+PostgreSQL, 백업/복원, 수집 스케줄러는 모두 n150에서만 실행한다. 따라서
 13번을 대상으로 하는 배포 스크립트와 `docker compose` 명령은 실행하지 않는다.
 13번은 `https://pr2.digitie.mywire.org/`의 기존 서비스에서 HTTP 읽기만 허용되는
 마이그레이션 원본으로 취급한다.
 
-14번 배포와 상태 확인은 [server14 배포 런북](docs/runbooks/deployment.md)을 따른다.
+n150 배포와 상태 확인은 [n150 배포 런북](docs/runbooks/deployment.md)을 따른다.
 
 운영 프론트는 기본적으로 같은 origin의 `/api/backend`를 호출하고, Next.js 서버가 Docker 내부 백엔드(`BACKEND_INTERNAL_URL=http://backend:8000`)로 프록시한다. 그래서 내부 LAN 주소와 외부 HTTPS 주소를 같은 빌드로 처리한다.
 
 운영 보안 기본값:
 
-- 14번 `CORS_ORIGINS_CSV`는 `https://pr.digitie.mywire.org`와
+- n150 `CORS_ORIGINS_CSV`는 `https://pr.digitie.mywire.org`와
   `https://pr-api.digitie.mywire.org`를 기준으로 한다. 기존 13번은
   `https://pr2.digitie.mywire.org`를 사용한다.
 - `TRUSTED_HOSTS_CSV`는 운영 도메인/내부 호스트만 허용한다.
@@ -168,10 +168,10 @@ DATA_GO_KR_SERVICE_KEY=...
 - `client_mode=live`로 운영할 때는 `SEED_SAMPLE_DATA=false`를 유지한다.
 - 샘플 시계열은 `client_mode=sample`에서만 시드한다.
 - `15056803` 카탈로그에는 개발계정 `5,000` 트래픽이 보이지만, ODROID 실측에서는 `2026-04-28`에 100회 성공 후 101번째부터 `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 발생했다.
-- 현재 server14 live는 5분(`300초`) 계약을 지키며, `SCHEDULER_SAFETY_BUFFER_SECONDS=120`에
-  따라 유효 tick 시작 간격은 180초다. 외부 API 응답/DB commit 지연을 흡수하고 public server14
+- 현재 n150 live는 5분(`300초`) 계약을 지키며, `SCHEDULER_SAFETY_BUFFER_SECONDS=120`에
+  따라 유효 tick 시작 간격은 180초다. 외부 API 응답/DB commit 지연을 흡수하고 public n150
   profile의 수동 수집 endpoint는 비활성화한다.
-- 현재 server14 live는 `CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY`를 처리한다.
+- 현재 n150 live는 `CJJ,CJU,GMP,HIN,ICN,KUV,KWJ,MWX,PUS,RSU,TAE,USN,WJU,YNY`를 처리한다.
 - 기존 13번/ODROID의 10분(`600초`) 설정은 historical reference이며 현재 배포 계약이 아니다.
 - `15056803`이 한도 초과 상태여도 인천 전용 API(`15095047`, `15095053`)가 활성화되어 있으면 인천 주차/요금 수집은 계속 시도한다.
 - 같은 인증키를 쓰는 live 수집기는 동시에 하나만 유지한다.
@@ -244,7 +244,7 @@ curl http://localhost:8000/v1/admin/collector-status
 
 1. `WSL2` 셸에서 1차 테스트
 2. `WSL2 + Docker`에서 2차 테스트
-3. 192.168.1.14 server14 배포
+3. 192.168.1.14 n150 배포
 4. `https://pr.digitie.mywire.org` live 스모크 체크
 
 Windows 로컬 PowerShell 테스트는 지양하고, 테스트 통과 기준으로 삼지 않는다.
@@ -333,5 +333,5 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 - Windows 로컬 테스트는 지양한다.
 - 1차 테스트는 `WSL2` 셸에서 로컬 런타임으로 실행한다.
 - 2차 테스트는 `WSL2 + Docker`에서 `docker compose run --rm --no-deps ...` 형태로 실행한다.
-- 192.168.1.14 server14 배포는 1차/2차 테스트 통과 이후 진행한다.
+- 192.168.1.14 n150 배포는 1차/2차 테스트 통과 이후 진행한다.
 - Windows PowerShell은 배포 스크립트와 상태 확인 용도로 사용하되, 테스트 합격 기준은 `WSL2` 결과를 따른다.

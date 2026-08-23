@@ -17,8 +17,8 @@
 - [x] PostgreSQL 컨테이너가 healthcheck를 통과하고 애플리케이션이 기동된다.
 - [x] 기존 SQLite 테스트와 PostgreSQL Docker 테스트가 모두 통과한다.
 - [x] 최근 주차 관측 구간과 마지막 수집 시각이 이전 시스템보다 늦지 않다.
-- [x] 14번에서 연속 수집이 시작되고 5분 간격의 관측 공백이 발생하지 않는다.
-- [x] 14번 공개 포트는 API `14000`, web `14001`이며 live E2E는
+- [x] n150에서 연속 수집이 시작되고 5분 간격의 관측 공백이 발생하지 않는다.
+- [x] n150 공개 포트는 API `14000`, web `14001`이며 live E2E는
   `https://pr.digitie.mywire.org`에서 실행한다.
 - [x] API 외부 주소는 `https://pr-api.digitie.mywire.org`로 smoke 검증한다.
 - [x] 백업 생성·다운로드·복원 UI를 실제 브라우저에서 확인한다. 실제 운영 DB를 덮어쓰는 복원 실행은
@@ -34,7 +34,7 @@
   parking-radar가 아닌 Home Assistant 응답을 보여 원본 검증에 사용하지 않았다.
 - HTTP fallback은 공항·주차장·관측 시계열을 보존했지만 raw response와 기존 collection run ID를
   복원하지 않는다. exact SQLite dump가 필요하면 운영자 권한으로 별도 파일을 제공해야 한다.
-- 13번의 현재 수집기는 10분 주기로 동작 중이다. 14번은 configured 5분 계약과 120초 safety
+- 13번의 현재 수집기는 10분 주기로 동작 중이다. n150은 configured 5분 계약과 120초 safety
   buffer(실제 tick 180초)로 운영하며, 공공데이터 API rate limit과 실제 응답 시각은
   `docs/architecture/collection.md`에 기록한다.
 - 백업/복원 API에는 별도 인증이 없다. 인터넷에 직접 노출하지 않고 내부망 또는 외부

@@ -22,7 +22,7 @@ FastAPI + Next.js 앱이다. 주차 관측(`parking_snapshots`), 공항/주차�
 - 실행: Docker Compose
 - 타임존: 저장·API는 UTC aware timestamp, 화면 표시는 `Asia/Seoul`
 - 수집: 운영 기본 5분. 외부 API rate limit과 실제 관측 시각을 함께 확인한다.
-- 새 운영 호스트: `digitie@192.168.1.14`
+- 새 운영 호스트: `digitie@192.168.1.14` (별칭 `n150`)
 - 기존 호스트: `digitie@192.168.1.13` — 데이터 확인 외 Docker 조작 금지
 - GitHub 정본: `origin` → `github.com/digitie/parking-radar` (2026-08-23 확정).
   `airport-parking-radar`는 구 개발 fork이며 새 작업의 대상이 아니다. remote가 여러 개
@@ -34,7 +34,7 @@ FastAPI + Next.js 앱이다. 주차 관측(`parking_snapshots`), 공항/주차�
 2. `codex/` 브랜치에서 작고 검토 가능한 커밋을 만든다.
 3. WSL 로컬 테스트 → Docker Compose 테스트 → Draft PR → CI 순서로 검증한다.
 4. 적대적 리뷰 에이전트 2명의 지적을 재현하고 수정한다.
-5. 14번 운영 환경에서 live E2E UI와 수집/백업 smoke를 통과시킨다.
+5. n150 운영 환경에서 live E2E UI와 수집/백업 smoke를 통과시킨다.
 6. 모든 필수 검증 후 PR을 머지하고 `docs/journal.md`, `docs/tasks-done.md`를 갱신한다.
 
 ## 4. 먼저 읽을 문서

@@ -146,7 +146,7 @@ curl http://localhost:8000/v1/admin/collector-status
 
 - DB 저장 기준: UTC
 - API 응답 기준: UTC ISO 8601
-- `/health`의 `release_sha`는 14번에 배포한 Git full SHA를 나타내며, deploy script와 CI live
+- `/health`의 `release_sha`는 n150에 배포한 Git full SHA를 나타내며, deploy script와 CI live
   E2E에서 candidate 일치를 확인한다.
 - 브라우저 표시 기준: KST
 
@@ -163,7 +163,7 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 ## 6. 수동 수집 버튼
 
 로컬 개발 profile에서 `ENABLE_MANUAL_COLLECT=true`이면 웹 UI의 `지금 수집` 버튼이
-`POST /v1/admin/collect`를 호출한다. public server14 profile에서는 버튼과 endpoint가 모두
+`POST /v1/admin/collect`를 호출한다. public n150 profile에서는 버튼과 endpoint가 모두
 비활성화된다.
 
 동작 규칙:
@@ -267,20 +267,20 @@ row-level `collected_at`과 전체 시스템 기준 동기화 시각은 백엔�
 - `NEXT_PUBLIC_API_BASE_URL`이 있으면 그 값을 쓴다.
 - 없으면 브라우저는 같은 origin의 `/api/backend`를 호출한다.
 - Next.js 서버가 `/api/backend/*` 요청을 Docker 내부 백엔드 주소인 `BACKEND_INTERNAL_URL`로 프록시한다.
-- server14 기본값은 `BACKEND_INTERNAL_URL=http://backend:8000`이다.
+- n150 기본값은 `BACKEND_INTERNAL_URL=http://backend:8000`이다.
 
-이 규칙은 server14 외부 주소(`https://pr.digitie.mywire.org/`)를 같은 빌드로 처리하고, 외부
+이 규칙은 n150 외부 주소(`https://pr.digitie.mywire.org/`)를 같은 빌드로 처리하고, 외부
 HTTPS 페이지에서 HTTP API 포트를 직접 호출하는 문제를 피하기 위한 것이다. 13번 주소는
 cutover read-only source로만 남긴다.
 
 ### 공개 서비스 보안
 
-- server14 외부 서비스 기준 주소는 `https://pr.digitie.mywire.org/`이다.
+- n150 외부 서비스 기준 주소는 `https://pr.digitie.mywire.org/`이다.
 - 운영 백엔드는 `TRUSTED_HOSTS_CSV`로 허용 Host를 제한한다.
-- server14 운영 CORS는 `http://192.168.1.14:14002`(web, T-032 이후), `https://pr.digitie.mywire.org`,
+- n150 운영 CORS는 `http://192.168.1.14:14002`(web, T-032 이후), `https://pr.digitie.mywire.org`,
   `https://pr-api.digitie.mywire.org`를 기준으로 제한한다.
 - 운영에서는 `ENABLE_API_DOCS=false`로 API 문서를 공개하지 않는다.
-- 운영 server14에서는 `ENABLE_MANUAL_COLLECT=false`로 `POST /v1/admin/collect`를 비활성화한다.
+- 운영 n150에서는 `ENABLE_MANUAL_COLLECT=false`로 `POST /v1/admin/collect`를 비활성화한다.
   로컬 개발 profile에서만 명시적으로 활성화한다.
 - 일반 조회와 자동 갱신은 서버에 저장된 `DATA_GO_KR_SERVICE_KEY`로 동작하며, 브라우저에 공공데이터 API 키를 요구하거나 노출하지 않는다.
 - `GET /v1/admin/collector-status`는 화면 갱신과 운영 상태 확인을 위해 공개 조회로 둔다.
@@ -359,13 +359,13 @@ cutover read-only source로만 남긴다.
 - Windows 로컬 테스트는 지양하고 참고 결과로만 취급한다.
 - 1차 테스트는 `WSL2` 셸에서 로컬 런타임으로 실행한다.
 - 2차 테스트는 `WSL2 + Docker`에서 실행한다.
-- server14 배포는 1차/2차 테스트가 모두 통과한 뒤 진행한다.
+- n150 배포는 1차/2차 테스트가 모두 통과한 뒤 진행한다.
 - Windows PowerShell은 배포와 원격 상태 확인 보조 환경으로 취급한다.
 ## 14. Live Seed Policy
 
-- server14 live 운영에서는 `client_mode=live`, `SEED_SAMPLE_DATA=false`를 기본값으로 사용한다.
+- n150 live 운영에서는 `client_mode=live`, `SEED_SAMPLE_DATA=false`를 기본값으로 사용한다.
 - 샘플 시계열은 `client_mode=sample` 개발 모드에서만 시드한다.
 - live 환경 DB에서 `collection_run_id is null` row는 샘플 스냅샷 가능성이 높으므로, 시계열이 이상하게 길어지면 먼저 이 조건을 확인한다.
 - `15056803` 카탈로그에는 개발계정 `5,000` 트래픽이 보이지만, `2026-04-28` 실측에서는 100회 성공 후 101번째부터 `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 발생했다.
-- 중복 수집기를 제거한 현재 기준으로는 server14 live 프로파일이 5분 configured 주기와
+- 중복 수집기를 제거한 현재 기준으로는 n150 live 프로파일이 5분 configured 주기와
   5분 수동 수집 제한 계약을 사용한다.

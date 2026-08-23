@@ -66,7 +66,7 @@ Alembic migration이 PostgreSQL 인덱스를 생성한다. SQLite 테스트에�
 
 ## Migration and backup contract
 
-- 기존 SQLite를 옮길 때는 `scripts/migrate_sqlite_to_postgres.py`를 14번에서 실행한다.
+- 기존 SQLite를 옮길 때는 `scripts/migrate_sqlite_to_postgres.py`를 n150에서 실행한다.
 - exact dump를 얻지 못하면 `scripts/migrate_http_history.py`로 관측 시계열을 먼저
   가져오고, 원본 응답·collection run·fee rule 보존 한계를 `docs/journal.md`에 기록한다.
 - 백업은 PostgreSQL custom format(`pg_dump -Fc`)이며 복원 전 자동 pre-restore backup을

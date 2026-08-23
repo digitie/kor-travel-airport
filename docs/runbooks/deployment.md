@@ -1,16 +1,16 @@
 # 배포 및 실행
 
-> 현재 기준 배포 대상은 `192.168.1.14`이며 Docker/PostgreSQL은 14번에서만 실행한다. 13번은 source API와 rollback 기준으로 읽기만 한다. 새 배포는 [migration.md](migration.md)와 [`scripts/deploy-server14.sh`](../../scripts/deploy-server14.sh)를 우선 사용한다. 이 문서의 기존 ODROID 절차는 historical reference다.
+> 현재 기준 배포 대상은 `192.168.1.14`이며 Docker/PostgreSQL은 n150에서만 실행한다. 13번은 source API와 rollback 기준으로 읽기만 한다. 새 배포는 [migration.md](migration.md)와 [`scripts/deploy-server14.sh`](../../scripts/deploy-server14.sh)를 우선 사용한다. 이 문서의 기존 ODROID 절차는 historical reference다.
 
-## 14번 현재 운영 절차
+## n150 현재 운영 절차
 
-1. 14번에 `/home/digitie/apps/parking-radar/.env.server14`를 만들고
+1. n150에 `/home/digitie/apps/parking-radar/.env.server14`를 만들고
    [`.env.server14.example`](../../.env.server14.example)의 실제 DB 비밀번호와 운영
    API key를 입력한다.
 2. WSL 로컬 테스트와 `docker compose config`를 통과시킨다.
 3. [`scripts/deploy-server14.sh`](../../scripts/deploy-server14.sh)를 실행한다. 이
    스크립트는 대상 host가 `192.168.1.14`이고 Compose project가 `parking-radar`인지 먼저
-   확인한 뒤 현재 Git `HEAD`를 candidate artifact로 만들어 14번의 `docker compose`만
+   확인한 뒤 현재 Git `HEAD`를 candidate artifact로 만들어 n150의 `docker compose`만
    호출하며 다른 Compose project를 중지하지 않는다. 배포 직후 `/health.release_sha`가
    candidate SHA와 일치하는지도 확인한다.
 4. [migration.md](migration.md)의 prewarm → final delta → 180초 scheduler와 300초 이내 cutover 검증을
@@ -22,7 +22,7 @@ REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
 ./scripts/deploy-server14.sh
 ```
 
-14번의 기본 구성은 PostgreSQL 16, Alembic `0003_legacy_source_identity`,
+n150의 기본 구성은 PostgreSQL 16, Alembic `0003_legacy_source_identity`,
 `COLLECT_INTERVAL_SECONDS=300`, `SCHEDULER_SAFETY_BUFFER_SECONDS=120`,
 `MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300`, `ENABLE_MANUAL_COLLECT=false`이다. 백업 UI는 별도 인증이 없으므로
 인터넷에 직접 노출하지 않고 내부망/게이트웨이 접근 제어를 전제로 한다. 백업 생성·복원 명령은
@@ -32,7 +32,7 @@ REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
 유지보수 창에서만 수행한다.
 
 보안 예외: 사용자가 별도 application auth를 요구한 backup/restore UI와 `/v1/admin/backups*`만
-의도적으로 인증 없이 남겨 둔다. 수동 수집 endpoint는 public server14에서 비활성화하고
+의도적으로 인증 없이 남겨 둔다. 수동 수집 endpoint는 public n150에서 비활성화하고
 웹 proxy에도 노출하지 않는다. 백업 endpoint는 DB dump 다운로드와 복원을 포함하는
 destructive 운영 API이므로, 외부 gateway가 private ACL/mTLS 등으로 차단되었음을 확인하기
 전에는 릴리스 승인 대상이 아니다. UI의 경고 문구는 보안 경계가 아니다.
@@ -48,8 +48,8 @@ destructive 운영 API이므로, 외부 gateway가 private ACL/mTLS 등으로 �
 - 외부 live E2E: `https://pr.digitie.mywire.org`
 - 배포 candidate: `GET /health`의 `release_sha`가 배포한 Git full SHA와 일치해야 한다.
 
-외부 reverse proxy가 두 host를 각각 14번의 `14001`(API)/`14002`(web)로 전달해야 한다 —
-이전 `14000`/`14001` 매핑에서 바뀌었으므로 reverse proxy 설정도 함께 갱신해야 한다. 14번
+외부 reverse proxy가 두 host를 각각 n150의 `14001`(API)/`14002`(web)로 전달해야 한다 —
+이전 `14000`/`14001` 매핑에서 바뀌었으므로 reverse proxy 설정도 함께 갱신해야 한다. n150
 host에는 443 listener가 없을 수 있으므로 Compose 배포만으로 기존
 `pr.digitie.mywire.org`의 외부 라우팅이 바뀐다고 가정하지 않는다.
 
@@ -104,7 +104,7 @@ rollback 상태를 확인할 때만 읽는다.
 
 이 절의 환경변수·포트·스크립트는 과거 기록이다. `scripts/deploy-odroid.ps1`와
 `deploy/odroid/remote-deploy.sh`는 현재 fail-closed 차단 파일이며 Docker 명령을 실행하지 않는다.
-운영 변경은 위의 server14 절차만 사용한다.
+운영 변경은 위의 n150 절차만 사용한다.
 
 ## 기존 실데이터 설정
 
@@ -211,7 +211,7 @@ Windows 로컬 PowerShell 테스트만으로 ODROID에 배포하지 않는다. P
 
 `.\scripts\deploy-odroid.ps1`는 실행 시 즉시 종료된다. Docker는 13번에서 절대 실행하지 않는다.
 
-실제 운영 배포는 [14번 현재 운영 절차](#14번-현재-운영-절차)의
+실제 운영 배포는 [n150 현재 운영 절차](#n150-현재-운영-절차)의
 `scripts/deploy-server14.sh`만 사용한다.
 
 호환성 메모:
@@ -223,7 +223,7 @@ Windows 로컬 PowerShell 테스트만으로 ODROID에 배포하지 않는다. P
 - `.env.odroid`는 원격 bash가 `source`로 읽으므로 UTF-8 without BOM, LF 줄바꿈을 유지한다. PowerShell `Set-Content -Encoding utf8`은 환경에 따라 BOM을 붙일 수 있어 원격에서 `$'\ufeffKEY=value\r': command not found` 오류를 만들 수 있다.
 - Compose 구현에 따라 `sudo` 실행 시 셸 환경 변수가 사라질 수 있으므로, 원격 스크립트는 `.env.odroid`를 `.env`로도 연결해 Compose가 직접 읽게 한다.
 - `docker-compose 1.29` 계열에서는 컨테이너 재생성 중 `ContainerConfig` 오류가 날 수 있다.
-- 현재 server14 배포는 기존 Compose project를 내리지 않고 candidate artifact를 교체한다.
+- 현재 n150 배포는 기존 Compose project를 내리지 않고 candidate artifact를 교체한다.
 - 백엔드 healthcheck가 안정되기 전에는 프론트가 `depends_on`에서 실패할 수 있으므로, 원격 배포는 `backend -> health 확인 -> frontend` 순서로 올린다.
 
 ## 프론트 API 주소 결정 방식

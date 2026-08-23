@@ -50,7 +50,7 @@
 - `ENABLE_SCHEDULER=true`면 백엔드 시작 직후 스케줄러가 생성된다.
 - 스케줄러는 시작하자마자 1회 수집하고, 이후 `COLLECT_INTERVAL_SECONDS`마다 반복된다.
 - 기본 개발 간격은 `300초`, 즉 5분이다.
-- 14번 운영 간격은 `300초`, 즉 5분이다.
+- n150 운영 간격은 `300초`, 즉 5분이다.
 
 주의:
 
@@ -75,7 +75,7 @@
 수동 수집 규칙 (로컬 개발 전용):
 
 - `ENABLE_MANUAL_COLLECT=true`인 로컬 profile에서만 웹 UI의 `지금 수집` 버튼이
-  `POST /v1/admin/collect`를 호출한다. public server14에서는 버튼과 endpoint가 비활성화된다.
+  `POST /v1/admin/collect`를 호출한다. public n150에서는 버튼과 endpoint가 비활성화된다.
 - 수동 수집 제한은 `manual_collect_min_interval_seconds`를 따른다.
 - 운영에서는 마지막 적재 후 `MANUAL_COLLECT_MIN_INTERVAL_SECONDS`가 지나지 않았으면
   프론트와 백엔드 모두 수동 수집을 막는다.
@@ -193,7 +193,7 @@ legacy 병렬 요청 경로:
 - 프론트는 `NEXT_PUBLIC_API_BASE_URL`이 설정되어 있으면 그 값을 사용한다.
 - 값이 비어 있으면 같은 origin의 `/api/backend`를 호출한다.
 - Next.js 서버는 `/api/backend/*` 라우트에서 허용된 백엔드 경로만 `BACKEND_INTERNAL_URL`로 프록시한다.
-- Docker/14번 기본값은 `BACKEND_INTERNAL_URL=http://backend:8000`이다.
+- Docker/n150 기본값은 `BACKEND_INTERNAL_URL=http://backend:8000`이다.
 - 이 방식은 LAN IP와 `https://pr.digitie.mywire.org/` 외부 도메인을 같은 빌드로 처리하고, 외부 HTTPS 페이지가 HTTP API 포트를 직접 호출하는 문제를 피하기 위한 기본값이다.
 
 ## 운영상 주의할 점

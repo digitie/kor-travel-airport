@@ -207,7 +207,7 @@ curl -fsS -D - -o /dev/null https://pr2.digitie.mywire.org/api/backend/airports
 이 방식은 `unable to open database file` 같은 간헐 오류를 만들 수 있다.
 ## `LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.`가 반복될 때
 
-아래 ODROID 수치와 조치 기록은 historical reference다. 현재 server14는
+아래 ODROID 수치와 조치 기록은 historical reference다. 현재 n150는
 `COLLECT_INTERVAL_SECONDS=300`, `MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300`을 사용한다.
 
 먼저 확인:
