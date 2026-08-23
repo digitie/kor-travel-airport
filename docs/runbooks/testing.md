@@ -117,7 +117,7 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 cd frontend
 npm run e2e:install
 E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e
-E2E_BASE_URL=http://192.168.1.14:14001 npm run test:e2e  # 보조 검증
+E2E_BASE_URL=http://192.168.1.14:14002 npm run test:e2e  # 보조 검증 (T-032 이후 web 포트)
 ```
 
 GitHub Actions의 `live-e2e` job은 항상 정확한 `https://pr.digitie.mywire.org`를 사용한다.
@@ -217,8 +217,9 @@ in-app browser 또는 브라우저에서 다음을 확인한다.
 
 - 로컬 확인은 [http://localhost:3000](http://localhost:3000)와
   [http://localhost:8000/docs](http://localhost:8000/docs)를 사용한다.
-- 14번 운영 직접 확인은 웹 `http://192.168.1.14:14001`, API
-  `http://192.168.1.14:14000`을 사용한다.
+- 14번 운영 직접 확인은 웹 `http://192.168.1.14:14002`, API
+  `http://192.168.1.14:14001`을 사용한다(T-032 이후 포트, DB는 `14000`으로 별도
+  컨테이너·loopback 전용).
 - KST 기준 시각 표시
 - 시계열 툴팁 표시
 - 시계열 X축 라벨이 겹치지 않고 6시간 단위로 표시되는지 확인
@@ -259,13 +260,13 @@ Playwright 결과 JSON은 `frontend/test-results/live-e2e.json`에 남긴다. 32
 
 배포 후에는 최소한 아래를 확인한다.
 
-- `http://192.168.1.14:14001` 응답
+- `http://192.168.1.14:14002` 응답 (T-032 이후 web 포트)
 - `https://pr.digitie.mywire.org/` 응답
-- `http://192.168.1.14:14001/api/backend/health` 응답
+- `http://192.168.1.14:14002/api/backend/health` 응답
 - `https://pr.digitie.mywire.org/api/backend/health` 응답
 - `https://pr-api.digitie.mywire.org/health` 응답
-- `http://192.168.1.14:14000/health` 응답
-- `http://192.168.1.14:14000/admin/collector-status`에서
+- `http://192.168.1.14:14001/health` 응답 (T-032 이후 API 포트)
+- `http://192.168.1.14:14001/admin/collector-status`에서
   - `client_mode=live`
   - `scheduler_enabled=true`
   - `upstream_rate_limited=false`

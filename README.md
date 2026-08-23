@@ -38,7 +38,7 @@
 - 백엔드: FastAPI, SQLAlchemy 2, PostgreSQL 16, Alembic
 - 프론트엔드: Next.js App Router, React, TypeScript
 - 테스트: pytest, Vitest
-- 실행: Docker Compose (PostgreSQL 포함)
+- 실행: Docker Compose (PostgreSQL은 `docker-compose.db.yml`로 별도 컨테이너, T-032)
 - 개발 환경: WSL2 + Docker
 - 운영 목표 환경: Ubuntu 24.04 on Odroid M1S
 
@@ -67,7 +67,11 @@
 
 ## 빠른 시작
 
+PostgreSQL은 앱(backend/frontend)과 분리된 별도 compose 스택이다(T-032). DB 스택을 먼저
+올려야 `parking-radar-net` 외부 네트워크가 생기고, 앱 스택이 거기에 연결된다.
+
 ```bash
+docker compose -f docker-compose.db.yml up -d
 docker compose build
 docker compose up -d
 ```
@@ -77,8 +81,10 @@ docker compose up -d
 
 ## 192.168.1.14 운영 배포
 
-14번에서만 Docker/PostgreSQL을 실행한다. 운영 공개 포트는 API `14000`, web `14001`이며
-외부 API 주소는 [https://pr-api.digitie.mywire.org](https://pr-api.digitie.mywire.org),
+14번에서만 Docker/PostgreSQL을 실행한다. PostgreSQL은 `docker-compose.db.yml`로 앱과
+분리된 독립 컨테이너에서 운영한다(T-032). 운영 공개 포트는 API `14001`, web `14002`이며
+DB는 `14000`(loopback 전용, 외부 미노출)이다. 외부 API 주소는
+[https://pr-api.digitie.mywire.org](https://pr-api.digitie.mywire.org),
 live E2E 기준 웹 주소는 [https://pr.digitie.mywire.org/](https://pr.digitie.mywire.org/)다.
 13번에서는 Docker를 실행하거나 중지하지 않고, cutover 전까지 source API와 rollback
 기준으로 유지한다.
@@ -96,8 +102,8 @@ REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
 배포 후 확인:
 
 ```bash
-curl -fsS http://192.168.1.14:14000/health
-curl -fsS http://192.168.1.14:14001/
+curl -fsS http://192.168.1.14:14001/health
+curl -fsS http://192.168.1.14:14002/
 curl -fsS https://pr-api.digitie.mywire.org/health
 curl -fsS https://pr.digitie.mywire.org/api/backend/health
 ```

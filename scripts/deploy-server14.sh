@@ -83,9 +83,9 @@ if [[ "${POSTGRES_BIND_HOST:-127.0.0.1}" != "127.0.0.1" ]]; then
   echo "Refusing server14 deployment: PostgreSQL must bind to loopback only." >&2
   exit 2
 fi
-require_exact POSTGRES_HOST_PORT 5432
-require_exact PUBLIC_API_PORT 14000
-require_exact PUBLIC_WEB_PORT 14001
+require_exact POSTGRES_HOST_PORT 14000
+require_exact PUBLIC_API_PORT 14001
+require_exact PUBLIC_WEB_PORT 14002
 require_exact ENABLE_SCHEDULER true
 require_exact ENABLE_MANUAL_COLLECT false
 require_exact RUN_DB_MIGRATIONS true
@@ -107,12 +107,19 @@ if [[ ! "${DATABASE_URL:-}" =~ ^postgresql\+asyncpg://[^@]+@postgres:5432/parkin
   echo "Refusing server14 deployment: DATABASE_URL must target the Compose PostgreSQL service." >&2
   exit 2
 fi
+# DB stack has its own lifecycle (T-032) and is not touched on every app deploy.
+# Bring it up only if it is not already running -- this must never recreate an
+# existing postgres container, since that would attach a fresh empty volume if
+# the named-volume reference in docker-compose.db.yml is ever wrong.
+if ! docker compose --project-name "${COMPOSE_PROJECT_NAME}-db" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.db.yml ps --status running --format '{{.Name}}' 2>/dev/null | grep -q postgres; then
+  docker compose --project-name "${COMPOSE_PROJECT_NAME}-db" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.db.yml up -d
+fi
 export RELEASE_SHA="${CANDIDATE_SHA}"
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.yml up -d --build
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file "${REMOTE_ENV_FILE}" -f docker-compose.yml ps
 health_payload=""
 for attempt in $(seq 1 30); do
-  if health_payload="$(curl -fsS "http://127.0.0.1:${PUBLIC_API_PORT:-14000}/health" 2>/dev/null)"; then
+  if health_payload="$(curl -fsS "http://127.0.0.1:${PUBLIC_API_PORT:-14001}/health" 2>/dev/null)"; then
     break
   fi
   if [[ "${attempt}" == "30" ]]; then
@@ -126,7 +133,7 @@ if ! grep -Fq "\"release_sha\":\"${CANDIDATE_SHA}\"" <<<"${health_payload}"; the
   exit 1
 fi
 for attempt in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:${PUBLIC_WEB_PORT:-14001}/" >/dev/null; then
+  if curl -fsS "http://127.0.0.1:${PUBLIC_WEB_PORT:-14002}/" >/dev/null; then
     break
   fi
   if [[ "${attempt}" == "30" ]]; then

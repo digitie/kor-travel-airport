@@ -15,8 +15,8 @@
   않았다** — working tree 변경 상태.
 - 운영 원본: `digitie@192.168.1.13:/home/digitie/apps/parking-radar`
 - 새 운영 대상: `digitie@192.168.1.14`
-- 14번 공개 포트: API `14000`, web `14001`; live E2E 기준 URL:
-  `https://pr.digitie.mywire.org`
+- 14번 공개 포트 (T-032 이후, 2026-08-23): API `14001`, web `14002`, DB `14000`(loopback
+  전용, 별도 컨테이너). live E2E 기준 URL: `https://pr.digitie.mywire.org`
 - 14번 외부 API URL: `https://pr-api.digitie.mywire.org`
 
 ## 다음 한 작업

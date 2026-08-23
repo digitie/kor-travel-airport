@@ -21,7 +21,8 @@
 - Docker Compose 기준
 - 개발 검증: WSL2 + Docker
 - 운영: `digitie@192.168.1.14`에서만 Docker/PostgreSQL 실행
-  - public web `14001`, public API `14000`, container backend `8000`
+  - PostgreSQL은 `docker-compose.db.yml`로 앱과 분리된 독립 컨테이너에서 운영(T-032)
+  - public web `14002`, public API `14001`, DB `14000`(loopback 전용), container backend `8000`
 - live E2E 기준 origin: `https://pr.digitie.mywire.org`
 - 외부 API 기준 origin: `https://pr-api.digitie.mywire.org`
 - `192.168.1.13`은 cutover 전까지 read-only source/rollback 기준으로 유지

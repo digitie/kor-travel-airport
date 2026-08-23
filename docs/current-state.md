@@ -277,7 +277,7 @@ cutover read-only source로만 남긴다.
 
 - server14 외부 서비스 기준 주소는 `https://pr.digitie.mywire.org/`이다.
 - 운영 백엔드는 `TRUSTED_HOSTS_CSV`로 허용 Host를 제한한다.
-- server14 운영 CORS는 `http://192.168.1.14:14001`, `https://pr.digitie.mywire.org`,
+- server14 운영 CORS는 `http://192.168.1.14:14002`(web, T-032 이후), `https://pr.digitie.mywire.org`,
   `https://pr-api.digitie.mywire.org`를 기준으로 제한한다.
 - 운영에서는 `ENABLE_API_DOCS=false`로 API 문서를 공개하지 않는다.
 - 운영 server14에서는 `ENABLE_MANUAL_COLLECT=false`로 `POST /admin/collect`를 비활성화한다.
