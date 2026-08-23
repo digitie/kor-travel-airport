@@ -2,6 +2,28 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-08-23 (ADR-006)
+
+### 공휴일 수집을 `python-kasi-api`로 전환
+
+- [ADR-006](</F:/dev/parking-radar/docs/adr/006-kasi-provider-library.md>) 참고. 사용자
+  요청으로 한국천문연구원(KASI) 특일 정보(`15012690`) 조회를 krairport(T-030, ADR-004)와
+  동일한 provider 라이브러리 패턴으로 형제 라이브러리 `python-kasi-api`(`kasi`)로
+  옮겼다. `KasiHolidayClient`가 `AsyncKasiClient.holidays()`를 호출하고, 반환된 각
+  item의 `raw` mapping을 JSON 직렬화해 기존 `parse_holiday_response`에 그대로 넘긴다
+  (`_parse_holiday_raw_items` 신규 분기). `FixtureHolidayClient`(sample 모드)는 변경
+  없음.
+- krairport 마이그레이션과 달리 이번에는 필드명/endpoint 불일치 같은 새 버그를 발견하지
+  못했다 — 순수 provider 교체였다.
+- hostile review(James/Popper) 모두 P0/P1 없음. Popper가 지적한 P2(공휴일은
+  `CollectionService`처럼 별도 rate-limit backoff 스케줄링이 없다는 점)는 호출 빈도가
+  훨씬 낮아(1일 캐시) 의도적 범위 선택으로 판단, ADR에 근거를 남겼다.
+- WSL 1차 `pytest 82 passed`(신규 kasi 테스트 3개), Docker 2차 `pytest 79 passed`
+  (`test_cutover_guards.py` 3개 제외, `T-031` 무관 사전 버그). GitHub PR
+  [#7](https://github.com/digitie/parking-radar/pull/7) merge. 14번에 배포해 live
+  검증 완료: `release_sha=986d64e`, `GET /v1/holidays/summary`가 실제 서비스 키로
+  `source=kasi_holiday_info`, 광복절/대체공휴일 데이터를 정상 반환했다.
+
 ## 2026-08-23 (ADR-005)
 
 ### 백엔드 API를 `/v1` 버저닝 + RFC7807 에러로 정식 계약화
