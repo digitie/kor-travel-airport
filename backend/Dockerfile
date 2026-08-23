@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y postgresql-client \
+    && apt-get install --no-install-recommends -y git postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend /app

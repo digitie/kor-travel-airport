@@ -4,6 +4,61 @@
 
 ## 2026-08-23
 
+### `T-030` — 주차 현황·주차요금 수집을 `python-krairport-api`로 전환
+
+- [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>) 범위를
+  비행편에서 주차 현황/요금까지 확장하고, KAC/IIAC 주차현황(`15056803`/`15095047`)과 KAC
+  주차요금(`15038474`)이 krairport의 기존 raw-item escape hatch로 정확히 대체됨을 소스
+  코드 대조(`krairport/providers/{kac,iiac}.py`)로 확인했다. IIAC 주차요금(`15095053`)은
+  krairport에 typed 지원이 없지만 같은 `iiac_raw_items` 범용 경로로 도달 가능해 krairport
+  자체 수정 없이 4개 fetch 모두 전환했다.
+- `backend/pyproject.toml`에 `python-krairport-api @ git+https://github.com/digitie/python-krairport-api@b8854137f26be4ae14c1693b83b425ee37c60655`
+  PEP 508 direct reference로 의존성을 추가했다. 처음엔 `[tool.uv.sources]` git mapping으로
+  시도했으나 Docker 빌드가 plain `pip install -e ".[dev]"`를 써서 인식하지 못해(`uv` 전용
+  테이블) 실패했고, PEP 508 direct reference로 바꿔 pip/uv 양쪽에서 동작하게 고쳤다.
+  `backend/Dockerfile`에 `git` 패키지를 추가했다(pip의 git+https 설치 요구사항).
+- `backend/app/services/collection.py`에 `KrairportPublicDataClient`를 추가해
+  `LivePublicDataClient`(직접 `httpx`)를 대체했다. krairport의 typed `ParkingFee` model은
+  휴일 요금·분당 추가요금 필드가 없어서, typed model 대신 `kac_raw_items`/`iiac_raw_items`
+  범용 escape hatch로 원본에 가까운 item dict를 받고 parking-radar 자체 `parsers.py` 로직은
+  그대로 유지했다 — 파싱/필드 매핑 회귀 위험을 없앴다.
+- `parsers.py`의 `parse_kac_parking`/`parse_kac_fee`/`parse_incheon_parking`/`parse_incheon_fee`가
+  이제 문자열(XML/JSON envelope) 또는 사전 추출된 item list 양쪽을 받는다(하위 호환 유지,
+  기존 파서 유닛 테스트 무변경). `FixturePublicDataClient`의 sample 데이터도 XML/JSON
+  envelope 생성 대신 flat item list를 직접 JSON 직렬화하도록 단순화했다(`_build_kac_parking_xml`/
+  `_build_kac_fee_xml`/`SAMPLE_INCHEON_JSON`/`SAMPLE_INCHEON_FEE_JSON` 삭제).
+  `validate_source_response_body`는 krairport가 이미 검증한 JSON-array body를 만나면
+  스킵하도록 갱신했다.
+- **부작용**: `RawApiResponse.body_text`가 이제 업스트림 원문이 아니라 krairport가 파싱한
+  item 목록의 JSON 직렬화다(krairport가 raw HTTP 텍스트를 공개 API로 안 내려줌). ADR-004에
+  명시했다.
+- **live smoke test로 발견·수정한 pre-existing 버그 2건** (사용자가 로컬 실제
+  `DATA_GO_KR_SERVICE_KEY` 존재를 알려줘서 fixture가 아닌 실 upstream으로 검증):
+  1. krairport가 KAC 전체를 `https://openapi.airport.co.kr`로 호출하고 있었는데, 이
+     게이트웨이는 `http://`만 정상 동작한다(https는 요청과 무관하게 전부
+     `NO OPENAPI SERVICE ERROR.`) — `python-krairport-api`
+     [PR #6](https://github.com/digitie/python-krairport-api/pull/6)로 수정,
+     `88d47ca`로 머지 후 parking-radar pin을 그 커밋으로 갱신했다.
+  2. `parse_kac_fee`/`_kac_fee_sample_items`/`tests/fixtures/kac_fee_gmp.xml`이
+     `PARKING_BASIC_ACCOUNT`류 SCREAMING_SNAKE_CASE 필드명을 기대하고 있었는데 실제 API는
+     `parkingBasicAccount`류 camelCase를 반환한다 — **krairport 도입 이전부터 있던 버그이며,
+     실제로는 KAC 주차요금 live 수집이 계속 빈 배열만 반환했을 가능성이 높다.** 실제
+     필드명으로 파서·sample·fixture를 모두 고쳤다.
+  두 수정 후 `CollectionService.collect()`를 실제 서비스키로 end-to-end 실행해 확인:
+  `status=success`, `raw_response_count=6`, `snapshot_count=30`, `fee_rule_count=56`,
+  `errors=[]`.
+- 검증: WSL 1차 `uv run pytest tests -q` `72 passed`(krairport 수정 반영 후 재실행 포함).
+  Docker 2차 `docker compose run --rm --no-deps backend pytest -q
+  --ignore=tests/test_cutover_guards.py` `69 passed`(제외한 3개는 이 마이그레이션과 무관한
+  사전 존재 버그 — `T-031` 참고). `alembic -c alembic.ini check`
+  `No new upgrade operations detected`. `docker compose build backend`/`frontend` 성공.
+  frontend Docker 테스트 `48 passed`. 실제 upstream 대상 live smoke test와 end-to-end
+  collect() 실행까지 통과.
+- 이번 세션에서는 `T-031`(`test_cutover_guards.py` Docker 경로 버그)을 발견했지만
+  krairport 마이그레이션과 무관해 고치지 않고 별도 task로 등록했다(Surgical Changes 원칙).
+- KAC 비행편(ODCloud `15113771`)은 krairport가 아직 지원하지 않아 이번 범위에서 제외했다 —
+  `T-029`로 남아 있다.
+
 ### `T-028` — GitHub 정본 레포 전환 + kor-travel-map 문서 구조 이식
 
 - 두 GitHub remote(`digitie/airport-parking-radar`, `digitie/parking-radar`) 상태를

@@ -254,13 +254,32 @@ def parse_kac_congestion(xml_text: str, airport_code: str) -> list[ParsedParking
     return observations
 
 
+def _coerce_kac_items(payload: str | list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Accept either literal upstream XML text or a pre-extracted item list.
+
+    `python-krairport-api`'s `kac_raw_items()` already parses XML into flat
+    `{tag: text}` dicts, so a krairport-backed fetch hands us
+    `SourceResponse.body_text` as a JSON-serialized list instead of XML.
+    """
+
+    if isinstance(payload, list):
+        return [
+            {key: (value.strip() if isinstance(value, str) else value) for key, value in item.items()}
+            for item in payload
+        ]
+    stripped = payload.strip()
+    if stripped.startswith("["):
+        return _coerce_kac_items(json.loads(payload))
+    return _xml_items(payload)
+
+
 def parse_kac_parking(
-    xml_text: str,
+    payload: str | list[dict[str, Any]],
     allowed_airport_codes: list[str] | None = None,
 ) -> list[ParsedParkingObservation]:
     observations: list[ParsedParkingObservation] = []
     allowed = {code.upper() for code in allowed_airport_codes} if allowed_airport_codes else None
-    for item in _xml_items(xml_text):
+    for item in _coerce_kac_items(payload):
         airport_code = _resolve_kac_airport_code(item.get("aprKor"), item.get("aprEng"))
         if airport_code is None:
             continue
@@ -298,9 +317,23 @@ def parse_kac_parking(
     return observations
 
 
-def parse_incheon_parking(payload: str | dict[str, Any]) -> list[ParsedParkingObservation]:
+def _coerce_incheon_items(payload: str | dict[str, Any] | list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Accept literal upstream JSON text/envelope, or a pre-extracted item list.
+
+    `python-krairport-api`'s `iiac_raw_items()` already parses the JSON
+    envelope into a flat item list, so a krairport-backed fetch hands us
+    `SourceResponse.body_text` as a JSON-serialized list instead of the
+    original `{"response": {"body": {"items": ...}}}` envelope.
+    """
+
     document = json.loads(payload) if isinstance(payload, str) else payload
-    items = _json_items(document)
+    return document if isinstance(document, list) else _json_items(document)
+
+
+def parse_incheon_parking(
+    payload: str | dict[str, Any] | list[dict[str, Any]],
+) -> list[ParsedParkingObservation]:
+    items = _coerce_incheon_items(payload)
 
     observations: list[ParsedParkingObservation] = []
     for item in items:
@@ -381,9 +414,8 @@ def _build_incheon_fee_rule(
     )
 
 
-def parse_incheon_fee(payload: str | dict[str, Any]) -> list[ParsedFeeRule]:
-    document = json.loads(payload) if isinstance(payload, str) else payload
-    items = _json_items(document)
+def parse_incheon_fee(payload: str | dict[str, Any] | list[dict[str, Any]]) -> list[ParsedFeeRule]:
+    items = _coerce_incheon_items(payload)
     descriptions_by_id: dict[str, list[str]] = {}
     raw_by_id: dict[str, list[dict[str, Any]]] = {}
 
@@ -439,8 +471,8 @@ def _append_fee_rule(
 
     rule = ParsedFeeRule(
         airport_code=airport_code,
-        airport_name=item.get("SITE_NAME", airport_code),
-        parking_lot_name=item.get("PARKING_PARKING_NAME"),
+        airport_name=item.get("siteName", airport_code),
+        parking_lot_name=item.get("parkingParkingName"),
         vehicle_size=vehicle_size,
         day_type=day_type,
         free_minutes=_safe_int(item.get(free_minutes_key)),
@@ -455,21 +487,31 @@ def _append_fee_rule(
     target.append(rule)
 
 
-def parse_kac_fee(xml_text: str, airport_code: str) -> list[ParsedFeeRule]:
+def parse_kac_fee(payload: str | list[dict[str, Any]], airport_code: str) -> list[ParsedFeeRule]:
+    """Parse `AirportParkingFee/parkingfee` items.
+
+    Field names below (`parkingBasicM`, `parkingMaxAccount`, `siteName`, ...)
+    are camelCase as confirmed against the live endpoint. An earlier version
+    of this parser assumed `PARKING_BASIC_M`-style SCREAMING_SNAKE_CASE names
+    that never matched any real response, so KAC fee collection had always
+    silently produced zero rules in `live` mode (`_append_fee_rule`'s
+    early-return guard skips a rule when neither key is present).
+    """
+
     rules: list[ParsedFeeRule] = []
-    for item in _xml_items(xml_text):
+    for item in _coerce_kac_items(payload):
         _append_fee_rule(
             rules,
             item,
             airport_code,
             "small",
             "weekday",
-            "PARKING_BASIC_ACCOUNT",
-            "PARKING_BASIC_M",
-            "PARKING_FREE_M",
-            "PARKING_MINUTE_ACCOUNT",
-            "PARKING_MINUTE_M",
-            "PARKING_MAX_ACCOUNT",
+            "parkingBasicAccount",
+            "parkingBasicM",
+            "parkingFreeM",
+            "parkingMinuteAccount",
+            "parkingMinuteM",
+            "parkingMaxAccount",
         )
         _append_fee_rule(
             rules,
@@ -477,12 +519,12 @@ def parse_kac_fee(xml_text: str, airport_code: str) -> list[ParsedFeeRule]:
             airport_code,
             "small",
             "holiday",
-            "PARKING_HOLI_BASIC_ACCOUNT",
-            "PARKING_HOLI_BASIC_M",
-            "PARKING_HOLI_FREE_M",
-            "PARKING_HOLI_MINUTE_ACCOUNT",
-            "PARKING_HOLI_MINUTE_M",
-            "PARKING_HOLI_MAX_ACCOUNT",
+            "parkingHoliBasicAccount",
+            "parkingHoliBasicM",
+            "parkingHoliFreeM",
+            "parkingHoliMinuteAccount",
+            "parkingHoliMinuteM",
+            "parkingHoliMaxAccount",
         )
         _append_fee_rule(
             rules,
@@ -490,12 +532,12 @@ def parse_kac_fee(xml_text: str, airport_code: str) -> list[ParsedFeeRule]:
             airport_code,
             "large",
             "weekday",
-            "PARKING_BASIC_ACCOUNTD",
-            "PARKING_BASIC_MD",
-            "PARKING_FREE_MD",
-            "PARKING_MINUTE_ACCOUNTD",
-            "PARKING_MINUTE_MD",
-            "PARKING_MAX_ACCOUNTD",
+            "parkingBasicAccountd",
+            "parkingBasicMd",
+            "parkingFreeMd",
+            "parkingMinuteAccountd",
+            "parkingMinuteMd",
+            "parkingMaxAccountd",
         )
         _append_fee_rule(
             rules,
@@ -503,11 +545,11 @@ def parse_kac_fee(xml_text: str, airport_code: str) -> list[ParsedFeeRule]:
             airport_code,
             "large",
             "holiday",
-            "PARKING_HOLI_BASIC_ACCOUNTD",
-            "PARKING_HOLI_BASIC_MD",
-            "PARKING_HOLI_FREE_MD",
-            "PARKING_HOLI_MINUTE_ACCOUNTD",
-            "PARKING_HOLI_MINUTE_MD",
-            "PARKING_HOLI_MAX_ACCOUNTD",
+            "parkingHoliBasicAccountd",
+            "parkingHoliBasicMd",
+            "parkingHoliFreeMd",
+            "parkingHoliMinuteAccountd",
+            "parkingHoliMinuteMd",
+            "parkingHoliMaxAccountd",
         )
     return rules

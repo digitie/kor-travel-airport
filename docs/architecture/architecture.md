@@ -91,6 +91,11 @@
   - FastAPI 앱과 라우트
 - `backend/app/services/collection.py`
   - 수집 실행과 저장
+  - KAC/IIAC 주차 현황·주차요금 fetch는 `KrairportPublicDataClient`가 형제 라이브러리
+    `python-krairport-api`(`krairport`)의 `kac_raw_items`/`iiac_raw_items`를 통해 수행한다
+    ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>), `T-030`).
+    파싱은 여전히 `parsers.py`가 담당한다 — krairport는 HTTP 호출과 XML/JSON item 추출만
+    대체했다.
 - `backend/app/services/parsers.py`
   - 원본 응답 파싱
   - 인천 주차 응답의 층 포함 주차장명과 `datetm` 관측 시각 정규화

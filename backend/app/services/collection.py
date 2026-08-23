@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from xml.etree import ElementTree
 
-import httpx
+from krairport import AsyncKrairportClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,42 +47,20 @@ SAMPLE_KAC_PARKING_ITEMS = [
     {"aprEng": "JEJU INTERNATIONAL AIRPORT", "aprKor": "제주국제공항", "parkingAirportCodeName": "화물주차장", "parkingFullSpace": "732", "parkingGetdate": "2026-04-25", "parkingGettime": "09:20:03", "parkingIincnt": "98", "parkingIoutcnt": "92", "parkingIstay": "418"},
 ]
 
-SAMPLE_INCHEON_JSON = json.dumps(
-    {
-        "response": {
-            "header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE"},
-            "body": {
-                "items": {
-                    "item": [
-                        {"floor": "T1 단기주차장", "parking": "575", "parkingarea": "640", "datetm": "2026-04-25 09:20"},
-                        {"floor": "T2 장기주차장", "parking": "832", "parkingarea": "910", "datetm": "2026-04-25 09:20"},
-                    ]
-                }
-            },
-        }
-    },
-    ensure_ascii=False,
-)
+SAMPLE_INCHEON_ITEMS = [
+    {"floor": "T1 단기주차장", "parking": "575", "parkingarea": "640", "datetm": "2026-04-25 09:20"},
+    {"floor": "T2 장기주차장", "parking": "832", "parkingarea": "910", "datetm": "2026-04-25 09:20"},
+]
 
-SAMPLE_INCHEON_FEE_JSON = json.dumps(
-    {
-        "response": {
-            "header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."},
-            "body": {
-                "items": [
-                    {"charid": "FB00000001", "chardesc": "최초 00:30 에 한해 1200원 적용", "datetime": "202605080630"},
-                    {"charid": "FB00000001", "chardesc": "00:15 초과 시 600원 부과", "datetime": "202605080630"},
-                    {"charid": "FB00000002", "chardesc": "01:00 초과 시 1000원 부과", "datetime": "202605080630"},
-                    {"charid": "FB00000003", "chardesc": "00:30 초과 시 1200원 부과", "datetime": "202605080630"},
-                    {"charid": "NF00000001", "chardesc": "일일 최대 24000원 적용", "datetime": "202605080630"},
-                    {"charid": "NF00000002", "chardesc": "일일 최대 9000원 적용", "datetime": "202605080630"},
-                    {"charid": "NF00000003", "chardesc": "일일 최대 12000원 적용", "datetime": "202605080630"},
-                ]
-            },
-        }
-    },
-    ensure_ascii=False,
-)
+SAMPLE_INCHEON_FEE_ITEMS = [
+    {"charid": "FB00000001", "chardesc": "최초 00:30 에 한해 1200원 적용", "datetime": "202605080630"},
+    {"charid": "FB00000001", "chardesc": "00:15 초과 시 600원 부과", "datetime": "202605080630"},
+    {"charid": "FB00000002", "chardesc": "01:00 초과 시 1000원 부과", "datetime": "202605080630"},
+    {"charid": "FB00000003", "chardesc": "00:30 초과 시 1200원 부과", "datetime": "202605080630"},
+    {"charid": "NF00000001", "chardesc": "일일 최대 24000원 적용", "datetime": "202605080630"},
+    {"charid": "NF00000002", "chardesc": "일일 최대 9000원 적용", "datetime": "202605080630"},
+    {"charid": "NF00000003", "chardesc": "일일 최대 12000원 적용", "datetime": "202605080630"},
+]
 
 SAMPLE_KAC_FEE_LOT_NAMES = {
     "GMP": ("김포국제공항", ["국내선 제1주차장", "국내선 제2주차장", "국제선 지하주차장", "국제선 주차빌딩"]),
@@ -91,69 +69,44 @@ SAMPLE_KAC_FEE_LOT_NAMES = {
 }
 
 
-def _build_kac_parking_xml() -> str:
-    item_xml = []
-    for item in SAMPLE_KAC_PARKING_ITEMS:
-        item_xml.append(
-            "<item>"
-            + "".join(f"<{key}>{value}</{key}>" for key, value in item.items())
-            + "</item>"
-        )
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<response>
-  <body>
-    <items>
-      {"".join(item_xml)}
-    </items>
-  </body>
-</response>
-"""
+def _kac_fee_sample_items(airport_code: str) -> list[dict[str, str]]:
+    """Sample KAC fee items using the live endpoint's real (camelCase) field
+    names -- confirmed against `AirportParkingFee/parkingfee` directly (see
+    ADR-004 / T-030). Do not revert to `PARKING_BASIC_ACCOUNT`-style names;
+    that was never the real API shape."""
 
-
-def _build_kac_fee_xml(airport_code: str) -> str:
     airport_name, lot_names = SAMPLE_KAC_FEE_LOT_NAMES.get(airport_code, SAMPLE_KAC_FEE_LOT_NAMES["GMP"])
-    item_xml = []
-    for lot_name in lot_names:
-        item_xml.append(
-            f"""<item>
-        <SITE_NAME>{airport_name}</SITE_NAME>
-        <PARKING_PARKING_NAME>{lot_name}</PARKING_PARKING_NAME>
-        <PARKING_BASIC_ACCOUNT>1000</PARKING_BASIC_ACCOUNT>
-        <PARKING_BASIC_M>30</PARKING_BASIC_M>
-        <PARKING_FREE_M>30</PARKING_FREE_M>
-        <PARKING_MINUTE_ACCOUNT>500</PARKING_MINUTE_ACCOUNT>
-        <PARKING_MINUTE_M>15</PARKING_MINUTE_M>
-        <PARKING_MAX_ACCOUNT>20000</PARKING_MAX_ACCOUNT>
-        <PARKING_HOLI_BASIC_ACCOUNT>1500</PARKING_HOLI_BASIC_ACCOUNT>
-        <PARKING_HOLI_BASIC_M>30</PARKING_HOLI_BASIC_M>
-        <PARKING_HOLI_FREE_M>30</PARKING_HOLI_FREE_M>
-        <PARKING_HOLI_MINUTE_ACCOUNT>700</PARKING_HOLI_MINUTE_ACCOUNT>
-        <PARKING_HOLI_MINUTE_M>15</PARKING_HOLI_MINUTE_M>
-        <PARKING_HOLI_MAX_ACCOUNT>25000</PARKING_HOLI_MAX_ACCOUNT>
-        <PARKING_BASIC_ACCOUNTD>1200</PARKING_BASIC_ACCOUNTD>
-        <PARKING_BASIC_MD>30</PARKING_BASIC_MD>
-        <PARKING_FREE_MD>30</PARKING_FREE_MD>
-        <PARKING_MINUTE_ACCOUNTD>600</PARKING_MINUTE_ACCOUNTD>
-        <PARKING_MINUTE_MD>15</PARKING_MINUTE_MD>
-        <PARKING_MAX_ACCOUNTD>25000</PARKING_MAX_ACCOUNTD>
-        <PARKING_HOLI_BASIC_ACCOUNTD>1800</PARKING_HOLI_BASIC_ACCOUNTD>
-        <PARKING_HOLI_BASIC_MD>30</PARKING_HOLI_BASIC_MD>
-        <PARKING_HOLI_FREE_MD>30</PARKING_HOLI_FREE_MD>
-        <PARKING_HOLI_MINUTE_ACCOUNTD>800</PARKING_HOLI_MINUTE_ACCOUNTD>
-        <PARKING_HOLI_MINUTE_MD>15</PARKING_HOLI_MINUTE_MD>
-        <PARKING_HOLI_MAX_ACCOUNTD>30000</PARKING_HOLI_MAX_ACCOUNTD>
-      </item>"""
-        )
-
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<response>
-  <body>
-    <items>
-      {"".join(item_xml)}
-    </items>
-  </body>
-</response>
-"""
+    return [
+        {
+            "siteName": airport_name,
+            "parkingParkingName": lot_name,
+            "parkingBasicAccount": "1000",
+            "parkingBasicM": "30",
+            "parkingFreeM": "30",
+            "parkingMinuteAccount": "500",
+            "parkingMinuteM": "15",
+            "parkingMaxAccount": "20000",
+            "parkingHoliBasicAccount": "1500",
+            "parkingHoliBasicM": "30",
+            "parkingHoliFreeM": "30",
+            "parkingHoliMinuteAccount": "700",
+            "parkingHoliMinuteM": "15",
+            "parkingHoliMaxAccount": "25000",
+            "parkingBasicAccountd": "1200",
+            "parkingBasicMd": "30",
+            "parkingFreeMd": "30",
+            "parkingMinuteAccountd": "600",
+            "parkingMinuteMd": "15",
+            "parkingMaxAccountd": "25000",
+            "parkingHoliBasicAccountd": "1800",
+            "parkingHoliBasicMd": "30",
+            "parkingHoliFreeMd": "30",
+            "parkingHoliMinuteAccountd": "800",
+            "parkingHoliMinuteMd": "15",
+            "parkingHoliMaxAccountd": "30000",
+        }
+        for lot_name in lot_names
+    ]
 
 
 @dataclass(slots=True)
@@ -194,7 +147,7 @@ class FixturePublicDataClient(PublicDataClient):
             endpoint=KAC_PARKING_ENDPOINT,
             request_params={"scope": "all"},
             status_code=200,
-            body_text=_build_kac_parking_xml(),
+            body_text=json.dumps(SAMPLE_KAC_PARKING_ITEMS, ensure_ascii=False),
         )
 
     async def fetch_incheon_parking(self) -> SourceResponse:
@@ -203,7 +156,7 @@ class FixturePublicDataClient(PublicDataClient):
             endpoint=INCHEON_PARKING_ENDPOINT,
             request_params={"type": "json"},
             status_code=200,
-            body_text=SAMPLE_INCHEON_JSON,
+            body_text=json.dumps(SAMPLE_INCHEON_ITEMS, ensure_ascii=False),
         )
 
     async def fetch_incheon_fee(self) -> SourceResponse:
@@ -212,7 +165,7 @@ class FixturePublicDataClient(PublicDataClient):
             endpoint=INCHEON_FEE_ENDPOINT,
             request_params={"type": "json"},
             status_code=200,
-            body_text=SAMPLE_INCHEON_FEE_JSON,
+            body_text=json.dumps(SAMPLE_INCHEON_FEE_ITEMS, ensure_ascii=False),
         )
 
     async def fetch_kac_fee(self, airport_code: str) -> SourceResponse:
@@ -221,75 +174,110 @@ class FixturePublicDataClient(PublicDataClient):
             endpoint=KAC_FEE_ENDPOINT,
             request_params={"schAirportCode": airport_code},
             status_code=200,
-            body_text=_build_kac_fee_xml(airport_code),
+            body_text=json.dumps(_kac_fee_sample_items(airport_code), ensure_ascii=False),
         )
 
 
-class LivePublicDataClient(PublicDataClient):
+class KrairportPublicDataClient(PublicDataClient):
+    """Live client backed by `python-krairport-api` (ADR-004, T-029).
+
+    Uses krairport's generic raw-item escape hatch (`kac_raw_items` /
+    `iiac_raw_items`) rather than its typed `parking_status()`/
+    `parking_fees()` models: krairport's `ParkingFee` model is missing
+    holiday rates and the progressive per-unit fee fields parking-radar's
+    fee calculator needs, and its field-name assumptions for KAC fees
+    don't match the field names parking-radar has verified against the
+    live API. The raw-item path returns the same flat `{tag: text}` /
+    `{key: value}` shape our own `parsers.py` already expects, so the
+    parsing/business logic stays untouched -- only the HTTP fetch layer
+    changes.
+
+    krairport validates the upstream `resultCode` internally and raises
+    before returning on any non-success response, so `SourceResponse`
+    only ever carries already-validated items here.
+    """
+
     def __init__(self, settings: Settings) -> None:
         if not settings.data_go_kr_service_key:
             raise ValueError("공공데이터 서비스 키가 필요합니다.")
         self.settings = settings
 
-    async def _request(self, endpoint: str, params: dict[str, Any], source: str) -> SourceResponse:
-        async with httpx.AsyncClient(timeout=self.settings.api_timeout_seconds) as client:
-            response = await client.get(endpoint, params=params)
-            response.raise_for_status()
-            return SourceResponse(
-                source=source,
-                endpoint=endpoint,
-                request_params=params,
-                status_code=response.status_code,
-                body_text=response.text,
-            )
+    async def _raw_items(
+        self,
+        *,
+        provider: str,
+        service: str,
+        operation: str,
+        params: dict[str, Any],
+        source: str,
+        endpoint: str,
+    ) -> SourceResponse:
+        async with AsyncKrairportClient(
+            kac_service_key=self.settings.data_go_kr_service_key,
+            iiac_service_key=self.settings.data_go_kr_service_key,
+            timeout=self.settings.api_timeout_seconds,
+        ) as client:
+            if provider == "kac":
+                items = await client.kac_raw_items(service, operation, params)
+            else:
+                items = await client.iiac_raw_items(service, operation, params)
+        return SourceResponse(
+            source=source,
+            endpoint=endpoint,
+            request_params=params,
+            status_code=200,
+            body_text=json.dumps(items, ensure_ascii=False),
+        )
 
     async def fetch_kac_parking(self) -> SourceResponse:
-        return await self._request(
-            KAC_PARKING_ENDPOINT,
-            {
-                "serviceKey": self.settings.data_go_kr_service_key,
-            },
-            "kac_parking",
+        return await self._raw_items(
+            provider="kac",
+            service="AirportParking",
+            operation="airportparkingRT",
+            params={},
+            source="kac_parking",
+            endpoint=KAC_PARKING_ENDPOINT,
         )
 
     async def fetch_incheon_parking(self) -> SourceResponse:
-        return await self._request(
-            INCHEON_PARKING_ENDPOINT,
-            {
-                "serviceKey": self.settings.data_go_kr_service_key,
-                "pageNo": 1,
-                "numOfRows": 50,
-                "type": "json",
-            },
-            "incheon_parking",
+        return await self._raw_items(
+            provider="iiac",
+            service="StatusOfParking",
+            operation="getTrackingParking",
+            params={"pageNo": 1, "numOfRows": 50},
+            source="incheon_parking",
+            endpoint=INCHEON_PARKING_ENDPOINT,
         )
 
     async def fetch_incheon_fee(self) -> SourceResponse:
-        return await self._request(
-            INCHEON_FEE_ENDPOINT,
-            {
-                "serviceKey": self.settings.data_go_kr_service_key,
-                "pageNo": 1,
-                "numOfRows": 100,
-                "type": "json",
-            },
-            "incheon_fee",
+        return await self._raw_items(
+            provider="iiac",
+            service="ParkingChargeInfo",
+            operation="getParkingChargeInformation",
+            params={"pageNo": 1, "numOfRows": 100},
+            source="incheon_fee",
+            endpoint=INCHEON_FEE_ENDPOINT,
         )
 
     async def fetch_kac_fee(self, airport_code: str) -> SourceResponse:
-        return await self._request(
-            KAC_FEE_ENDPOINT,
-            {
-                "serviceKey": self.settings.data_go_kr_service_key,
-                "pageNo": 1,
-                "numOfRows": 50,
-                "schAirportCode": airport_code,
-            },
-            "kac_fee",
+        return await self._raw_items(
+            provider="kac",
+            service="AirportParkingFee",
+            operation="parkingfee",
+            params={"pageNo": 1, "numOfRows": 50, "schAirportCode": airport_code},
+            source="kac_fee",
+            endpoint=KAC_FEE_ENDPOINT,
         )
 
 
 def validate_source_response_body(source: str, body_text: str) -> None:
+    if body_text.strip().startswith("["):
+        # KrairportPublicDataClient / FixturePublicDataClient already hand us
+        # a pre-extracted item list -- krairport validates resultCode itself
+        # (raising before returning) for the live path, and the fixture path
+        # has nothing to validate.
+        return
+
     if source in {"kac_parking", "kac_congestion", "kac_fee"}:
         root = ElementTree.fromstring(body_text)
         result_code = (root.findtext(".//resultCode") or "").strip()
@@ -318,7 +306,7 @@ def redact_request_params(params: dict[str, Any]) -> dict[str, Any]:
 
 def build_public_data_client(settings: Settings) -> PublicDataClient:
     if settings.data_go_kr_service_key:
-        return LivePublicDataClient(settings)
+        return KrairportPublicDataClient(settings)
     if settings.use_sample_client_when_no_key:
         return FixturePublicDataClient()
     raise ValueError("DATA_GO_KR_SERVICE_KEY가 없으면 실데이터 수집을 시작할 수 없습니다.")
@@ -352,7 +340,7 @@ class CollectionService:
 
     @property
     def client_mode(self) -> str:
-        return "live" if isinstance(self.client, LivePublicDataClient) else "sample"
+        return "live" if isinstance(self.client, KrairportPublicDataClient) else "sample"
 
     @property
     def enabled_sources(self) -> list[str]:
