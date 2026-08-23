@@ -33,19 +33,18 @@
   내려오는 것도 실제로 확인했다(hostile review에서 Popper가 지적한 지점). 외부 도메인
   `pr-api.digitie.mywire.org`/`pr.digitie.mywire.org`도 같은 `release_sha`로 응답해
   reverse proxy 추가 변경은 필요 없었다.
-- `codex/kasi-holiday-migration`(PR [#7](https://github.com/digitie/parking-radar/pull/7))에서
-  공휴일 수집을 `python-kasi-api`(`kasi`)로 옮기는 작업을 구현 완료했다
-  ([ADR-006](</F:/dev/parking-radar/docs/adr/006-kasi-provider-library.md>)). WSL 1차
-  `82 passed`, Docker 2차 `79 passed`(`test_cutover_guards.py` 3개 제외, `T-031` 무관
-  사전 버그). hostile review와 머지가 아직 남아 있다.
+- 공휴일 수집을 `python-kasi-api`(`kasi`)로 옮기는 작업(ADR-006)을 PR
+  [#7](https://github.com/digitie/parking-radar/pull/7)로 머지했다(`origin/main` =
+  `986d64e`). hostile review(James/Popper) 모두 P0/P1 없음, P2(rate-limit backoff 비대칭)만
+  ADR에 기록. 14번에 배포해 live 검증 완료: `release_sha=986d64e`,
+  `GET /v1/holidays/summary`가 실제 KASI 데이터(`source=kasi_holiday_info`, 광복절/대체공휴일)를
+  정상 반환했다.
 
 ## 다음 한 작업
 
-PR #7(공휴일 → `python-kasi-api`)의 hostile review(James/Popper)를 진행하고 지적사항을
-반영한 뒤 머지한다. 머지 후 14번 live 검증(실 서비스 키로 공휴일 조회, sample 대비 실제
-데이터 확인)을 진행할지 결정한다. 이후 작업은 `T-029`(KAC ODCloud 비행편 지원을
-`python-krairport-api`에 먼저 추가한 뒤 `flight_status.py` 전환)와 `T-031`
-(`test_cutover_guards.py` Docker 경로 버그) 중 하나를 고른다.
+`T-029`(KAC ODCloud 비행편 지원을 `python-krairport-api`에 먼저 추가한 뒤
+`flight_status.py` 전환)와 `T-031`(`test_cutover_guards.py` Docker 경로 버그) 중 하나를
+고른다.
 
 ## 확인된 사실
 

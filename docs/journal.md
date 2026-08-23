@@ -131,3 +131,8 @@
   원칙). ADR-006 신규 작성, `codex/kasi-holiday-migration` 브랜치 PR
   [#7](https://github.com/digitie/parking-radar/pull/7)로 구현 완료. krairport 때와 달리
   이번에는 필드명/endpoint 불일치 같은 새 버그를 발견하지 못했다 — 순수 provider 교체였다.
+- hostile review(James/Popper) 모두 P0/P1 없음을 확인했다. Popper가 지적한 P2(공휴일은
+  `CollectionService`처럼 별도 rate-limit backoff 스케줄링이 없다는 점)는 의도적 범위
+  선택으로 판단해 ADR-006에 근거를 남겼다. PR #7을 머지(`986d64e`)하고 14번에 배포해
+  live 검증까지 완료했다: `release_sha=986d64e`, `GET /v1/holidays/summary`가 실제
+  서비스 키로 `source=kasi_holiday_info`, 광복절/대체공휴일 데이터를 정상 반환했다.
