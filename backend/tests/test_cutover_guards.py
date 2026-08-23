@@ -6,7 +6,26 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parents[2] / "scripts"))
+def _scripts_dir() -> Path:
+    # Locally, backend/tests/ sits two levels below the repo root
+    # (parents[2]/scripts). In the Docker image, backend/ is flattened to
+    # /app (Dockerfile: `COPY backend /app`, `COPY scripts /app/scripts`),
+    # so tests/ sits only one level below /app (parents[1]/scripts). Try
+    # both instead of hardcoding the depth.
+    here = Path(__file__).resolve()
+    tried: list[Path] = []
+    for depth in (1, 2):
+        candidate = here.parents[depth] / "scripts"
+        tried.append(candidate)
+        # Check for a known file, not just directory existence -- a stray
+        # `scripts/` dir at the wrong depth (e.g. backend/scripts/) would
+        # otherwise be silently preferred over the real one.
+        if (candidate / "observe_cutover.py").is_file():
+            return candidate
+    raise RuntimeError(f"scripts directory not found relative to {here} (tried: {tried})")
+
+
+sys.path.insert(0, str(_scripts_dir()))
 
 from observe_cutover import validate_observation_gate_args  # noqa: E402
 from verify_cutover import latest_lot_history, validate_release_gate_args  # noqa: E402

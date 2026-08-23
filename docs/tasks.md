@@ -9,8 +9,6 @@
 ## 진행 중인 작업 인덱스
 
 - [ ] `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
-- [ ] `T-031` — Docker 컨테이너에서 `test_cutover_guards.py` import 경로가 깨지는 사전
-  존재 버그 수정
 
 ## `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
 
@@ -43,29 +41,6 @@
 - [ ] `docs/architecture/data-sources.md` §6/§7, `docs/architecture/architecture.md`의
   "전환 전" 문구를 제거하고 실제 전환 완료를 반영한다.
 - [ ] `docs/adr/004-krairport-provider-library.md`의 "후속"을 갱신한다.
-
-## `T-031` — Docker 컨테이너에서 `test_cutover_guards.py` import 경로가 깨지는 사전 존재 버그 수정
-
-`T-030`(krairport 주차 마이그레이션) 검증 중 `docker compose run --rm --no-deps backend
-pytest -q`에서 발견했다. krairport 마이그레이션과는 무관하며, 이번 PR에서는 이 파일만
-`--ignore`로 제외하고 넘어갔다.
-
-- 증상: `ModuleNotFoundError: No module named 'observe_cutover'`
-  (`backend/tests/test_cutover_guards.py:11`).
-- 원인: `sys.path.insert(0, str(Path(__file__).parents[2] / "scripts"))`가
-  로컬 디렉터리 깊이(`parking-radar/backend/tests/...` → `parents[2]` = 레포 루트)를
-  기준으로 계산되어 있다. Docker 이미지 안에서는 `COPY backend /app`이라 파일 경로가
-  `/app/tests/test_cutover_guards.py`가 되고, 여기서 `parents[2]`는 `/`가 되어
-  `/scripts`(존재하지 않음)를 가리킨다 — 의도한 `/app/scripts`가 아니다.
-- WSL 로컬 실행(레포 루트에서 `uv run pytest`)에서는 경로 깊이가 우연히 맞아떨어져 통과하고,
-  Docker 컨테이너 안에서만 깨진다.
-- 완료 조건:
-  - [ ] `Path(__file__).parents[N]` 계산을 로컬/Docker 양쪽에서 동일하게 `scripts/` 디렉터리를
-    가리키도록 고친다(예: 환경변수나 `importlib`로 `app` 패키지 루트 기준 상대 경로를 쓰거나,
-    Docker에서도 레포 루트 구조를 유지하도록 `COPY` 경로를 맞춘다).
-  - [ ] WSL 1차와 Docker 2차 양쪽에서 `test_cutover_guards.py`가 통과하는지 확인한다.
-  - [ ] CI의 `backend` job이 `docker compose run`이 아니라 `uv run pytest`만 쓰는지, 이
-    버그가 CI에서는 안 드러났던 이유도 확인해 문서에 남긴다.
 
 ## 완료 조건
 
