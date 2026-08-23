@@ -2,7 +2,28 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
-## 2026-08-23
+## 2026-08-23 (T-032)
+
+### `T-032` — PostgreSQL을 별도 compose 스택으로 분리 + 포트 재구성
+
+- `kor-travel-docker-manager`의 "DB는 앱과 분리된 컨테이너/lifecycle로 운영한다" 패턴을
+  단일 프로젝트 규모로 축소 적용했다. 여러 프로젝트를 한 곳에서 관리하는 중앙
+  오케스트레이터 구조(network_mode: host, 프로젝트별 secret file 등)는 가져오지 않고,
+  "DB는 앱 재배포와 무관한 별도 compose 파일"이라는 핵심만 가져왔다.
+- `docker-compose.db.yml`(신규) — postgres 전용, 기존 named volume
+  `parking-radar_parking_radar_postgres_data`를 그대로 재사용(볼륨명 고정, 새로 만들지
+  않음). `docker-compose.yml`에서는 postgres 서비스를 제거하고 외부 네트워크
+  `parking-radar-net`으로 통신하도록 바꿨다.
+- 포트 재배치: DB `14000`(loopback 전용, 기존 `5432`에서 이동), API `14001`(기존
+  `14000`), web `14002`(기존 `14001`). `scripts/deploy-server14.sh`의 `require_exact`
+  값과 DB 스택 조건부 기동 로직(이미 떠 있으면 재생성하지 않음)을 갱신했다.
+- 로컬에서 분리된 두 스택을 실제로 올려 backend↔postgres 통신, API(`14001`)/web(`14002`)
+  응답을 확인했다.
+- 운영 전환(server14): (1) `pg_dump`로 사전 백업(`/tmp/parking-radar-backup/pre-t032-migration.dump`,
+  로컬 보관), (2) 기존 `docker compose stop postgres`(볼륨 유지, 컨테이너만 중지),
+  (3) `.env.server14`의 포트 값 갱신, (4) 신/구 컨테이너 상태를 재확인하며 진행.
+- 외부 reverse proxy(`pr.digitie.mywire.org`→web, `pr-api.digitie.mywire.org`→API)는
+  사용자가 직접 갱신하기로 했다 — 새 포트(API `14001`, web `14002`)를 안내해야 한다.
 
 ### `T-030` — 주차 현황·주차요금 수집을 `python-krairport-api`로 전환
 

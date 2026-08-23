@@ -1,0 +1,36 @@
+name: parking-radar-db
+
+# PostgreSQL을 앱(backend/frontend) compose 스택과 분리된 독립 lifecycle로 운영한다
+# (kor-travel-docker-manager 패턴 참고 — DB는 앱 재배포/재빌드와 무관하게 유지되어야 한다).
+# 기존 볼륨 `parking-radar_parking_radar_postgres_data`를 그대로 재사용하므로 아래
+# `volumes.parking_radar_postgres_data.name`을 바꾸지 않는다 — 바꾸면 빈 새 볼륨이
+# 생성되어 기존 주차 스냅샷/요금 데이터에 연결되지 않는다.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-parking_radar}"
+      POSTGRES_USER: "${POSTGRES_USER:-parking_radar}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-parking_radar}"
+    ports:
+      - "${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_HOST_PORT:-14000}:5432"
+    volumes:
+      - parking_radar_postgres_data:/var/lib/postgresql/data
+    networks:
+      - parking-radar-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+networks:
+  parking-radar-net:
+    name: parking-radar-net
+
+volumes:
+  parking_radar_postgres_data:
+    name: parking-radar_parking_radar_postgres_data

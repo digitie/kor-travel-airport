@@ -37,18 +37,49 @@ REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
 destructive 운영 API이므로, 외부 gateway가 private ACL/mTLS 등으로 차단되었음을 확인하기
 전에는 릴리스 승인 대상이 아니다. UI의 경고 문구는 보안 경계가 아니다.
 
-운영 포트 계약:
+운영 포트 계약 (T-032, 2026-08-23 개편 — PostgreSQL을 별도 compose 스택으로 분리하며 포트를
+한 자리씩 밀었다):
 
-- web: `14001` (`http://192.168.1.14:14001`)
-- API: `14000` (`http://192.168.1.14:14000`)
+- DB: `14000` (loopback 전용, `127.0.0.1:14000` — 외부 노출 없음, `docker-compose.db.yml`)
+- API: `14001` (`http://192.168.1.14:14001`)
+- web: `14002` (`http://192.168.1.14:14002`)
 - Docker 내부 backend: `http://backend:8000`
 - 외부 API: `https://pr-api.digitie.mywire.org`
 - 외부 live E2E: `https://pr.digitie.mywire.org`
 - 배포 candidate: `GET /health`의 `release_sha`가 배포한 Git full SHA와 일치해야 한다.
 
-외부 reverse proxy가 두 host를 각각 14번의 `14000`/`14001`로 전달해야 한다. 14번 host에는
-443 listener가 없을 수 있으므로 Compose 배포만으로 기존 `pr.digitie.mywire.org`의 외부
-라우팅이 바뀐다고 가정하지 않는다.
+외부 reverse proxy가 두 host를 각각 14번의 `14001`(API)/`14002`(web)로 전달해야 한다 —
+이전 `14000`/`14001` 매핑에서 바뀌었으므로 reverse proxy 설정도 함께 갱신해야 한다. 14번
+host에는 443 listener가 없을 수 있으므로 Compose 배포만으로 기존
+`pr.digitie.mywire.org`의 외부 라우팅이 바뀐다고 가정하지 않는다.
+
+## PostgreSQL 별도 컨테이너 (T-032)
+
+PostgreSQL은 `docker-compose.yml`(backend/frontend)이 아니라 `docker-compose.db.yml`에서
+독립 lifecycle로 관리한다(`kor-travel-docker-manager`의 "DB는 앱과 분리된 컨테이너로
+운영한다" 패턴을 단일 프로젝트 규모로 축소 적용). 두 스택은 외부 네트워크
+`parking-radar-net`으로 통신한다.
+
+```bash
+# DB 스택 (거의 재기동하지 않음 — 앱 배포와 무관한 lifecycle)
+docker compose --project-name parking-radar-db -f docker-compose.db.yml up -d
+
+# 앱 스택 (배포마다 재빌드) — DB 스택이 먼저 떠 있어야 한다
+docker compose --project-name parking-radar -f docker-compose.yml up -d --build
+```
+
+`scripts/deploy-server14.sh`는 DB 스택이 이미 떠 있으면 건드리지 않고, 없을 때만 올린다 —
+매 배포마다 postgres 컨테이너를 재생성하지 않는다.
+
+기존 볼륨 `parking-radar_parking_radar_postgres_data`를 그대로 재사용하도록
+`docker-compose.db.yml`의 volume `name`을 고정해뒀다. 이 값을 바꾸면 빈 새 볼륨이 생겨
+기존 주차 스냅샷/요금 데이터와 연결이 끊긴다 — 절대 바꾸지 않는다.
+
+**전환 절차(운영 서버, 최초 1회)**: (1) `pg_dump`로 백업 생성, (2) 기존 `docker-compose.yml`
+(postgres 포함 구버전)로 `docker compose stop postgres`(볼륨은 유지, 컨테이너만 중지),
+(3) `docker-compose.db.yml`로 새 DB 스택을 올려 같은 볼륨에 연결, (4) 행 수·최신 관측
+시각이 전환 전과 같은지 확인, (5) `.env.server14`의 포트 값을 갱신하고 앱 스택을 새 포트로
+배포, (6) reverse proxy를 새 API(`14001`)/web(`14002`) 포트로 갱신.
 
 ## 로컬 개발 실행
 
