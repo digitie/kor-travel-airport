@@ -75,6 +75,14 @@
     파싱하므로 변경이 필요 없었다. 죽은 코드였던 `_fetch_legacy_kac_status`(한 번도
     호출되지 않던 구 XML endpoint)와 `_raise_for_upstream_status`/
     `MAX_UPSTREAM_ERROR_BODY_LENGTH`(httpx 직접 호출 전용)도 함께 제거했다.
+    hostile review(Popper)가 지적한 rate-limit backoff 비대칭(`CollectionService`는
+    DB 기반 backoff 상태를 갖지만 `FlightStatusService`는 없었다 — 비행편은 페이지
+    조회 시마다 즉시 호출되므로 5분 주기 수집보다 이 공백이 더 위험하다는 지적)을
+    반영해, `krairport.exceptions.KrairportRateLimitError`를 별도 `status:
+    "rate_limited"`로 구분하고 `Settings.upstream_rate_limit_backoff_seconds`
+    동안 `FlightStatusService._cache`에 캐시하도록 고쳤다 — `CollectionService`처럼
+    DB에 상태를 영속화하지는 않지만(프로세스 재시작 시 초기화), 같은 프로세스
+    안에서는 반복 페이지 조회가 rate limit 창을 계속 갱신하는 것을 막는다.
   - **관련 없는 발견**: 이번 검증 중 `backend/tests/test_cutover_guards.py`가 Docker
     컨테이너 안에서 `ModuleNotFoundError: No module named 'observe_cutover'`로 깨지는
     것을 발견했다 — `Path(__file__).parents[2]`가 로컬 디렉터리 깊이(`.../parking-radar/backend/tests/`)

@@ -112,6 +112,41 @@ def test_flight_status_does_not_cache_or_leak_upstream_http_errors() -> None:
     assert flaky_client.calls == 2
 
 
+class _RateLimitedFlightStatusClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def fetch_status(self, airport_code: str, local_date: date) -> FlightSourceResponse:
+        self.calls += 1
+        raise KrairportRateLimitError("LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR.")
+
+
+def test_flight_status_caches_rate_limited_response_for_the_backoff_window() -> None:
+    service = FlightStatusService(
+        Settings(
+            data_go_kr_service_key=None,
+            use_sample_client_when_no_key=False,
+            flight_status_cache_seconds=300,
+            upstream_rate_limit_backoff_seconds=3600,
+        )
+    )
+    rate_limited_client = _RateLimitedFlightStatusClient()
+    service.client = rate_limited_client
+
+    async def fetch_twice() -> tuple[dict, dict]:
+        first = await service.get_status("PUS", date(2026, 5, 17))
+        second = await service.get_status("PUS", date(2026, 5, 17))
+        return first, second
+
+    first_payload, second_payload = asyncio.run(fetch_twice())
+
+    assert first_payload["status"] == "rate_limited"
+    assert second_payload == first_payload
+    # Cached under the longer backoff window -- the second call must not
+    # re-trigger another upstream request.
+    assert rate_limited_client.calls == 1
+
+
 def test_parse_flight_status_xml_reports_upstream_error() -> None:
     body = """<?xml version="1.0" encoding="UTF-8"?>
 <response>
@@ -327,18 +362,27 @@ def test_krairport_flight_status_client_fetch_kac_status_builds_json_source_resp
 
 def test_krairport_flight_status_client_fetch_incheon_status_calls_both_directions() -> None:
     settings = Settings(data_go_kr_service_key="test-key")
-    mock_client = _mock_krairport_client(
-        iiac_raw_items=[
-            {
-                "airline": "대한항공",
-                "flightId": "KE901",
-                "scheduleDateTime": "202605090930",
-                "airport": "파리",
-                "remark": "출발",
-                "typeOfFlight": "I",
-            }
-        ]
-    )
+    departure_item = {
+        "airline": "대한항공",
+        "flightId": "KE901",
+        "scheduleDateTime": "202605090930",
+        "airport": "파리",
+        "remark": "출발",
+        "typeOfFlight": "I",
+    }
+    arrival_item = {
+        "airline": "아시아나항공",
+        "flightId": "OZ202",
+        "scheduleDateTime": "202605091120",
+        "airport": "로스앤젤레스",
+        "remark": "도착",
+        "typeOfFlight": "I",
+    }
+    mock_client = _mock_krairport_client()
+    # side_effect (not a shared return_value) so departures/arrivals can't
+    # silently return the same items if the two calls' operation names or
+    # order get swapped.
+    mock_client.__aenter__.return_value.iiac_raw_items.side_effect = [[departure_item], [arrival_item]]
 
     with patch("app.services.flight_status.AsyncKrairportClient", return_value=mock_client):
         client = KrairportFlightStatusClient(settings)
@@ -346,7 +390,12 @@ def test_krairport_flight_status_client_fetch_incheon_status_calls_both_directio
 
     assert response.source == "incheon_flight_status"
     document = json.loads(response.body_text)
-    assert "departures" in document and "arrivals" in document
+    assert document["departures"] == [departure_item]
+    assert document["arrivals"] == [arrival_item]
+
+    calls = mock_client.__aenter__.return_value.iiac_raw_items.call_args_list
+    assert calls[0].args[:2] == ("StatusOfPassengerFlightsDeOdp", "getPassengerDeparturesDeOdp")
+    assert calls[1].args[:2] == ("StatusOfPassengerFlightsDeOdp", "getPassengerArrivalsDeOdp")
 
 
 def test_krairport_flight_status_client_rate_limit_error_propagates() -> None:

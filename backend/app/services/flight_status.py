@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from krairport import AsyncKrairportClient
-from krairport.exceptions import KrairportError
+from krairport.exceptions import KrairportError, KrairportRateLimitError
 
 from app.core.config import Settings
 from app.core.time_utils import now_utc, serialize_utc
@@ -243,8 +243,18 @@ class FlightStatusService:
             return cached[1]
 
         payload = await self._fetch_status(airport_code, local_date)
-        expires_at = current_time + timedelta(seconds=max(self.settings.flight_status_cache_seconds, 0))
-        if payload.get("status") != "upstream_error":
+        status = payload.get("status")
+        if status == "rate_limited":
+            # Flight status is fetched on-demand per page view (no scheduler,
+            # unlike CollectionService's DB-backed rate-limit tracking), so
+            # without a longer backoff every visitor during a rate-limit
+            # window would re-trigger another upstream call and keep
+            # renewing it.
+            backoff_seconds = self.settings.upstream_rate_limit_backoff_seconds
+            expires_at = current_time + timedelta(seconds=max(backoff_seconds, 0))
+            self._cache[cache_key] = (expires_at, payload)
+        elif status != "upstream_error":
+            expires_at = current_time + timedelta(seconds=max(self.settings.flight_status_cache_seconds, 0))
             self._cache[cache_key] = (expires_at, payload)
         return payload
 
@@ -294,9 +304,14 @@ class FlightStatusService:
             ValueError,
             KrairportError,
         ) as exc:
+            # KrairportRateLimitError gets its own status (see get_status's
+            # longer backoff cache) instead of the generic upstream_error,
+            # which is never cached and would let every page view re-trigger
+            # another rate-limited upstream call.
+            status = "rate_limited" if isinstance(exc, KrairportRateLimitError) else "upstream_error"
             return {
                 **base_payload,
-                "status": "upstream_error",
+                "status": status,
                 "error_message": _build_flight_api_error_message(
                     exc,
                     self.settings.data_go_kr_service_key,
