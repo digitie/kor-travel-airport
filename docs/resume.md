@@ -3,26 +3,39 @@
 ## 현재 상태
 
 - 기준일: 2026-08-23
-- 작업 브랜치: `codex/krairport-parking-migration` (origin/main 기준, PR 미생성)
-- `digitie/parking-radar` PR [#1](https://github.com/digitie/parking-radar/pull/1)
-  (postgres/server14 마이그레이션), PR [#2](https://github.com/digitie/parking-radar/pull/2)
-  (kor-travel-map 문서 구조 이식 + ADR-004) 모두 **MERGED** 상태다(`origin/main` = `1d78e1b`).
-- `T-030`(주차 현황·주차요금 → `python-krairport-api`)을 이 브랜치에서 구현 완료했다:
-  `backend/pyproject.toml`/`Dockerfile` 의존성 배선, `collection.py`의
-  `KrairportPublicDataClient`, `parsers.py` 입력 형태 확장, sample 데이터 단순화. WSL 1차
-  `72 passed`, Docker 2차 `69 passed`(`test_cutover_guards.py` 3개는 무관한 사전 버그로
-  제외 — `T-031`), `alembic check` 통과, frontend Docker `48 passed`. **아직 커밋하지
-  않았다** — working tree 변경 상태.
-- 운영 원본: `digitie@192.168.1.13:/home/digitie/apps/parking-radar`
-- 새 운영 대상: `digitie@192.168.1.14`
-- 14번 공개 포트 (T-032 이후, 2026-08-23): API `14001`, web `14002`, DB `14000`(loopback
-  전용, 별도 컨테이너). live E2E 기준 URL: `https://pr.digitie.mywire.org`
+- 작업 브랜치: `main` (로컬/원격 모두 `d16b5b2`).
+- `digitie/parking-radar` PR [#2](https://github.com/digitie/parking-radar/pull/2)
+  (kor-travel-map 문서 구조 이식 + ADR-004), PR [#3](https://github.com/digitie/parking-radar/pull/3)
+  (`T-030`: 주차 현황·주차요금 → `python-krairport-api`), PR
+  [#4](https://github.com/digitie/parking-radar/pull/4) (`T-032`: PostgreSQL 별도 컨테이너
+  분리 + 포트 재배치), PR [#5](https://github.com/digitie/parking-radar/pull/5) (ADR-005:
+  `/v1` API 버저닝 + RFC7807 에러 + `docs/openapi.json`) 모두 **MERGED** 상태다.
+- PR #3 검증 중 발견한 두 버그(krairport의 KAC HTTPS 스킴 버그, `parse_kac_fee`의
+  SCREAMING_SNAKE_CASE 필드명 버그)는 모두 수정·머지 완료. `docs/adr/004-*.md` "후속" 참고.
+- PR #4로 PostgreSQL이 `docker-compose.db.yml` 별도 스택으로 분리됐고, 14번 운영 데이터도
+  기존 named volume을 재사용해 실제로 마이그레이션 완료했다(백업 확보 후 무손실 전환,
+  `parking_snapshots` 56,039건 확인).
+- PR #5로 `/health`를 제외한 모든 백엔드 라우트가 `/v1` prefix로 이동했다(무-호환
+  clean-cut). RFC7807 에러 포맷 통일, `scripts/export_openapi.py` → `docs/openapi.json`
+  기계 정본 추가. hostile review(Popper)에서 발견한 `RequestValidationError` RFC7807
+  미적용, `scripts/verify_cutover.py`의 target(14번) 호출 버저닝 누락도 같은 PR에서
+  수정했다. `{data, meta}` envelope는 명시적으로 범위 밖(ADR-005 "후속").
+- 운영 원본(레거시, 재배포 금지): `digitie@192.168.1.13:/home/digitie/apps/parking-radar`
+  — 여전히 구 unversioned API를 서비스한다. `scripts/odroid-status.ps1`은 의도적으로
+  버저닝하지 않았다.
+- 운영 대상: `digitie@192.168.1.14`
+- 14번 공개 포트 (T-032 이후): API `14001`, web `14002`, DB `14000`(loopback 전용, 별도
+  컨테이너). live E2E 기준 URL: `https://pr.digitie.mywire.org`
 - 14번 외부 API URL: `https://pr-api.digitie.mywire.org`
+- PR #5는 아직 14번에 배포하지 않았다 — `live-e2e` CI는 이 candidate 기준으로는 예상대로
+  실패(기존 패턴과 동일). 배포 전 reverse proxy 변경은 불필요할 것으로 보이나(경로만
+  내부적으로 바뀌고 Next.js가 프록시), 실제 배포 시 확인 필요.
 
 ## 다음 한 작업
 
-`codex/krairport-parking-migration`의 변경사항을 커밋 → push → Draft PR → hostile review
-(James/Popper) → 머지한다. 머지 후 다음은 `T-029`(KAC ODCloud 비행편 지원을
+PR #5(`/v1` API 버저닝)를 14번에 배포해 live 검증을 진행할지 결정한다. 배포한다면
+`scripts/deploy-server14.sh` 실행 후 `/health`, `/v1/airports`, RFC7807 에러 포맷,
+`client_mode=live`를 확인한다. 이후 작업은 `T-029`(KAC ODCloud 비행편 지원을
 `python-krairport-api`에 먼저 추가한 뒤 `flight_status.py` 전환)와 `T-031`
 (`test_cutover_guards.py` Docker 경로 버그) 중 하나를 고른다.
 
