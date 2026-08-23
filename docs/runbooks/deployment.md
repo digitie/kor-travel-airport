@@ -83,7 +83,10 @@ docker compose --project-name parking-radar -f docker-compose.yml up -d --build
 
 ## 로컬 개발 실행
 
+DB 스택을 먼저 올려야 앱 스택이 연결할 `parking-radar-net` 외부 네트워크가 생긴다(T-032).
+
 ```bash
+docker compose -f docker-compose.db.yml up -d
 docker compose build
 docker compose up -d
 ```

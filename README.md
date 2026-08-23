@@ -38,7 +38,7 @@
 - 백엔드: FastAPI, SQLAlchemy 2, PostgreSQL 16, Alembic
 - 프론트엔드: Next.js App Router, React, TypeScript
 - 테스트: pytest, Vitest
-- 실행: Docker Compose (PostgreSQL 포함)
+- 실행: Docker Compose (PostgreSQL은 `docker-compose.db.yml`로 별도 컨테이너, T-032)
 - 개발 환경: WSL2 + Docker
 - 운영 목표 환경: Ubuntu 24.04 on Odroid M1S
 
@@ -67,7 +67,11 @@
 
 ## 빠른 시작
 
+PostgreSQL은 앱(backend/frontend)과 분리된 별도 compose 스택이다(T-032). DB 스택을 먼저
+올려야 `parking-radar-net` 외부 네트워크가 생기고, 앱 스택이 거기에 연결된다.
+
 ```bash
+docker compose -f docker-compose.db.yml up -d
 docker compose build
 docker compose up -d
 ```
