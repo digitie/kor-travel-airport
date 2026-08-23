@@ -9,7 +9,7 @@ cutover 동안 HTTP read-only source로 유지하며 Docker를 조작하지 않�
 
 ## 주기와 중복 방지
 
-- 14번 운영 기본 주기: `COLLECT_INTERVAL_SECONDS=300` (5분)
+- n150 운영 기본 주기: `COLLECT_INTERVAL_SECONDS=300` (5분)
 - 수동 수집 제한: `MANUAL_COLLECT_MIN_INTERVAL_SECONDS=300` (5분)
 - scheduler는 collection duration을 포함해 다음 시작 시각을 monotonic deadline으로 계산한다. 수집이 5분을 넘으면 지연을 숨기지 않고 즉시 다음 tick을 시작하며, 운영 verifier가 freshness를 별도로 gate한다.
 - 외부 API가 같은 `observed_at`을 반복하면 unique key에 의해 새 snapshot이 생기지
@@ -65,7 +65,7 @@ cutover 동안 HTTP read-only source로 유지하며 Docker를 조작하지 않�
 ## 강제 수집 버튼 (로컬 개발 전용)
 
 로컬 개발 profile에서 `ENABLE_MANUAL_COLLECT=true`일 때만 웹 UI의 `지금 수집` 버튼이
-`POST /v1/admin/collect`를 호출한다. public server14 profile에서는 `ENABLE_MANUAL_COLLECT=false`로
+`POST /v1/admin/collect`를 호출한다. public n150 profile에서는 `ENABLE_MANUAL_COLLECT=false`로
 버튼과 endpoint가 모두 비활성화되고, 웹 proxy에도 노출되지 않는다.
 
 동작 규칙:

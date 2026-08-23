@@ -37,7 +37,7 @@ npm run test -- --run
 npm run build
 ```
 
-1차 테스트는 빠른 피드백을 위한 단계다. 여기서 실패하면 Docker 테스트나 14번 배포로 넘어가지 않는다.
+1차 테스트는 빠른 피드백을 위한 단계다. 여기서 실패하면 Docker 테스트나 n150 배포로 넘어가지 않는다.
 
 ## 백엔드 테스트
 
@@ -73,7 +73,7 @@ npm run build
 docker compose run --rm --no-deps backend pytest -q
 ```
 
-이 명령은 로컬 Docker 또는 14번의 `parking-radar` Compose project에서만 실행한다. 13번에는 보내지 않는다.
+이 명령은 로컬 Docker 또는 n150의 `parking-radar` Compose project에서만 실행한다. 13번에는 보내지 않는다.
 
 ## 프론트엔드 테스트
 
@@ -111,7 +111,7 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 ## 반응형 검증
 
 배포 origin을 지정한 live E2E는 브라우저 설치 후 실행한다. 현재 승인 기준은 반드시
-`https://pr.digitie.mywire.org`이며, 14번 직접 주소는 앱 자체 검증용 보조 경로다.
+`https://pr.digitie.mywire.org`이며, n150 직접 주소는 앱 자체 검증용 보조 경로다.
 
 ```bash
 cd frontend
@@ -124,7 +124,7 @@ GitHub Actions의 `live-e2e` job은 항상 정확한 `https://pr.digitie.mywire.
 외부 라우팅이 Home Assistant나 다른 서비스로 향하면 이 job과 운영 승인 모두 실패로
 취급한다.
 
-공유 server14를 매 push/PR마다 변경하지 않도록 CI는 백업 목록·경고·레이아웃을 검증하고
+공유 n150를 매 push/PR마다 변경하지 않도록 CI는 백업 목록·경고·레이아웃을 검증하고
 실제 dump 생성은 기본적으로 실행하지 않는다. 백업 UI까지 한 번 실제로 확인할 때만 아래
 환경 변수를 명시한다. 이 실행은 DB 백업을 만들므로 동시 CI가 없는 시점에 수행한다.
 
@@ -217,7 +217,7 @@ in-app browser 또는 브라우저에서 다음을 확인한다.
 
 - 로컬 확인은 [http://localhost:3000](http://localhost:3000)와
   [http://localhost:8000/docs](http://localhost:8000/docs)를 사용한다.
-- 14번 운영 직접 확인은 웹 `http://192.168.1.14:14002`, API
+- n150 운영 직접 확인은 웹 `http://192.168.1.14:14002`, API
   `http://192.168.1.14:14001`을 사용한다(T-032 이후 포트, DB는 `14000`으로 별도
   컨테이너·loopback 전용).
 - KST 기준 시각 표시
@@ -240,15 +240,15 @@ in-app browser 또는 브라우저에서 다음을 확인한다.
 - 요일별 임계 달성 시간 / 날짜별 임계 달성 시간 표시
 - `지금 수집` 성공 / 쿨다운 메시지 표시
 - 브라우저 콘솔 `error` / `warn` 없음
-- live E2E는 `frontend/e2e/live-dashboard.spec.ts`를 14번에서 실행한다.
+- live E2E는 `frontend/e2e/live-dashboard.spec.ts`를 n150에서 실행한다.
 
 ```bash
 cd frontend
 E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e
 ```
 
-CI에서는 여기에 `EXPECTED_RELEASE_SHA=${{ github.event.pull_request.head.sha || github.sha }}`를 추가해 14번에 실제 배포된
-candidate와 테스트 대상 PR head가 같은지 health 응답으로 확인한다. 로컬에서 공개 14번
+CI에서는 여기에 `EXPECTED_RELEASE_SHA=${{ github.event.pull_request.head.sha || github.sha }}`를 추가해 n150에 실제 배포된
+candidate와 테스트 대상 PR head가 같은지 health 응답으로 확인한다. 로컬에서 공개 n150
 배포본만 재확인할 때는 `EXPECTED_RELEASE_SHA`를 생략할 수 있지만, merge 증적에는 반드시
 candidate SHA와 함께 기록한다.
 
@@ -270,7 +270,7 @@ Playwright 결과 JSON은 `frontend/test-results/live-e2e.json`에 남긴다. 32
   - `client_mode=live`
   - `scheduler_enabled=true`
   - `upstream_rate_limited=false`
-- public server14에서 `POST /v1/admin/collect`가 `404`로 비활성화되고, backup/restore UI는
+- public n150에서 `POST /v1/admin/collect`가 `404`로 비활성화되고, backup/restore UI는
   별도 app auth 없이 private gateway 경계 안에서 동작하는지 확인
 - 웹 UI에서 (로컬 profile):
   - 현재 시각 표시가 KST 기준인지 확인

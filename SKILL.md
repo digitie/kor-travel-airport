@@ -7,7 +7,7 @@
 - 운영 데이터와 비밀값을 커밋하지 않는다.
 - PostgreSQL 스키마 변경은 Alembic migration, 테스트, 데이터 모델 문서를 함께 바꾼다.
 - UI 변경은 모바일/데스크톱 상태와 loading/empty/error/focus 상태를 테스트한다.
-- 13번 호스트에서는 Docker 명령을 실행하지 않는다. 14번에서만 Compose를 실행한다.
+- 13번 호스트에서는 Docker 명령을 실행하지 않는다. n150에서만 Compose를 실행한다.
 
 ## 2. 계층과 책임
 
@@ -61,6 +61,6 @@ docker compose run --rm --no-deps backend pytest -q
 docker compose run --rm --no-deps frontend npm run test -- --run
 ```
 
-live 검증은 14번에서만 실행하며, 백업 생성/다운로드/복원과 320/375/414/768px UI를
+live 검증은 n150에서만 실행하며, 백업 생성/다운로드/복원과 320/375/414/768px UI를
 확인한다. 실패·미검증 항목은 `docs/journal.md`에 기록한다.
 

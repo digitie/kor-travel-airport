@@ -42,7 +42,7 @@ frontend
 live-e2e
 ```
 
-`live-e2e`는 실제 server14(`https://pr.digitie.mywire.org`)를 호출하는 job이라 대상
+`live-e2e`는 실제 n150(`https://pr.digitie.mywire.org`)를 호출하는 job이라 대상
 서버가 내려가 있으면 PR이 막힌다는 점에 주의한다. 이 job을 required로 유지할지, 또는
 문서만 바꾸는 PR에도 항상 걸리는 게 맞는지는 운영 부담을 보고 재검토할 수 있다(재검토
 결과는 이 문서와 필요하면 새 ADR에 남긴다).

@@ -10,7 +10,7 @@
 | Backend unit/API | `pytest` | 기본 SQLite(`tmp_path`), `TEST_DATABASE_URL`/`DATABASE_URL` 지정 시 PostgreSQL | 파서, 수집 서비스, 분석 로직, 요금 계산, FastAPI 라우트 | WSL2 (1차), CI (PostgreSQL 컨테이너) |
 | Frontend component/API | `Vitest` | 없음(모킹) | API 클라이언트, 대시보드/차트 렌더링, 반응형 분기, 로컬 설정 저장 | WSL2 (1차), CI |
 | Backend/frontend Docker | `docker compose run --rm --no-deps ...` | PostgreSQL(backend) | 1차와 같은 테스트를 실제 컨테이너 이미지 안에서 재실행 | WSL2 + Docker (2차) |
-| Live E2E | `Playwright` | 실제 server14 PostgreSQL | 실제 배포된 server14를 대상으로 한 브라우저 시나리오 | WSL2 또는 Windows (원격 URL 호출이라 위치 무관), CI `live-e2e` job |
+| Live E2E | `Playwright` | 실제 n150 PostgreSQL | 실제 배포된 n150를 대상으로 한 브라우저 시나리오 | WSL2 또는 Windows (원격 URL 호출이라 위치 무관), CI `live-e2e` job |
 
 Alembic 스키마 검증(`alembic upgrade head`, `alembic check`)은 CI의 `backend` job 안에서
 매 PR마다 실행되어 로컬 SQLite 기준 통과와 실제 PostgreSQL 스키마 상태를 분리해서 검증한다.
