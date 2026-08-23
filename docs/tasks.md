@@ -8,39 +8,7 @@
 
 ## 진행 중인 작업 인덱스
 
-- [ ] `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
-
-## `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
-
-[ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)의 방향 결정에
-따른 실제 코드 마이그레이션이다. 아직 시작하지 않았다. 같은 ADR-004 범위의 주차
-현황/요금 전환은 `T-030`(`docs/tasks-done.md`)으로 먼저 완료했다 — krairport 쪽에 새 코드
-없이 기존 raw-item escape hatch로 바로 대체 가능했기 때문이다.
-
-**의존성/Docker 패턴은 T-030에서 이미 정했다** — `backend/pyproject.toml`의
-`python-krairport-api @ git+...@<sha>` PEP 508 direct reference + `backend/Dockerfile`의
-`git` 설치를 그대로 재사용한다. 이 task에서 새로 정할 필요는 없다.
-
-완료 조건:
-
-- [ ] KAC 비행편(`15113771`, ODCloud `FlightStatusListDTL`)은 krairport의 기존
-  `departures()`/`arrivals()`(`StatusOfFlights/getDepFlightStatusList` 등)와 **다른
-  endpoint**다 — krairport가 아직 지원하지 않으므로, `F:\dev\python-krairport-api`에 이
-  ODCloud endpoint를 위한 provider 코드를 먼저 추가해야 한다(새 메서드 또는 raw items류
-  escape hatch. ODCloud는 KAC 도메인이 아닌 별도 provider라 `kac_raw_items`로는 닿지 않는다 —
-  `krairport/providers/kac.py`의 `raw_items()`가 `openapi.airport.co.kr`에 고정돼 있음을
-  확인했다).
-- [ ] IIAC 비행편(`15112968`)은 krairport의 `arrivals(detailed=True)`/`departures(detailed=True)`
-  (`getPassengerArrivalsDeOdp`/`getPassengerDeparturesDeOdp`)와 endpoint가 정확히 일치한다 —
-  이쪽은 krairport 수정 없이 바로 전환 가능.
-- [ ] `backend/app/services/flight_status.py`의 KAC/IIAC 직접 `httpx` 호출·XML/JSON 파싱을
-  krairport 호출로 대체한다.
-- [ ] 전환 전후 `/v1/flights/status` 응답 스키마가 동일한지 확인한다(프론트 `daily-flight-overlay-chart.tsx`
-  계약 변경 없음).
-- [ ] `backend/tests/test_flight_status.py`를 krairport 기반 fetch에 맞게 갱신한다.
-- [ ] `docs/architecture/data-sources.md` §6/§7, `docs/architecture/architecture.md`의
-  "전환 전" 문구를 제거하고 실제 전환 완료를 반영한다.
-- [ ] `docs/adr/004-krairport-provider-library.md`의 "후속"을 갱신한다.
+현재 진행 중이거나 예정된 task가 없다.
 
 ## 완료 조건
 
