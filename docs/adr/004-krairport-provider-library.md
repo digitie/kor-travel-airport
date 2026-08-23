@@ -68,3 +68,25 @@
     기준으로 계산되어 있어, Docker의 `/app/tests/`(한 단계 얕음) 구조에서는 `/scripts`를
     가리키게 되는 사전 존재 버그다(krairport 마이그레이션과 무관, 커밋 `481cb78`부터
     있었다). 이 ADR/PR에서는 고치지 않았다 — 별도 task로 등록이 필요하다.
+  - **live smoke test로 발견하고 고친 문제 2건 (2026-08-23)**: 사용자가 로컬에 실제
+    `DATA_GO_KR_SERVICE_KEY`가 있다고 알려줘서, fixture가 아닌 실제 upstream으로 전체
+    파이프라인을 검증했다. fixture만으로는 절대 못 잡는 문제 두 개가 나왔다.
+    1. **krairport의 KAC 호출이 전부 깨져 있었다**: krairport가 `https://openapi.airport.co.kr`로
+       호출하는데, 이 게이트웨이는 `http://`로만 정상 응답하고(같은 요청을 https로 보내면
+       요청 내용과 무관하게 전부 `resultCode=99 "NO OPENAPI SERVICE ERROR."`) — KAC 주차
+       현황·요금뿐 아니라 krairport의 모든 KAC endpoint(운항, 시설, 버스, 택시 포함)가
+       영향받는 host-level 버그였다. `python-krairport-api` PR
+       [#6](https://github.com/digitie/python-krairport-api/pull/6)로 고쳐서 머지했고
+       (`88d47ca`), parking-radar의 pin을 그 커밋으로 갱신했다.
+    2. **parking-radar의 KAC 요금 파서가 애초에 잘못된 필드명을 기대했다**: `parse_kac_fee`와
+       `_kac_fee_sample_items`, `tests/fixtures/kac_fee_gmp.xml`이 전부
+       `PARKING_BASIC_ACCOUNT`(SCREAMING_SNAKE_CASE) 형태를 가정했는데, 실제 API는
+       `parkingBasicAccount`(camelCase)를 반환한다. `_append_fee_rule`의 조기 return
+       가드(`if basic_account_key not in item and unit_fee_key not in item: return`)
+       때문에 실제 API 응답에서는 규칙이 하나도 안 만들어졌을 것이다 — 즉 **이 마이그레이션
+       이전부터 KAC 주차요금 live 수집이 조용히 빈 배열만 반환하고 있었을 가능성이 높다**
+       (krairport 도입과 무관한, 훨씬 오래된 버그). 실제 필드명으로 파서·sample
+       데이터·fixture를 모두 고쳤다.
+    두 문제 모두 고친 뒤 `CollectionService.collect()`를 실제 서비스키로 end-to-end 실행해
+    확인했다: `status=success`, `raw_response_count=6`, `snapshot_count=30`,
+    `fee_rule_count=56`, `errors=[]`.

@@ -468,8 +468,8 @@ def _append_fee_rule(
 
     rule = ParsedFeeRule(
         airport_code=airport_code,
-        airport_name=item.get("SITE_NAME", airport_code),
-        parking_lot_name=item.get("PARKING_PARKING_NAME"),
+        airport_name=item.get("siteName", airport_code),
+        parking_lot_name=item.get("parkingParkingName"),
         vehicle_size=vehicle_size,
         day_type=day_type,
         free_minutes=_safe_int(item.get(free_minutes_key)),
@@ -485,6 +485,16 @@ def _append_fee_rule(
 
 
 def parse_kac_fee(payload: str | list[dict[str, Any]], airport_code: str) -> list[ParsedFeeRule]:
+    """Parse `AirportParkingFee/parkingfee` items.
+
+    Field names below (`parkingBasicM`, `parkingMaxAccount`, `siteName`, ...)
+    are camelCase as confirmed against the live endpoint. An earlier version
+    of this parser assumed `PARKING_BASIC_M`-style SCREAMING_SNAKE_CASE names
+    that never matched any real response, so KAC fee collection had always
+    silently produced zero rules in `live` mode (`_append_fee_rule`'s
+    early-return guard skips a rule when neither key is present).
+    """
+
     rules: list[ParsedFeeRule] = []
     for item in _coerce_kac_items(payload):
         _append_fee_rule(
@@ -493,12 +503,12 @@ def parse_kac_fee(payload: str | list[dict[str, Any]], airport_code: str) -> lis
             airport_code,
             "small",
             "weekday",
-            "PARKING_BASIC_ACCOUNT",
-            "PARKING_BASIC_M",
-            "PARKING_FREE_M",
-            "PARKING_MINUTE_ACCOUNT",
-            "PARKING_MINUTE_M",
-            "PARKING_MAX_ACCOUNT",
+            "parkingBasicAccount",
+            "parkingBasicM",
+            "parkingFreeM",
+            "parkingMinuteAccount",
+            "parkingMinuteM",
+            "parkingMaxAccount",
         )
         _append_fee_rule(
             rules,
@@ -506,12 +516,12 @@ def parse_kac_fee(payload: str | list[dict[str, Any]], airport_code: str) -> lis
             airport_code,
             "small",
             "holiday",
-            "PARKING_HOLI_BASIC_ACCOUNT",
-            "PARKING_HOLI_BASIC_M",
-            "PARKING_HOLI_FREE_M",
-            "PARKING_HOLI_MINUTE_ACCOUNT",
-            "PARKING_HOLI_MINUTE_M",
-            "PARKING_HOLI_MAX_ACCOUNT",
+            "parkingHoliBasicAccount",
+            "parkingHoliBasicM",
+            "parkingHoliFreeM",
+            "parkingHoliMinuteAccount",
+            "parkingHoliMinuteM",
+            "parkingHoliMaxAccount",
         )
         _append_fee_rule(
             rules,
@@ -519,12 +529,12 @@ def parse_kac_fee(payload: str | list[dict[str, Any]], airport_code: str) -> lis
             airport_code,
             "large",
             "weekday",
-            "PARKING_BASIC_ACCOUNTD",
-            "PARKING_BASIC_MD",
-            "PARKING_FREE_MD",
-            "PARKING_MINUTE_ACCOUNTD",
-            "PARKING_MINUTE_MD",
-            "PARKING_MAX_ACCOUNTD",
+            "parkingBasicAccountd",
+            "parkingBasicMd",
+            "parkingFreeMd",
+            "parkingMinuteAccountd",
+            "parkingMinuteMd",
+            "parkingMaxAccountd",
         )
         _append_fee_rule(
             rules,
@@ -532,11 +542,11 @@ def parse_kac_fee(payload: str | list[dict[str, Any]], airport_code: str) -> lis
             airport_code,
             "large",
             "holiday",
-            "PARKING_HOLI_BASIC_ACCOUNTD",
-            "PARKING_HOLI_BASIC_MD",
-            "PARKING_HOLI_FREE_MD",
-            "PARKING_HOLI_MINUTE_ACCOUNTD",
-            "PARKING_HOLI_MINUTE_MD",
-            "PARKING_HOLI_MAX_ACCOUNTD",
+            "parkingHoliBasicAccountd",
+            "parkingHoliBasicMd",
+            "parkingHoliFreeMd",
+            "parkingHoliMinuteAccountd",
+            "parkingHoliMinuteMd",
+            "parkingHoliMaxAccountd",
         )
     return rules

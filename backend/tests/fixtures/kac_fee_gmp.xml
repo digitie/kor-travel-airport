@@ -3,34 +3,33 @@
   <body>
     <items>
       <item>
-        <SITE_NAME>김포국제공항</SITE_NAME>
-        <PARKING_PARKING_NAME>국내선 제1주차장</PARKING_PARKING_NAME>
-        <PARKING_BASIC_ACCOUNT>1000</PARKING_BASIC_ACCOUNT>
-        <PARKING_BASIC_M>30</PARKING_BASIC_M>
-        <PARKING_FREE_M>30</PARKING_FREE_M>
-        <PARKING_MINUTE_ACCOUNT>500</PARKING_MINUTE_ACCOUNT>
-        <PARKING_MINUTE_M>15</PARKING_MINUTE_M>
-        <PARKING_MAX_ACCOUNT>20000</PARKING_MAX_ACCOUNT>
-        <PARKING_HOLI_BASIC_ACCOUNT>1500</PARKING_HOLI_BASIC_ACCOUNT>
-        <PARKING_HOLI_BASIC_M>30</PARKING_HOLI_BASIC_M>
-        <PARKING_HOLI_FREE_M>30</PARKING_HOLI_FREE_M>
-        <PARKING_HOLI_MINUTE_ACCOUNT>700</PARKING_HOLI_MINUTE_ACCOUNT>
-        <PARKING_HOLI_MINUTE_M>15</PARKING_HOLI_MINUTE_M>
-        <PARKING_HOLI_MAX_ACCOUNT>25000</PARKING_HOLI_MAX_ACCOUNT>
-        <PARKING_BASIC_ACCOUNTD>1200</PARKING_BASIC_ACCOUNTD>
-        <PARKING_BASIC_MD>30</PARKING_BASIC_MD>
-        <PARKING_FREE_MD>30</PARKING_FREE_MD>
-        <PARKING_MINUTE_ACCOUNTD>600</PARKING_MINUTE_ACCOUNTD>
-        <PARKING_MINUTE_MD>15</PARKING_MINUTE_MD>
-        <PARKING_MAX_ACCOUNTD>25000</PARKING_MAX_ACCOUNTD>
-        <PARKING_HOLI_BASIC_ACCOUNTD>1800</PARKING_HOLI_BASIC_ACCOUNTD>
-        <PARKING_HOLI_BASIC_MD>30</PARKING_HOLI_BASIC_MD>
-        <PARKING_HOLI_FREE_MD>30</PARKING_HOLI_FREE_MD>
-        <PARKING_HOLI_MINUTE_ACCOUNTD>800</PARKING_HOLI_MINUTE_ACCOUNTD>
-        <PARKING_HOLI_MINUTE_MD>15</PARKING_HOLI_MINUTE_MD>
-        <PARKING_HOLI_MAX_ACCOUNTD>30000</PARKING_HOLI_MAX_ACCOUNTD>
+        <siteName>김포국제공항</siteName>
+        <parkingParkingName>국내선 제1주차장</parkingParkingName>
+        <parkingBasicAccount>1000</parkingBasicAccount>
+        <parkingBasicM>30</parkingBasicM>
+        <parkingFreeM>30</parkingFreeM>
+        <parkingMinuteAccount>500</parkingMinuteAccount>
+        <parkingMinuteM>15</parkingMinuteM>
+        <parkingMaxAccount>20000</parkingMaxAccount>
+        <parkingHoliBasicAccount>1500</parkingHoliBasicAccount>
+        <parkingHoliBasicM>30</parkingHoliBasicM>
+        <parkingHoliFreeM>30</parkingHoliFreeM>
+        <parkingHoliMinuteAccount>700</parkingHoliMinuteAccount>
+        <parkingHoliMinuteM>15</parkingHoliMinuteM>
+        <parkingHoliMaxAccount>25000</parkingHoliMaxAccount>
+        <parkingBasicAccountd>1200</parkingBasicAccountd>
+        <parkingBasicMd>30</parkingBasicMd>
+        <parkingFreeMd>30</parkingFreeMd>
+        <parkingMinuteAccountd>600</parkingMinuteAccountd>
+        <parkingMinuteMd>15</parkingMinuteMd>
+        <parkingMaxAccountd>25000</parkingMaxAccountd>
+        <parkingHoliBasicAccountd>1800</parkingHoliBasicAccountd>
+        <parkingHoliBasicMd>30</parkingHoliBasicMd>
+        <parkingHoliFreeMd>30</parkingHoliFreeMd>
+        <parkingHoliMinuteAccountd>800</parkingHoliMinuteAccountd>
+        <parkingHoliMinuteMd>15</parkingHoliMinuteMd>
+        <parkingHoliMaxAccountd>30000</parkingHoliMaxAccountd>
       </item>
     </items>
   </body>
 </response>
-

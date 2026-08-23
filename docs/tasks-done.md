@@ -19,8 +19,7 @@
   `backend/Dockerfile`에 `git` 패키지를 추가했다(pip의 git+https 설치 요구사항).
 - `backend/app/services/collection.py`에 `KrairportPublicDataClient`를 추가해
   `LivePublicDataClient`(직접 `httpx`)를 대체했다. krairport의 typed `ParkingFee` model은
-  휴일 요금·분당 추가요금 필드가 없고 KAC 필드명도 parking-radar가 실측 검증한 것과 달라
-  (`parkingBasicM` vs `PARKING_BASIC_M`), typed model 대신 `kac_raw_items`/`iiac_raw_items`
+  휴일 요금·분당 추가요금 필드가 없어서, typed model 대신 `kac_raw_items`/`iiac_raw_items`
   범용 escape hatch로 원본에 가까운 item dict를 받고 parking-radar 자체 `parsers.py` 로직은
   그대로 유지했다 — 파싱/필드 매핑 회귀 위험을 없앴다.
 - `parsers.py`의 `parse_kac_parking`/`parse_kac_fee`/`parse_incheon_parking`/`parse_incheon_fee`가
@@ -33,11 +32,28 @@
 - **부작용**: `RawApiResponse.body_text`가 이제 업스트림 원문이 아니라 krairport가 파싱한
   item 목록의 JSON 직렬화다(krairport가 raw HTTP 텍스트를 공개 API로 안 내려줌). ADR-004에
   명시했다.
-- 검증: WSL 1차 `uv run pytest tests -q` `72 passed`. Docker 2차 `docker compose run --rm
-  --no-deps backend pytest -q --ignore=tests/test_cutover_guards.py` `69 passed`(제외한
-  3개는 이 마이그레이션과 무관한 사전 존재 버그 — `T-031` 참고). `alembic -c alembic.ini
-  check` `No new upgrade operations detected`. `docker compose build backend`/`frontend`
-  성공. frontend Docker 테스트 `48 passed`.
+- **live smoke test로 발견·수정한 pre-existing 버그 2건** (사용자가 로컬 실제
+  `DATA_GO_KR_SERVICE_KEY` 존재를 알려줘서 fixture가 아닌 실 upstream으로 검증):
+  1. krairport가 KAC 전체를 `https://openapi.airport.co.kr`로 호출하고 있었는데, 이
+     게이트웨이는 `http://`만 정상 동작한다(https는 요청과 무관하게 전부
+     `NO OPENAPI SERVICE ERROR.`) — `python-krairport-api`
+     [PR #6](https://github.com/digitie/python-krairport-api/pull/6)로 수정,
+     `88d47ca`로 머지 후 parking-radar pin을 그 커밋으로 갱신했다.
+  2. `parse_kac_fee`/`_kac_fee_sample_items`/`tests/fixtures/kac_fee_gmp.xml`이
+     `PARKING_BASIC_ACCOUNT`류 SCREAMING_SNAKE_CASE 필드명을 기대하고 있었는데 실제 API는
+     `parkingBasicAccount`류 camelCase를 반환한다 — **krairport 도입 이전부터 있던 버그이며,
+     실제로는 KAC 주차요금 live 수집이 계속 빈 배열만 반환했을 가능성이 높다.** 실제
+     필드명으로 파서·sample·fixture를 모두 고쳤다.
+  두 수정 후 `CollectionService.collect()`를 실제 서비스키로 end-to-end 실행해 확인:
+  `status=success`, `raw_response_count=6`, `snapshot_count=30`, `fee_rule_count=56`,
+  `errors=[]`.
+- 검증: WSL 1차 `uv run pytest tests -q` `72 passed`(krairport 수정 반영 후 재실행 포함).
+  Docker 2차 `docker compose run --rm --no-deps backend pytest -q
+  --ignore=tests/test_cutover_guards.py` `69 passed`(제외한 3개는 이 마이그레이션과 무관한
+  사전 존재 버그 — `T-031` 참고). `alembic -c alembic.ini check`
+  `No new upgrade operations detected`. `docker compose build backend`/`frontend` 성공.
+  frontend Docker 테스트 `48 passed`. 실제 upstream 대상 live smoke test와 end-to-end
+  collect() 실행까지 통과.
 - 이번 세션에서는 `T-031`(`test_cutover_guards.py` Docker 경로 버그)을 발견했지만
   krairport 마이그레이션과 무관해 고치지 않고 별도 task로 등록했다(Surgical Changes 원칙).
 - KAC 비행편(ODCloud `15113771`)은 krairport가 아직 지원하지 않아 이번 범위에서 제외했다 —

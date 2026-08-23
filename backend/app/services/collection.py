@@ -70,35 +70,40 @@ SAMPLE_KAC_FEE_LOT_NAMES = {
 
 
 def _kac_fee_sample_items(airport_code: str) -> list[dict[str, str]]:
+    """Sample KAC fee items using the live endpoint's real (camelCase) field
+    names -- confirmed against `AirportParkingFee/parkingfee` directly (see
+    ADR-004 / T-030). Do not revert to `PARKING_BASIC_ACCOUNT`-style names;
+    that was never the real API shape."""
+
     airport_name, lot_names = SAMPLE_KAC_FEE_LOT_NAMES.get(airport_code, SAMPLE_KAC_FEE_LOT_NAMES["GMP"])
     return [
         {
-            "SITE_NAME": airport_name,
-            "PARKING_PARKING_NAME": lot_name,
-            "PARKING_BASIC_ACCOUNT": "1000",
-            "PARKING_BASIC_M": "30",
-            "PARKING_FREE_M": "30",
-            "PARKING_MINUTE_ACCOUNT": "500",
-            "PARKING_MINUTE_M": "15",
-            "PARKING_MAX_ACCOUNT": "20000",
-            "PARKING_HOLI_BASIC_ACCOUNT": "1500",
-            "PARKING_HOLI_BASIC_M": "30",
-            "PARKING_HOLI_FREE_M": "30",
-            "PARKING_HOLI_MINUTE_ACCOUNT": "700",
-            "PARKING_HOLI_MINUTE_M": "15",
-            "PARKING_HOLI_MAX_ACCOUNT": "25000",
-            "PARKING_BASIC_ACCOUNTD": "1200",
-            "PARKING_BASIC_MD": "30",
-            "PARKING_FREE_MD": "30",
-            "PARKING_MINUTE_ACCOUNTD": "600",
-            "PARKING_MINUTE_MD": "15",
-            "PARKING_MAX_ACCOUNTD": "25000",
-            "PARKING_HOLI_BASIC_ACCOUNTD": "1800",
-            "PARKING_HOLI_BASIC_MD": "30",
-            "PARKING_HOLI_FREE_MD": "30",
-            "PARKING_HOLI_MINUTE_ACCOUNTD": "800",
-            "PARKING_HOLI_MINUTE_MD": "15",
-            "PARKING_HOLI_MAX_ACCOUNTD": "30000",
+            "siteName": airport_name,
+            "parkingParkingName": lot_name,
+            "parkingBasicAccount": "1000",
+            "parkingBasicM": "30",
+            "parkingFreeM": "30",
+            "parkingMinuteAccount": "500",
+            "parkingMinuteM": "15",
+            "parkingMaxAccount": "20000",
+            "parkingHoliBasicAccount": "1500",
+            "parkingHoliBasicM": "30",
+            "parkingHoliFreeM": "30",
+            "parkingHoliMinuteAccount": "700",
+            "parkingHoliMinuteM": "15",
+            "parkingHoliMaxAccount": "25000",
+            "parkingBasicAccountd": "1200",
+            "parkingBasicMd": "30",
+            "parkingFreeMd": "30",
+            "parkingMinuteAccountd": "600",
+            "parkingMinuteMd": "15",
+            "parkingMaxAccountd": "25000",
+            "parkingHoliBasicAccountd": "1800",
+            "parkingHoliBasicMd": "30",
+            "parkingHoliFreeMd": "30",
+            "parkingHoliMinuteAccountd": "800",
+            "parkingHoliMinuteMd": "15",
+            "parkingHoliMaxAccountd": "30000",
         }
         for lot_name in lot_names
     ]
