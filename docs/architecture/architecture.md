@@ -113,6 +113,12 @@
     ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>)) — 아직
     마이그레이션 전이다. `krairport`에 필요한 기능이 없으면 이 파일 안에 우회 로직을 추가하지
     않고 `krairport` 자체를 고친다.
+- `backend/app/services/holidays.py`
+  - 한국천문연구원(KASI) 특일 정보(`15012690`) 조회, 월별 캐시
+  - `KasiHolidayClient`가 형제 라이브러리 `python-kasi-api`(`kasi`)의 `AsyncKasiClient.holidays()`를
+    통해 fetch를 수행한다([ADR-006](</F:/dev/parking-radar/docs/adr/006-kasi-provider-library.md>)).
+    파싱은 kasi가 반환하는 item의 `raw` mapping을 `parse_holiday_response`로 넘겨 기존
+    로직을 그대로 재사용한다.
 
 ## 분석 API
 

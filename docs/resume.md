@@ -27,15 +27,23 @@
 - 14번 공개 포트 (T-032 이후): API `14001`, web `14002`, DB `14000`(loopback 전용, 별도
   컨테이너). live E2E 기준 URL: `https://pr.digitie.mywire.org`
 - 14번 외부 API URL: `https://pr-api.digitie.mywire.org`
-- PR #5는 아직 14번에 배포하지 않았다 — `live-e2e` CI는 이 candidate 기준으로는 예상대로
-  실패(기존 패턴과 동일). 배포 전 reverse proxy 변경은 불필요할 것으로 보이나(경로만
-  내부적으로 바뀌고 Next.js가 프록시), 실제 배포 시 확인 필요.
+- PR #5는 2026-08-23에 14번에 배포해 live 검증까지 완료했다(`release_sha`=`03bd6f3`).
+  `/health`, `/v1/airports`, `/v1/parking/current`, `/v1/admin/collector-status` 모두
+  정상 응답했고, `RequestValidationError`(422)가 `application/problem+json`으로
+  내려오는 것도 실제로 확인했다(hostile review에서 Popper가 지적한 지점). 외부 도메인
+  `pr-api.digitie.mywire.org`/`pr.digitie.mywire.org`도 같은 `release_sha`로 응답해
+  reverse proxy 추가 변경은 필요 없었다.
+- `codex/kasi-holiday-migration`(PR [#7](https://github.com/digitie/parking-radar/pull/7))에서
+  공휴일 수집을 `python-kasi-api`(`kasi`)로 옮기는 작업을 구현 완료했다
+  ([ADR-006](</F:/dev/parking-radar/docs/adr/006-kasi-provider-library.md>)). WSL 1차
+  `82 passed`, Docker 2차 `79 passed`(`test_cutover_guards.py` 3개 제외, `T-031` 무관
+  사전 버그). hostile review와 머지가 아직 남아 있다.
 
 ## 다음 한 작업
 
-PR #5(`/v1` API 버저닝)를 14번에 배포해 live 검증을 진행할지 결정한다. 배포한다면
-`scripts/deploy-server14.sh` 실행 후 `/health`, `/v1/airports`, RFC7807 에러 포맷,
-`client_mode=live`를 확인한다. 이후 작업은 `T-029`(KAC ODCloud 비행편 지원을
+PR #7(공휴일 → `python-kasi-api`)의 hostile review(James/Popper)를 진행하고 지적사항을
+반영한 뒤 머지한다. 머지 후 14번 live 검증(실 서비스 키로 공휴일 조회, sample 대비 실제
+데이터 확인)을 진행할지 결정한다. 이후 작업은 `T-029`(KAC ODCloud 비행편 지원을
 `python-krairport-api`에 먼저 추가한 뒤 `flight_status.py` 전환)와 `T-031`
 (`test_cutover_guards.py` Docker 경로 버그) 중 하나를 고른다.
 

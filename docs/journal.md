@@ -113,3 +113,21 @@
   `scripts/verify_cutover.py` target 호출의 버저닝 누락을 같은 PR에서 고쳤다. `{data, meta}`
   envelope는 범위 밖으로 명시적으로 미뤘다(ADR-005 "후속" 참고). `live-e2e`는 14번이 이
   candidate로 아직 배포되지 않아 예상대로 실패했다.
+- PR #5(`/v1` API 버저닝)를 14번에 배포하고 live 검증까지 완료했다. `scripts/deploy-server14.sh`를
+  WSL에서 SSH로 실행했다(Windows Git Bash에는 SSH 키 접근이 없어 실패, WSL은 성공 —
+  스크립트 자체는 CRLF 문제로 WSL bash에서 shebang 파싱에 실패해 `sed`로 LF 정규화한
+  임시 사본을 실행했다. 원본 스크립트 파일 자체는 git상 LF로 저장돼 있고, 로컬 체크아웃의
+  Windows `core.autocrlf` 변환이 원인이었다). 배포는 서버14가 여러 다른 프로젝트
+  (`kor-travel-map`, `pinvi` 등)의 동시 빌드로 혼잡해 예상보다 오래 걸렸을 뿐 실제로는
+  정상 진행 중이었다 — 폴링 출력이 오래 멈춰 보일 때 별도 SSH 연결로 실제 프로세스 상태를
+  재확인해 멈춘 게 아님을 확인했다. 배포 후 `release_sha=03bd6f3`로 `/health`,
+  `/v1/airports`, `/v1/parking/current`, `/v1/admin/collector-status`가 모두 정상
+  응답했고, hostile review에서 Popper가 지적한 `RequestValidationError`의 RFC7807
+  누락 수정도 실제로 `422` + `application/problem+json`으로 확인했다. 외부 도메인
+  (`pr-api.digitie.mywire.org`, `pr.digitie.mywire.org`)도 같은 SHA로 응답해 reverse
+  proxy 추가 변경 없이 그대로 동작했다.
+- 사용자 요청으로 공휴일(KASI 특일 정보) 조회도 krairport와 같은 패턴으로
+  `python-kasi-api`(`kasi`)로 이관했다(`T-030`/ADR-004와 동일한 provider 라이브러리
+  원칙). ADR-006 신규 작성, `codex/kasi-holiday-migration` 브랜치 PR
+  [#7](https://github.com/digitie/parking-radar/pull/7)로 구현 완료. krairport 때와 달리
+  이번에는 필드명/endpoint 불일치 같은 새 버그를 발견하지 못했다 — 순수 provider 교체였다.

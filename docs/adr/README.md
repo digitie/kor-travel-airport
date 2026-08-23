@@ -14,8 +14,9 @@
 | [ADR-003](</F:/dev/parking-radar/docs/adr/003-unauthenticated-backup-network-restriction.md>) | 인증 없는 백업 UI의 네트워크 제한 | accepted |
 | [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>) | 비행편·주차 현황·주차요금 데이터는 `python-krairport-api`를 provider 라이브러리로 사용 | accepted (주차는 구현 완료, 비행편은 미완료) |
 | [ADR-005](</F:/dev/parking-radar/docs/adr/005-versioned-rest-api-contract.md>) | 백엔드 REST API를 `/v1` 버저닝 + RFC7807 에러로 정식 계약화 | accepted |
+| [ADR-006](</F:/dev/parking-radar/docs/adr/006-kasi-provider-library.md>) | 공휴일 데이터는 `python-kasi-api`를 provider 라이브러리로 사용 | accepted |
 
-**다음 번호 = ADR-006.**
+**다음 번호 = ADR-007.**
 
 ## 새 ADR 작성 규약
 
