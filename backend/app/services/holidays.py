@@ -7,6 +7,8 @@ from typing import Any
 from xml.etree import ElementTree
 
 import httpx
+from kasi import AsyncKasiClient
+from kasi.exceptions import KasiError
 
 from app.core.config import Settings
 from app.core.time_utils import now_utc
@@ -72,29 +74,32 @@ class FixtureHolidayClient(HolidayClient):
         )
 
 
-class LiveHolidayClient(HolidayClient):
+class KasiHolidayClient(HolidayClient):
+    """`python-kasi-api`(`kasi`)의 `holidays()`(`SpcdeInfoService/getRestDeInfo`)를
+    통해 공휴일을 조회한다. HTTP 호출과 응답 파싱은 kasi가 대신하고, 이 클라이언트는
+    kasi의 정규화된 `raw` item mapping을 기존 `parse_holiday_response` 경로로 넘긴다
+    (ADR-004의 provider 라이브러리 원칙 적용)."""
+
     def __init__(self, settings: Settings) -> None:
         if not settings.data_go_kr_service_key:
             raise ValueError("공공데이터 서비스키가 필요합니다.")
         self.settings = settings
 
     async def fetch_month(self, year: int, month: int) -> HolidaySourceResponse:
-        params = {
-            "serviceKey": self.settings.data_go_kr_service_key,
-            "solYear": str(year),
-            "solMonth": f"{month:02d}",
-            "numOfRows": 50,
-        }
-        async with httpx.AsyncClient(timeout=self.settings.api_timeout_seconds) as client:
-            response = await client.get(HOLIDAY_ENDPOINT, params=params)
-            response.raise_for_status()
-            return HolidaySourceResponse(
-                source="kasi_holiday_info",
-                endpoint=HOLIDAY_ENDPOINT,
-                request_params=params,
-                status_code=response.status_code,
-                body_text=response.text,
-            )
+        params = {"solYear": str(year), "solMonth": f"{month:02d}"}
+        async with AsyncKasiClient(
+            service_key=self.settings.data_go_kr_service_key,
+            timeout=self.settings.api_timeout_seconds,
+        ) as client:
+            page = await client.holidays(sol_year=year, sol_month=month, num_of_rows=50)
+        raw_items = [dict(item.raw) for item in page.items]
+        return HolidaySourceResponse(
+            source="kasi_holiday_info",
+            endpoint=HOLIDAY_ENDPOINT,
+            request_params=params,
+            status_code=200,
+            body_text=json.dumps(raw_items, ensure_ascii=False),
+        )
 
 
 class HolidayService:
@@ -172,7 +177,7 @@ class HolidayService:
                 error_message=error_message,
                 items=items,
             )
-        except (httpx.HTTPError, ElementTree.ParseError, ValueError, json.JSONDecodeError) as exc:
+        except (httpx.HTTPError, ElementTree.ParseError, ValueError, json.JSONDecodeError, KasiError) as exc:
             result = HolidayLookupResult(
                 source="kasi_holiday_info",
                 status="upstream_error",
@@ -189,9 +194,26 @@ def parse_holiday_response(body_text: str) -> tuple[list[HolidayItem], str | Non
     stripped = body_text.strip()
     if not stripped:
         return [], "holiday API error: empty response"
+    if stripped.startswith("["):
+        return _parse_holiday_raw_items(stripped)
     if stripped.startswith("{"):
         return _parse_holiday_json(stripped)
     return _parse_holiday_xml(stripped)
+
+
+def _parse_holiday_raw_items(body_text: str) -> tuple[list[HolidayItem], str | None]:
+    # kasi already validated the response envelope (result code, auth, rate
+    # limit) and raises KasiError on failure, so a raw item list here is
+    # already a success response — no envelope/result_code check needed.
+    raw_items = json.loads(body_text)
+    items = []
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            continue
+        parsed = _parse_holiday_fields(raw_item)
+        if parsed is not None:
+            items.append(parsed)
+    return _deduplicate_holidays(items), None
 
 
 def collapse_holidays_by_date(items: list[HolidayItem]) -> list[HolidayItem]:
@@ -310,7 +332,7 @@ def _deduplicate_holidays(items: list[HolidayItem]) -> list[HolidayItem]:
 
 def _build_client(settings: Settings) -> HolidayClient | None:
     if settings.data_go_kr_service_key:
-        return LiveHolidayClient(settings)
+        return KasiHolidayClient(settings)
     if settings.use_sample_client_when_no_key:
         return FixtureHolidayClient()
     return None
