@@ -10,6 +10,8 @@ from http import HTTPStatus
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -170,6 +172,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "instance": request.url.path,
             },
             headers=exc.headers,
+            media_type="application/problem+json",
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def problem_json_validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        # FastAPI raises RequestValidationError separately from HTTPException
+        # for bad query/body params, so it needs its own RFC 7807 handler
+        # to keep the "every error response uses the same shape" contract.
+        status_code = HTTPStatus.UNPROCESSABLE_ENTITY
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "type": "about:blank",
+                "title": status_code.phrase,
+                "status": int(status_code),
+                "detail": jsonable_encoder(exc.errors()),
+                "instance": request.url.path,
+            },
             media_type="application/problem+json",
         )
 
