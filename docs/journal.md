@@ -136,3 +136,27 @@
   선택으로 판단해 ADR-006에 근거를 남겼다. PR #7을 머지(`986d64e`)하고 14번에 배포해
   live 검증까지 완료했다: `release_sha=986d64e`, `GET /v1/holidays/summary`가 실제
   서비스 키로 `source=kasi_holiday_info`, 광복절/대체공휴일 데이터를 정상 반환했다.
+- `T-031`(Docker 컨테이너에서 `test_cutover_guards.py`가 `ModuleNotFoundError`로 깨지던
+  사전 버그)을 고쳤다. `sys.path` 계산이 로컬 repo-root 깊이(`parents[2]`)를 하드코딩해
+  Docker 이미지(`backend/`가 `/app`으로 flatten됨)에서만 깨졌던 것을, `parents[1]`/
+  `parents[2]` 둘 다 시도해 `observe_cutover.py`가 실제로 존재하는 디렉터리를 찾는
+  `_scripts_dir()`로 교체했다. hostile review에서 `is_dir()`만으로는 우연히 존재하는
+  다른 `scripts/`를 잘못 고를 수 있다는 지적을 받아 파일 존재까지 확인하도록
+  강화했다. PR [#9](https://github.com/digitie/parking-radar/pull/9) 머지, WSL/Docker
+  양쪽 `82 passed`(제외 없이 전부 통과).
+- `T-029`(`flight_status.py` → `python-krairport-api`)를 완료해 ADR-004 전체 범위를
+  마무리했다. KAC ODCloud(`FlightStatusListDTL`)는 krairport의 다른 KAC 서비스와 다른
+  호스트(`api.odcloud.kr`)를 쓰는 별도 provider라, `python-krairport-api`에
+  `KacClient.flight_status_detail_raw_items()`를 새로 추가하고(별도 저장소 PR
+  [#7](https://github.com/digitie/python-krairport-api/pull/7), 커밋 `cbe4d13`) parking-radar의
+  pin을 갱신했다. IIAC는 krairport의 기존 `iiac_raw_items`가 endpoint와 정확히 일치해
+  라이브러리 수정 없이 전환했다. hostile review(James/Popper)에서 두 가지를 지적받아
+  고쳤다: (1) IIAC 출발/도착 테스트가 공유 mock return value 때문에 두 호출을 구분하지
+  못하던 것을 `side_effect`로 강화, (2) `KrairportRateLimitError`가 다른 upstream 오류와
+  동일하게 처리돼 캐시되지 않던 것 — 비행편은 페이지 조회마다 즉시 호출되므로 rate limit
+  창 동안 방문자마다 upstream을 재호출해 창을 계속 갱신하는 문제가 있어, `status:
+  "rate_limited"`로 구분하고 `upstream_rate_limit_backoff_seconds` 동안 캐시하도록
+  고쳤다. PR [#10](https://github.com/digitie/parking-radar/pull/10) 머지(`9961579`), 14번에
+  배포해 live 검증 완료: `release_sha=9961579`, KAC(`GMP`)와 IIAC(`ICN`) 양쪽
+  `/v1/flights/status`가 실제 서비스 키로 `status=success`와 실제 항공편 데이터를
+  반환했다.
