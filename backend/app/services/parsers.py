@@ -263,10 +263,13 @@ def _coerce_kac_items(payload: str | list[dict[str, Any]]) -> list[dict[str, Any
     """
 
     if isinstance(payload, list):
-        return payload
+        return [
+            {key: (value.strip() if isinstance(value, str) else value) for key, value in item.items()}
+            for item in payload
+        ]
     stripped = payload.strip()
     if stripped.startswith("["):
-        return json.loads(payload)
+        return _coerce_kac_items(json.loads(payload))
     return _xml_items(payload)
 
 
