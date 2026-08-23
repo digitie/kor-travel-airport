@@ -13,11 +13,16 @@ def _scripts_dir() -> Path:
     # so tests/ sits only one level below /app (parents[1]/scripts). Try
     # both instead of hardcoding the depth.
     here = Path(__file__).resolve()
+    tried: list[Path] = []
     for depth in (1, 2):
         candidate = here.parents[depth] / "scripts"
-        if candidate.is_dir():
+        tried.append(candidate)
+        # Check for a known file, not just directory existence -- a stray
+        # `scripts/` dir at the wrong depth (e.g. backend/scripts/) would
+        # otherwise be silently preferred over the real one.
+        if (candidate / "observe_cutover.py").is_file():
             return candidate
-    raise RuntimeError(f"scripts directory not found relative to {here}")
+    raise RuntimeError(f"scripts directory not found relative to {here} (tried: {tried})")
 
 
 sys.path.insert(0, str(_scripts_dir()))
