@@ -63,7 +63,7 @@ npm run build
 - 인천 주차 응답의 실시간 `datetm` 파싱
 - 인천 요금 API 응답의 단기/장기/예약 규칙 변환
 - 한국공항공사 한도 초과 상태에서도 인천 주차/요금 수집을 계속하는지 확인
-- `/flights/status` 샘플 응답과 접근 오류 정규화
+- `/v1/flights/status` 샘플 응답과 접근 오류 정규화
 - 한국공항공사 `15113771` ODCloud 비행편 응답 정규화
 - 인천공항 도착/출발 비행편 응답 정규화
 
@@ -153,8 +153,8 @@ npm run test:e2e
 
 API 확인:
 
-- `GET /parking/current`
-- `GET /admin/collector-status`
+- `GET /v1/parking/current`
+- `GET /v1/admin/collector-status`
 
 확인 포인트:
 
@@ -184,7 +184,7 @@ UI 확인 (로컬 profile에서 `ENABLE_MANUAL_COLLECT=true`일 때만):
 3. `USE_SAMPLE_CLIENT_WHEN_NO_KEY=false`
 4. `DATA_GO_KR_SERVICE_KEY` 설정
 5. 빠른 검증이 필요하면 임시로 `COLLECT_INTERVAL_SECONDS=15`로 줄인다.
-6. `GET /admin/collector-status`에서 최근 실행 이력을 본다.
+6. `GET /v1/admin/collector-status`에서 최근 실행 이력을 본다.
 7. 검증이 끝나면 live 검증 스택을 즉시 내린다.
 
 정상 신호:
@@ -266,11 +266,11 @@ Playwright 결과 JSON은 `frontend/test-results/live-e2e.json`에 남긴다. 32
 - `https://pr.digitie.mywire.org/api/backend/health` 응답
 - `https://pr-api.digitie.mywire.org/health` 응답
 - `http://192.168.1.14:14001/health` 응답 (T-032 이후 API 포트)
-- `http://192.168.1.14:14001/admin/collector-status`에서
+- `http://192.168.1.14:14001/v1/admin/collector-status`에서
   - `client_mode=live`
   - `scheduler_enabled=true`
   - `upstream_rate_limited=false`
-- public server14에서 `POST /admin/collect`가 `404`로 비활성화되고, backup/restore UI는
+- public server14에서 `POST /v1/admin/collect`가 `404`로 비활성화되고, backup/restore UI는
   별도 app auth 없이 private gateway 경계 안에서 동작하는지 확인
 - 웹 UI에서 (로컬 profile):
   - 현재 시각 표시가 KST 기준인지 확인

@@ -105,46 +105,46 @@ export function buildApiClient(apiBaseUrl?: string) {
 
   return {
     getAirports(): Promise<Airport[]> {
-      return getJson<Airport[]>(`${baseUrl}/airports`);
+      return getJson<Airport[]>(`${baseUrl}/v1/airports`);
     },
     getDashboardBootstrap(airportCode?: string): Promise<DashboardBootstrapResponse> {
       const params = airportCode ? `?airport_code=${encodeURIComponent(airportCode)}` : "";
-      return getJson<DashboardBootstrapResponse>(`${baseUrl}/dashboard/bootstrap${params}`);
+      return getJson<DashboardBootstrapResponse>(`${baseUrl}/v1/dashboard/bootstrap${params}`);
     },
     getCurrent(airportCode: string): Promise<ParkingCurrentResponse> {
-      return getJson<ParkingCurrentResponse>(`${baseUrl}/parking/current?airport_code=${airportCode}`);
+      return getJson<ParkingCurrentResponse>(`${baseUrl}/v1/parking/current?airport_code=${airportCode}`);
     },
     getCollectorStatus(): Promise<CollectorStatusResponse> {
-      return getJson<CollectorStatusResponse>(`${baseUrl}/admin/collector-status`);
+      return getJson<CollectorStatusResponse>(`${baseUrl}/v1/admin/collector-status`);
     },
     getDashboardAnalytics(
       airportCode: string,
       parkingLotId: number | null = null
     ): Promise<DashboardAnalyticsResponse> {
       return getJson<DashboardAnalyticsResponse>(
-        buildAnalyticsUrl(baseUrl, "/dashboard/analytics", airportCode, { parkingLotId })
+        buildAnalyticsUrl(baseUrl, "/v1/dashboard/analytics", airportCode, { parkingLotId })
       );
     },
     getFlightStatus(airportCode: string): Promise<FlightStatusResponse> {
       const params = new URLSearchParams({ airport_code: airportCode });
-      return getJson<FlightStatusResponse>(`${baseUrl}/flights/status?${params.toString()}`);
+      return getJson<FlightStatusResponse>(`${baseUrl}/v1/flights/status?${params.toString()}`);
     },
     getHolidaySummary(): Promise<HolidaySummaryResponse> {
-      return getJson<HolidaySummaryResponse>(`${baseUrl}/holidays/summary`);
+      return getJson<HolidaySummaryResponse>(`${baseUrl}/v1/holidays/summary`);
     },
     runCollector(): Promise<CollectionSummary> {
-      return getJson<CollectionSummary>(`${baseUrl}/admin/collect`, {
+      return getJson<CollectionSummary>(`${baseUrl}/v1/admin/collect`, {
         method: "POST",
       });
     },
     listBackups(): Promise<BackupListResponse> {
-      return getJson<BackupListResponse>(`${baseUrl}/admin/backups`);
+      return getJson<BackupListResponse>(`${baseUrl}/v1/admin/backups`);
     },
     createBackup(): Promise<BackupFile> {
-      return getJson<BackupFile>(`${baseUrl}/admin/backups`, { method: "POST" });
+      return getJson<BackupFile>(`${baseUrl}/v1/admin/backups`, { method: "POST" });
     },
     async downloadBackup(filename: string): Promise<Blob> {
-      const response = await fetch(`${baseUrl}/admin/backups/${encodeURIComponent(filename)}`, {
+      const response = await fetch(`${baseUrl}/v1/admin/backups/${encodeURIComponent(filename)}`, {
         cache: "no-store",
       });
       if (!response.ok) {
@@ -155,22 +155,22 @@ export function buildApiClient(apiBaseUrl?: string) {
     restoreBackup(file: File): Promise<BackupRestoreResponse> {
       const formData = new FormData();
       formData.append("file", file, file.name);
-      return getJson<BackupRestoreResponse>(`${baseUrl}/admin/backups/restore`, {
+      return getJson<BackupRestoreResponse>(`${baseUrl}/v1/admin/backups/restore`, {
         method: "POST",
         body: formData,
       });
     },
     getByHour(airportCode: string, parkingLotId: number | null = null): Promise<HourlyBucket[]> {
-      return getJson<HourlyBucket[]>(buildAnalyticsUrl(baseUrl, "/parking/analytics/by-hour", airportCode, { parkingLotId }));
+      return getJson<HourlyBucket[]>(buildAnalyticsUrl(baseUrl, "/v1/parking/analytics/by-hour", airportCode, { parkingLotId }));
     },
     getByWeekday(airportCode: string, parkingLotId: number | null = null): Promise<WeekdayBucket[]> {
       return getJson<WeekdayBucket[]>(
-        buildAnalyticsUrl(baseUrl, "/parking/analytics/by-weekday", airportCode, { parkingLotId })
+        buildAnalyticsUrl(baseUrl, "/v1/parking/analytics/by-weekday", airportCode, { parkingLotId })
       );
     },
     getByWeekdayHour(airportCode: string, parkingLotId: number | null = null): Promise<WeekdayHourlyPattern[]> {
       return getJson<WeekdayHourlyPattern[]>(
-        buildAnalyticsUrl(baseUrl, "/parking/analytics/by-weekday-hour", airportCode, { parkingLotId })
+        buildAnalyticsUrl(baseUrl, "/v1/parking/analytics/by-weekday-hour", airportCode, { parkingLotId })
       );
     },
     getTimeSeries(
@@ -179,7 +179,7 @@ export function buildApiClient(apiBaseUrl?: string) {
     ): Promise<ParkingTimeSeriesResponse> {
       const { parkingLotId = null, days = 7, intervalMinutes = 10, futureHours = 0 } = options;
       return getJson<ParkingTimeSeriesResponse>(
-        buildAnalyticsUrl(baseUrl, "/parking/analytics/timeseries", airportCode, {
+        buildAnalyticsUrl(baseUrl, "/v1/parking/analytics/timeseries", airportCode, {
           parkingLotId,
           days,
           intervalMinutes,
@@ -198,11 +198,11 @@ export function buildApiClient(apiBaseUrl?: string) {
       if (options.limit != null) {
         params.set("limit", String(options.limit));
       }
-      return getJson<HolidayPatternResponse>(`${baseUrl}/parking/analytics/holiday-patterns?${params.toString()}`);
+      return getJson<HolidayPatternResponse>(`${baseUrl}/v1/parking/analytics/holiday-patterns?${params.toString()}`);
     },
     getThresholdEvents(airportCode: string, parkingLotId: number | null = null): Promise<ThresholdEvent[]> {
       return getJson<ThresholdEvent[]>(
-        buildAnalyticsUrl(baseUrl, "/parking/analytics/threshold-events", airportCode, { parkingLotId })
+        buildAnalyticsUrl(baseUrl, "/v1/parking/analytics/threshold-events", airportCode, { parkingLotId })
       );
     },
     getThresholdInsights(
@@ -211,7 +211,7 @@ export function buildApiClient(apiBaseUrl?: string) {
     ): Promise<ThresholdInsightsResponse> {
       const { parkingLotId = null, days = 21, intervalMinutes = 10 } = options;
       return getJson<ThresholdInsightsResponse>(
-        buildAnalyticsUrl(baseUrl, "/parking/analytics/threshold-insights", airportCode, {
+        buildAnalyticsUrl(baseUrl, "/v1/parking/analytics/threshold-insights", airportCode, {
           parkingLotId,
           days,
           intervalMinutes,
@@ -219,7 +219,7 @@ export function buildApiClient(apiBaseUrl?: string) {
       );
     },
     async calculateFee(payload: FeeCalculationRequest): Promise<FeeCalculationResponse> {
-      return getJson<FeeCalculationResponse>(`${baseUrl}/fees/calculate`, {
+      return getJson<FeeCalculationResponse>(`${baseUrl}/v1/fees/calculate`, {
         method: "POST",
         body: JSON.stringify(payload),
       });

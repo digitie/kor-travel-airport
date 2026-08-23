@@ -43,7 +43,7 @@
 
 한국공항공사 주차 API가 한도 초과 상태이면 한국공항공사 주차/요금 소스는 건너뛰지만, 인천공항 전용 소스가 활성화되어 있으면 같은 수집 실행에서 계속 호출한다.
 
-비행편 운항 정보는 주차장 스냅샷 수집 흐름과 분리한다. `/flights/status` 호출 시 공항 코드에 따라 한국공항공사 `15113771` ODCloud JSON API 또는 인천국제공항공사 `15112968` 도착/출발 엔드포인트를 조회하고, 응답은 짧게 캐시한 뒤 하루 흐름 오버레이 차트의 마커용으로만 반환한다.
+비행편 운항 정보는 주차장 스냅샷 수집 흐름과 분리한다. `/v1/flights/status` 호출 시 공항 코드에 따라 한국공항공사 `15113771` ODCloud JSON API 또는 인천국제공항공사 `15112968` 도착/출발 엔드포인트를 조회하고, 응답은 짧게 캐시한 뒤 하루 흐름 오버레이 차트의 마커용으로만 반환한다.
 
 ## 스케줄러
 
@@ -75,7 +75,7 @@
 수동 수집 규칙 (로컬 개발 전용):
 
 - `ENABLE_MANUAL_COLLECT=true`인 로컬 profile에서만 웹 UI의 `지금 수집` 버튼이
-  `POST /admin/collect`를 호출한다. public server14에서는 버튼과 endpoint가 비활성화된다.
+  `POST /v1/admin/collect`를 호출한다. public server14에서는 버튼과 endpoint가 비활성화된다.
 - 수동 수집 제한은 `manual_collect_min_interval_seconds`를 따른다.
 - 운영에서는 마지막 적재 후 `MANUAL_COLLECT_MIN_INTERVAL_SECONDS`가 지나지 않았으면
   프론트와 백엔드 모두 수동 수집을 막는다.
@@ -116,29 +116,34 @@
 
 ## 분석 API
 
-- `GET /parking/current`
+모든 경로는 `/health`를 제외하고 `/v1` 아래에 있다([ADR-005](</F:/dev/parking-radar/docs/adr/005-versioned-rest-api-contract.md>)).
+에러 응답은 RFC7807 `application/problem+json`이다. 기계 정본은
+`docs/openapi.json`(`scripts/export_openapi.py`로 재생성).
+
+- `GET /health` — 비버저닝 고정
+- `GET /v1/parking/current`
   - 현재 주차 현황
-- `GET /parking/analytics/timeseries`
+- `GET /v1/parking/analytics/timeseries`
   - 최근 N일, M분 단위 시계열
-- `GET /parking/analytics/by-hour`
+- `GET /v1/parking/analytics/by-hour`
   - 시간대별 단순 평균
-- `GET /parking/analytics/by-weekday`
+- `GET /v1/parking/analytics/by-weekday`
   - 요일별 단순 평균
-- `GET /parking/analytics/by-weekday-hour`
+- `GET /v1/parking/analytics/by-weekday-hour`
   - 요일 x 시간 상세 평균
-- `GET /parking/analytics/threshold-events`
+- `GET /v1/parking/analytics/threshold-events`
   - 10대 / 50대 임계치 진입 / 회복
-- `GET /parking/analytics/threshold-insights`
+- `GET /v1/parking/analytics/threshold-insights`
   - 요일별 대표 임계 진입 시각 / 날짜별 진입 히스토리
-- `GET /dashboard/bootstrap`
+- `GET /v1/dashboard/bootstrap`
   - 공항·현재 현황·수집기·공휴일 요약을 초기 화면용으로 묶어 반환
-- `GET /dashboard/analytics`
-  - 주차 분석 응답을 한 번에 반환. 비행편은 별도 `/flights/status`로 유지
-- `GET /admin/backups`, `POST /admin/backups`
+- `GET /v1/dashboard/analytics`
+  - 주차 분석 응답을 한 번에 반환. 비행편은 별도 `/v1/flights/status`로 유지
+- `GET /v1/admin/backups`, `POST /v1/admin/backups`
   - 내부망 전제의 PostgreSQL custom-format 백업 목록/생성
-- `GET /admin/backups/{filename}`, `POST /admin/backups/restore`
+- `GET /v1/admin/backups/{filename}`, `POST /v1/admin/backups/restore`
   - 백업 다운로드와 확인 후 복원
-- `GET /flights/status`
+- `GET /v1/flights/status`
   - 선택 공항의 당일 출도착 비행편 마커
 
 ## 프론트 화면 구조
@@ -158,22 +163,22 @@
 
 ## 프론트 데이터 흐름
 
-1. 초기 진입 시 `GET /dashboard/bootstrap` 호출
+1. 초기 진입 시 `GET /v1/dashboard/bootstrap` 호출
 2. 마지막으로 본 `공항 / 세부 주차장`을 localStorage와 cookie에서 복원
-3. 현재 현황이 먼저 렌더링된 뒤 `GET /dashboard/analytics`를 지연 호출
+3. 현재 현황이 먼저 렌더링된 뒤 `GET /v1/dashboard/analytics`를 지연 호출
 4. 비행편은 별도 요청으로 유지해 주차 화면을 막지 않는다.
 5. 선택 공항 변경 시 설정을 1년 만료 cookie와 localStorage에 함께 저장한다.
 
 기존 개별 분석 경로는 API 호환성을 위해 유지한다.
 
 legacy 병렬 요청 경로:
-   - `GET /parking/current`
-   - `GET /parking/analytics/timeseries`
-   - `GET /parking/analytics/by-weekday-hour`
-   - `GET /parking/analytics/threshold-insights`
-   - `GET /parking/analytics/threshold-events`
-   - `GET /flights/status`
-   - `GET /admin/collector-status`
+   - `GET /v1/parking/current`
+   - `GET /v1/parking/analytics/timeseries`
+   - `GET /v1/parking/analytics/by-weekday-hour`
+   - `GET /v1/parking/analytics/threshold-insights`
+   - `GET /v1/parking/analytics/threshold-events`
+   - `GET /v1/flights/status`
+   - `GET /v1/admin/collector-status`
 4. 세부 주차장 선택 시 같은 공항 코드에 `parking_lot_id`를 붙여 재호출
 
 ## 운영용 API 주소 처리

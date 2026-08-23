@@ -12,7 +12,7 @@ describe("api client", () => {
     await client.getAirports();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8000/airports",
+      "http://localhost:8000/v1/airports",
       expect.objectContaining({ cache: "no-store" })
     );
   });
@@ -30,12 +30,12 @@ describe("api client", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "http://localhost:8000/dashboard/bootstrap?airport_code=GMP",
+      "http://localhost:8000/v1/dashboard/bootstrap?airport_code=GMP",
       expect.objectContaining({ cache: "no-store" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "http://localhost:8000/dashboard/analytics?airport_code=GMP&parking_lot_id=12",
+      "http://localhost:8000/v1/dashboard/analytics?airport_code=GMP&parking_lot_id=12",
       expect.objectContaining({ cache: "no-store" })
     );
   });
@@ -51,7 +51,7 @@ describe("api client", () => {
     await client.restoreBackup(new File(["dump"], "parking-radar-test.dump"));
 
     const request = fetchMock.mock.calls[0][1] as RequestInit;
-    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8000/admin/backups/restore");
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8000/v1/admin/backups/restore");
     expect(request.method).toBe("POST");
     expect(request.body).toBeInstanceOf(FormData);
     expect(new Headers(request.headers).has("Content-Type")).toBe(false);
@@ -69,7 +69,7 @@ describe("api client", () => {
     await client.getCurrent("GMP");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/backend/parking/current?airport_code=GMP",
+      "/api/backend/v1/parking/current?airport_code=GMP",
       expect.objectContaining({ cache: "no-store" })
     );
   });
@@ -92,37 +92,37 @@ describe("api client", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "http://localhost:8000/parking/analytics/by-hour?airport_code=GMP&parking_lot_id=12",
+      "http://localhost:8000/v1/parking/analytics/by-hour?airport_code=GMP&parking_lot_id=12",
       expect.objectContaining({ cache: "no-store" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "http://localhost:8000/parking/analytics/by-weekday?airport_code=GMP&parking_lot_id=12",
+      "http://localhost:8000/v1/parking/analytics/by-weekday?airport_code=GMP&parking_lot_id=12",
       expect.objectContaining({ cache: "no-store" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      "http://localhost:8000/parking/analytics/by-weekday-hour?airport_code=GMP&parking_lot_id=12",
+      "http://localhost:8000/v1/parking/analytics/by-weekday-hour?airport_code=GMP&parking_lot_id=12",
       expect.objectContaining({ cache: "no-store" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
-      "http://localhost:8000/parking/analytics/threshold-events?airport_code=GMP&parking_lot_id=12",
+      "http://localhost:8000/v1/parking/analytics/threshold-events?airport_code=GMP&parking_lot_id=12",
       expect.objectContaining({ cache: "no-store" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      "http://localhost:8000/parking/analytics/threshold-insights?airport_code=GMP&parking_lot_id=12&days=21&interval_minutes=10",
+      "http://localhost:8000/v1/parking/analytics/threshold-insights?airport_code=GMP&parking_lot_id=12&days=21&interval_minutes=10",
       expect.objectContaining({ cache: "no-store" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       6,
-      "http://localhost:8000/parking/analytics/timeseries?airport_code=GMP&parking_lot_id=12&days=7&interval_minutes=10&future_hours=0",
+      "http://localhost:8000/v1/parking/analytics/timeseries?airport_code=GMP&parking_lot_id=12&days=7&interval_minutes=10&future_hours=0",
       expect.objectContaining({ cache: "no-store" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       7,
-      "http://localhost:8000/parking/analytics/holiday-patterns?airport_code=GMP&parking_lot_id=12&limit=8",
+      "http://localhost:8000/v1/parking/analytics/holiday-patterns?airport_code=GMP&parking_lot_id=12&limit=8",
       expect.objectContaining({ cache: "no-store" })
     );
   });
@@ -147,7 +147,7 @@ describe("api client", () => {
     await client.getHolidaySummary();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8000/holidays/summary",
+      "http://localhost:8000/v1/holidays/summary",
       expect.objectContaining({ cache: "no-store" })
     );
   });
@@ -171,7 +171,7 @@ describe("api client", () => {
     await client.getFlightStatus("GMP");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8000/flights/status?airport_code=GMP",
+      "http://localhost:8000/v1/flights/status?airport_code=GMP",
       expect.objectContaining({ cache: "no-store" })
     );
   });
@@ -234,12 +234,12 @@ describe("api client", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "http://localhost:8000/admin/collector-status",
+      "http://localhost:8000/v1/admin/collector-status",
       expect.objectContaining({ cache: "no-store" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "http://localhost:8000/admin/collect",
+      "http://localhost:8000/v1/admin/collect",
       expect.objectContaining({
         method: "POST",
         cache: "no-store",

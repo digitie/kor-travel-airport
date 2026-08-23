@@ -37,7 +37,7 @@
   이쪽은 krairport 수정 없이 바로 전환 가능.
 - [ ] `backend/app/services/flight_status.py`의 KAC/IIAC 직접 `httpx` 호출·XML/JSON 파싱을
   krairport 호출로 대체한다.
-- [ ] 전환 전후 `/flights/status` 응답 스키마가 동일한지 확인한다(프론트 `daily-flight-overlay-chart.tsx`
+- [ ] 전환 전후 `/v1/flights/status` 응답 스키마가 동일한지 확인한다(프론트 `daily-flight-overlay-chart.tsx`
   계약 변경 없음).
 - [ ] `backend/tests/test_flight_status.py`를 krairport 기반 fetch에 맞게 갱신한다.
 - [ ] `docs/architecture/data-sources.md` §6/§7, `docs/architecture/architecture.md`의

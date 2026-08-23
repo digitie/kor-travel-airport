@@ -34,34 +34,42 @@ const FORWARDED_RESPONSE_HEADERS = new Set([
 ]);
 
 function isAllowedBackendRequest(path: string, method: string): boolean {
-  if ((path === "health" || path === "airports") && method === "GET") {
+  // `/health` stays unversioned (ADR-005); everything else lives under `/v1`.
+  if (path === "health" && method === "GET") {
     return true;
   }
-  if (path.startsWith("parking/") && method === "GET") {
+  if (!path.startsWith("v1/")) {
+    return false;
+  }
+  const versioned = path.slice("v1/".length);
+  if (versioned === "airports" && method === "GET") {
     return true;
   }
-  if (path.startsWith("holidays/") && method === "GET") {
+  if (versioned.startsWith("parking/") && method === "GET") {
     return true;
   }
-  if (path === "flights/status" && method === "GET") {
+  if (versioned.startsWith("holidays/") && method === "GET") {
     return true;
   }
-  if (path === "fees/calculate" && method === "POST") {
+  if (versioned === "flights/status" && method === "GET") {
     return true;
   }
-  if (path === "admin/collector-status" && method === "GET") {
+  if (versioned === "fees/calculate" && method === "POST") {
     return true;
   }
-  if ((path === "dashboard/bootstrap" || path === "dashboard/analytics") && method === "GET") {
+  if (versioned === "admin/collector-status" && method === "GET") {
     return true;
   }
-  if (path === "admin/backups" && (method === "GET" || method === "POST")) {
+  if ((versioned === "dashboard/bootstrap" || versioned === "dashboard/analytics") && method === "GET") {
     return true;
   }
-  if (path === "admin/backups/restore" && method === "POST") {
+  if (versioned === "admin/backups" && (method === "GET" || method === "POST")) {
     return true;
   }
-  if (/^admin\/backups\/[^/]+$/.test(path) && method === "GET") {
+  if (versioned === "admin/backups/restore" && method === "POST") {
+    return true;
+  }
+  if (/^admin\/backups\/[^/]+$/.test(versioned) && method === "GET") {
     return true;
   }
   return false;
@@ -178,8 +186,12 @@ async function proxyToBackend(request: NextRequest, context: RouteContext): Prom
     return Response.json({ detail: "Not found" }, { status: 404 });
   }
 
+  // Backend routes live under `/v1` (ADR-005) except `/health`, which stays
+  // unversioned. `api.ts` already includes `v1/` in every path it builds (so
+  // that direct-to-backend usage, bypassing this proxy, also gets the
+  // correct versioned path) -- this proxy just forwards the path as-is.
   const targetUrl = `${BACKEND_INTERNAL_URL}/${backendPath}${request.nextUrl.search}`;
-  const isBackupRequest = backendPath.startsWith("admin/backups");
+  const isBackupRequest = backendPath.startsWith("v1/admin/backups");
   const requestTimeoutMs = isBackupRequest ? BACKUP_PROXY_TIMEOUT_MS : BACKEND_PROXY_TIMEOUT_MS;
   const bodyTimeoutMs = isBackupRequest ? BACKUP_PROXY_BODY_TIMEOUT_MS : BACKEND_PROXY_BODY_TIMEOUT_MS;
   const controller = new AbortController();

@@ -98,16 +98,26 @@ async def fetch_json(client: httpx.AsyncClient, base_url: str, path: str, **para
     return response.json()
 
 
+async def fetch_target_json(client: httpx.AsyncClient, base_url: str, path: str, **params: Any) -> Any:
+    # Target is server14, which serves the /v1-versioned API (ADR-005). Source
+    # (server13) stays on the old unversioned legacy API and must NOT get this
+    # prefix.
+    return await fetch_json(client, base_url, f"/v1/{path.lstrip('/')}", **params)
+
+
 async def latest_lot_history(
     client: httpx.AsyncClient,
     base_url: str,
     airport_code: str,
     lot: dict[str, Any],
     days: int,
+    *,
+    is_target: bool = False,
 ) -> tuple[str, str, str, datetime | None, str | None, datetime]:
     identity = str(lot.get("legacy_source_lot_id") or lot["id"])
+    fetch = fetch_target_json if is_target else fetch_json
     try:
-        payload = await fetch_json(
+        payload = await fetch(
             client,
             base_url,
             "/parking/history",
@@ -130,8 +140,8 @@ async def verify(args: argparse.Namespace) -> int:
     async with httpx.AsyncClient(timeout=30) as client:
         source_airports, target_airports, target_status = await asyncio.gather(
             fetch_json(client, args.source_base_url, "/airports"),
-            fetch_json(client, args.target_base_url, "/airports"),
-            fetch_json(client, args.target_base_url, "/admin/collector-status"),
+            fetch_target_json(client, args.target_base_url, "/airports"),
+            fetch_target_json(client, args.target_base_url, "/admin/collector-status"),
         )
         target_status_checked_at = datetime.now(timezone.utc)
 
@@ -183,6 +193,7 @@ async def verify(args: argparse.Namespace) -> int:
                     airport_code,
                     candidates[0],
                     args.days,
+                    is_target=True,
                 )
             )
 

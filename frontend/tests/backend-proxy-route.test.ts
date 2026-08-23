@@ -20,19 +20,19 @@ describe("backend proxy route", () => {
     vi.stubEnv("BACKEND_INTERNAL_URL", "http://test-backend:8000");
 
     const { GET } = await import("@/app/api/backend/[...path]/route");
-    const request = new NextRequest("https://pr.digitie.mywire.org/api/backend/airports", {
+    const request = new NextRequest("https://pr.digitie.mywire.org/api/backend/v1/airports", {
       headers: {
         accept: "application/json",
         host: "pr.digitie.mywire.org",
       },
     });
-    const response = await GET(request, { params: Promise.resolve({ path: ["airports"] }) });
+    const response = await GET(request, { params: Promise.resolve({ path: ["v1", "airports"] }) });
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store, max-age=0, must-revalidate");
     expect(response.headers.get("content-type")).toContain("application/json");
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://test-backend:8000/airports",
+      "http://test-backend:8000/v1/airports",
       expect.objectContaining({
         cache: "no-store",
         method: "GET",
@@ -62,10 +62,10 @@ describe("backend proxy route", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { POST } = await import("@/app/api/backend/[...path]/route");
-    const request = new NextRequest("https://pr.digitie.mywire.org/api/backend/admin/collect", {
+    const request = new NextRequest("https://pr.digitie.mywire.org/api/backend/v1/admin/collect", {
       method: "POST",
     });
-    const response = await POST(request, { params: Promise.resolve({ path: ["admin", "collect"] }) });
+    const response = await POST(request, { params: Promise.resolve({ path: ["v1", "admin", "collect"] }) });
 
     expect(response.status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -117,8 +117,8 @@ describe("backend proxy route", () => {
 
     try {
       const { GET } = await import("@/app/api/backend/[...path]/route");
-      const request = new NextRequest("https://pr.digitie.mywire.org/api/backend/admin/backups");
-      const responsePromise = GET(request, { params: Promise.resolve({ path: ["admin", "backups"] }) });
+      const request = new NextRequest("https://pr.digitie.mywire.org/api/backend/v1/admin/backups");
+      const responsePromise = GET(request, { params: Promise.resolve({ path: ["v1", "admin", "backups"] }) });
       await vi.advanceTimersByTimeAsync(1_000);
       await vi.advanceTimersByTimeAsync(500);
       const response = await responsePromise;

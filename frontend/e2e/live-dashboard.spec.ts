@@ -21,7 +21,7 @@ test.describe("live parking-radar dashboard", () => {
       expect(healthPayload.release_sha).toBe(expectedReleaseSha);
     }
 
-    const collectorStatus = await page.request.get("/api/backend/admin/collector-status");
+    const collectorStatus = await page.request.get("/api/backend/v1/admin/collector-status");
     expect(collectorStatus.status()).toBe(200);
     const collectorPayload = await collectorStatus.json();
     expect(collectorPayload.client_mode).toBe("live");

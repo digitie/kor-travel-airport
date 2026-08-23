@@ -44,7 +44,7 @@ curl -X POST http://localhost:8000/admin/collect
 
 먼저 확인:
 
-1. `GET /admin/collector-status`
+1. `GET /v1/admin/collector-status`
 2. `.env` 또는 `.env.odroid`의 `ENABLE_INCHEON_COLLECTION`
 3. `.env` 또는 `.env.odroid`의 `AIRPORT_CODES_CSV`
 4. 최근 `collection_runs`의 `enabled_sources`
@@ -90,8 +90,8 @@ curl -X POST http://localhost:8000/admin/collect
 
 점검 순서:
 
-1. `GET /parking/current`
-2. `GET /admin/collector-status`
+1. `GET /v1/parking/current`
+2. `GET /v1/admin/collector-status`
 3. API는 UTC, 브라우저는 KST 기준인지 확인
 4. `client_mode=sample`인지 확인
 
@@ -166,7 +166,7 @@ curl -fsS -D - -o /dev/null https://pr2.digitie.mywire.org/api/backend/airports
 
 먼저 확인:
 
-1. `GET /admin/collector-status`
+1. `GET /v1/admin/collector-status`
 2. 마지막 `latest_snapshot_collected_at`
 3. 화면의 안내 메시지
 
@@ -212,7 +212,7 @@ curl -fsS -D - -o /dev/null https://pr2.digitie.mywire.org/api/backend/airports
 
 먼저 확인:
 
-1. `GET /admin/collector-status`
+1. `GET /v1/admin/collector-status`
 2. 최근 `collection_runs` 실패 시작 시각
 3. 오늘 성공한 수집 횟수
 

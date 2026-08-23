@@ -196,13 +196,13 @@ DATA_GO_KR_SERVICE_KEY=...
 현재 데이터 즉시 갱신:
 
 ```bash
-curl -X POST http://localhost:8000/admin/collect
+curl -X POST http://localhost:8000/v1/admin/collect
 ```
 
 상태 확인:
 
 ```bash
-curl http://localhost:8000/admin/collector-status
+curl http://localhost:8000/v1/admin/collector-status
 ```
 
 확인 포인트:
@@ -283,23 +283,27 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 - 시계열 계단형 라인과 X축 라벨 레이아웃
 - 하루 흐름 오버레이 차트의 비행편 마커와 편명/출도착 정보 표시
 - 요일 x 시간 분석 패널 렌더링
-- `GET /admin/collector-status`로 수집 모드 확인
+- `GET /v1/admin/collector-status`로 수집 모드 확인
 
 ## 주요 API
 
-- `GET /airports`
-- `GET /parking/current`
-- `GET /parking/history`
-- `GET /parking/analytics/timeseries`
-- `GET /parking/analytics/by-hour`
-- `GET /parking/analytics/by-weekday`
-- `GET /parking/analytics/by-weekday-hour`
-- `GET /parking/analytics/threshold-events`
-- `GET /parking/analytics/threshold-insights`
-- `GET /flights/status`
-- `POST /fees/calculate`
-- `POST /admin/collect` (로컬에서 `ENABLE_MANUAL_COLLECT=true`일 때만)
-- `GET /admin/collector-status`
+`/health`를 제외한 모든 경로는 `/v1` 아래에 있다([ADR-005](</F:/dev/parking-radar/docs/adr/005-versioned-rest-api-contract.md>)).
+에러 응답은 RFC7807 `application/problem+json`. 기계 정본은 `docs/openapi.json`.
+
+- `GET /health`
+- `GET /v1/airports`
+- `GET /v1/parking/current`
+- `GET /v1/parking/history`
+- `GET /v1/parking/analytics/timeseries`
+- `GET /v1/parking/analytics/by-hour`
+- `GET /v1/parking/analytics/by-weekday`
+- `GET /v1/parking/analytics/by-weekday-hour`
+- `GET /v1/parking/analytics/threshold-events`
+- `GET /v1/parking/analytics/threshold-insights`
+- `GET /v1/flights/status`
+- `POST /v1/fees/calculate`
+- `POST /v1/admin/collect` (로컬에서 `ENABLE_MANUAL_COLLECT=true`일 때만)
+- `GET /v1/admin/collector-status`
 
 ## 문서
 

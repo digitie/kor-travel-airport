@@ -62,10 +62,10 @@
   - 예: `5/5 (화) 어린이날, 5/25 (월) 부처님오신 날 입니다.`
 - 최근 7일 시계열 범위 안에 공휴일/토요일/일요일이 있으면 해당 날짜의 차트 배경을 별도 색으로 표시한다.
 - 차트 배경 위쪽에는 공휴일명 또는 토요일/일요일명을 표시한다.
-- `GET /holidays/summary`
+- `GET /v1/holidays/summary`
   - 지난주 월요일부터 다음주 일요일까지를 기본 범위로 조회한다.
   - `start_date`, `end_date`를 넘기면 지정 기간으로 조회할 수 있다.
-- `GET /parking/analytics/holiday-patterns`
+- `GET /v1/parking/analytics/holiday-patterns`
   - 최근 8개 공휴일/토요일/일요일 날짜를 기준으로 시간대별 잔여 주차면을 집계한다.
   - 각 항목은 `day_type`으로 `holiday`, `saturday`, `sunday` 중 하나를 반환한다.
   - 공항 전체 스코프에서는 같은 시각의 세부 주차장 잔여면을 합산해서 시간대 값으로 사용한다.
@@ -75,12 +75,12 @@
 
 ### 기존 요약
 
-- `GET /parking/analytics/by-hour`
+- `GET /v1/parking/analytics/by-hour`
 - 최근 N일 관측값을 시간대별로 단순 집계한다.
 
 ### 요일 x 시간 히트맵
 
-- `GET /parking/analytics/by-weekday-hour`
+- `GET /v1/parking/analytics/by-weekday-hour`
 - 최근 N일 관측값을 `요일 x 시간`으로 나눠 집계한다.
 - 각 셀은 다음 값을 가진다.
   - `average_available_spaces`
@@ -109,7 +109,7 @@
 
 ## 임계 달성 시간 인사이트
 
-- `GET /parking/analytics/threshold-insights`
+- `GET /v1/parking/analytics/threshold-insights`
 - 최근 관측 시계열을 기준으로 `50대 미만`, `10대 미만` 진입 시점을 다시 계산한다.
 
 화면에서는 두 형태로 보여준다.

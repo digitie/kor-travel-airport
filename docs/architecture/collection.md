@@ -30,7 +30,7 @@ cutover 동안 HTTP read-only source로 유지하며 Docker를 조작하지 않�
 - `데이터 기준 시각`
   - 사용자가 가장 먼저 봐야 하는 시각
   - 현재 화면에 보이는 주차 상태가 실제로 언제 관측된 값인지 뜻한다.
-- 수집기 동기화 시각은 `GET /admin/collector-status`와 운영 로그에서만 확인한다.
+- 수집기 동기화 시각은 `GET /v1/admin/collector-status`와 운영 로그에서만 확인한다.
 
 ### 데이터 기준 시각
 
@@ -65,13 +65,13 @@ cutover 동안 HTTP read-only source로 유지하며 Docker를 조작하지 않�
 ## 강제 수집 버튼 (로컬 개발 전용)
 
 로컬 개발 profile에서 `ENABLE_MANUAL_COLLECT=true`일 때만 웹 UI의 `지금 수집` 버튼이
-`POST /admin/collect`를 호출한다. public server14 profile에서는 `ENABLE_MANUAL_COLLECT=false`로
+`POST /v1/admin/collect`를 호출한다. public server14 profile에서는 `ENABLE_MANUAL_COLLECT=false`로
 버튼과 endpoint가 모두 비활성화되고, 웹 proxy에도 노출되지 않는다.
 
 동작 규칙:
 
 - 수동 수집 제한은 `manual_collect_min_interval_seconds`를 따른다.
-- 프론트엔드는 먼저 `GET /admin/collector-status`를 보고 사용자에게 즉시 안내한다.
+- 프론트엔드는 먼저 `GET /v1/admin/collector-status`를 보고 사용자에게 즉시 안내한다.
 - 백엔드도 동일한 제한을 강제한다.
 - 즉, 프론트 우회 호출을 하더라도 백엔드에서 다시 막는다.
 
@@ -89,8 +89,8 @@ cutover 동안 HTTP read-only source로 유지하며 Docker를 조작하지 않�
 
 ### API 검증
 
-1. `GET /parking/current`
-2. `GET /admin/collector-status`
+1. `GET /v1/parking/current`
+2. `GET /v1/admin/collector-status`
 3. `observed_at`, `collected_at`, `latest_snapshot_collected_at`이 UTC ISO 문자열인지 확인
 4. 브라우저에서는 같은 값이 KST로 보이는지 확인
 
