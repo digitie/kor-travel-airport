@@ -2,6 +2,30 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-08-23 (ADR-005)
+
+### 백엔드 API를 `/v1` 버저닝 + RFC7807 에러로 정식 계약화
+
+- [ADR-005](</F:/dev/parking-radar/docs/adr/005-versioned-rest-api-contract.md>) 참고.
+  `kor-travel-map` 패턴을 참조해 `/health`를 제외한 모든 라우트를 `APIRouter(prefix="/v1")`로
+  이동(무-호환 clean-cut)하고, 모든 에러 응답을 RFC7807 `application/problem+json`으로
+  통일했다. `scripts/export_openapi.py`로 `docs/openapi.json`을 기계 정본으로 커밋한다.
+- frontend `lib/api.ts`(19개 endpoint 경로), `api/backend/[...path]/route.ts`(allowlist가
+  `v1/` prefix를 요구하도록 변경), 관련 테스트 전부를 같은 PR에서 갱신했다.
+- `{data, meta}` 응답 envelope, cursor pagination, 인증은 명시적으로 범위 밖으로 미뤘다
+  — 23개 라우트 반환 타입 전체를 바꿔야 하는 별도 규모 작업으로 판단.
+- hostile review(James=frontend, Popper=backend/ops) 2건 지적을 반영: (1) FastAPI
+  `RequestValidationError`(422)가 `HTTPException` 전용 handler를 우회해 RFC7807 포맷을
+  따르지 않던 것을 전용 handler 추가로 수정, (2) `scripts/verify_cutover.py`의 target(14번)
+  호출이 `/v1` 없이 여전히 구 경로를 쓰고 있어 이 PR 머지 후 release-gate 스크립트가
+  깨질 상황이었던 것을 target 호출에만 `/v1` prefix를 적용해 수정(source=13번은 레거시
+  미버저닝 API이므로 그대로 유지). `scripts/odroid-status.ps1`은 13번 대상이라 의도적으로
+  변경하지 않았다.
+- WSL 1차 `pytest 79 passed`, `vitest 48 passed`, 로컬 Docker 2-stack 검증(`/v1/airports`,
+  `/health`, 프록시 passthrough, RFC7807 에러 포맷) 통과. GitHub PR
+  [#5](https://github.com/digitie/parking-radar/pull/5) merge, `live-e2e`는 14번 미배포로
+  예상대로 실패(기존 패턴과 동일), `backend`/`frontend` CI는 통과.
+
 ## 2026-08-23 (T-032)
 
 ### `T-032` — PostgreSQL을 별도 compose 스택으로 분리 + 포트 재구성

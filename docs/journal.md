@@ -93,3 +93,23 @@
 - GitHub Actions push run `32559078722`와 PR run `32559082014`는 live job 재실행을 포함해
   backend/frontend/live-e2e 모두 통과했다. 첫 live job은 배포 경합으로 구 SHA를 읽었고,
   재실행은 `b7944ad`를 읽어 통과했다.
+- `T-030`(주차 현황·주차요금 → `python-krairport-api`)을 구현하고 PR
+  [#3](https://github.com/digitie/parking-radar/pull/3)으로 머지했다. 실 서비스 키로 live
+  검증하는 과정에서 krairport 자체의 KAC HTTPS 스킴 버그(모든 KAC 호출이 `https://`로 고정돼
+  있었으나 실제로는 `http://`에서만 응답)와, parking-radar `parse_kac_fee`의 사전 존재하던
+  필드명 버그(SCREAMING_SNAKE_CASE로 기대했으나 실제 응답은 camelCase — KAC 주차요금 수집이
+  이전부터 항상 0건이었을 가능성)를 함께 발견했다. krairport 버그는 원칙대로
+  `python-krairport-api` 자체(별도 PR [#6](https://github.com/digitie/python-krairport-api/pull/6))에서
+  고쳤고, parsers.py 버그는 이 PR 안에서 고쳤다.
+- `T-032`(PostgreSQL을 `docker-compose.db.yml` 별도 컨테이너로 분리, 포트 재배치: DB
+  `14000`/API `14001`/web `14002`)를 구현하고 PR
+  [#4](https://github.com/digitie/parking-radar/pull/4)로 머지했다. 14번 운영 데이터는
+  `pg_dump` 사전 백업 후 기존 named volume을 재사용하는 방식으로 무손실 전환했고,
+  `parking_snapshots` 56,039건을 전환 후 재확인했다. 외부 reverse proxy는 사용자가 직접
+  새 포트로 갱신했다.
+- ADR-005(백엔드 API `/v1` 버저닝 + RFC7807 에러 통일 + `docs/openapi.json` 기계 정본)를
+  구현하고 PR [#5](https://github.com/digitie/parking-radar/pull/5)로 머지했다. hostile
+  review(Popper)가 지적한 `RequestValidationError`의 RFC7807 미적용과
+  `scripts/verify_cutover.py` target 호출의 버저닝 누락을 같은 PR에서 고쳤다. `{data, meta}`
+  envelope는 범위 밖으로 명시적으로 미뤘다(ADR-005 "후속" 참고). `live-e2e`는 14번이 이
+  candidate로 아직 배포되지 않아 예상대로 실패했다.
