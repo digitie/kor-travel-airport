@@ -42,5 +42,11 @@
     대체했고, `parse_holiday_response`에 raw item list(`[` 시작) 분기를 추가했다.
     `FixtureHolidayClient`(sample 모드)는 변경하지 않았다 — 여전히 XML envelope를
     직접 생성한다.
-  - WSL 1차 `pytest 82 passed`(신규 kasi 테스트 3개 포함). Docker 2차와 live smoke test는
-    이 ADR 이후 별도로 확인한다.
+  - WSL 1차 `pytest 82 passed`(신규 kasi 테스트 3개 포함), Docker 2차 `pytest 79 passed`
+    (`test_cutover_guards.py` 3개 제외 — `T-031`, 이 PR과 무관한 사전 버그).
+  - hostile review(Popper)가 지적한 비대칭: `CollectionService`(주차, `collection.py`)는
+    `is_upstream_rate_limit_error`/backoff를 명시적으로 처리하지만, `HolidayService`는
+    `KasiRateLimitError`를 다른 upstream 오류와 동일하게 `upstream_error`로만 처리하고
+    별도 backoff 스케줄링이 없다. 의도적 범위 선택이다 — 공휴일은 `HOLIDAY_CACHE_SECONDS`
+    (기본 1일)로 캐시돼 호출 빈도가 주차 수집(5분)보다 훨씬 낮아 rate limit 위험이 낮다.
+    실제로 문제가 되면 별도 task로 다룬다.
