@@ -186,3 +186,38 @@
   등록하고 dry-run으로 실제 dump 생성을 확인했다. Windows 로컬 체크아웃의
   `core.autocrlf`가 `scp`로 옮긴 스크립트를 CRLF로 깨뜨려(`deploy-server14.sh`와 동일한
   문제) 원격에서 `sed -i 's/\r$//'`로 정규화해야 했다.
+
+## 2026-09-06
+
+- 사용자 요청으로 ADR-007(저장소/패키지/n150 운영 식별자를 `kor-travel-airport`로 개명,
+  배포되는 웹앱 브랜드는 `parking-radar`로 분리 유지)을 PR
+  [#15](https://github.com/digitie/kor-travel-airport/pull/15)로 구현·머지했다(`395717b`).
+  이 세션에서 n150 live 상태를 직접 재확인했다: 외부 게이트웨이(`pr-api.digitie.mywire.org`,
+  `pr.digitie.mywire.org`)와 n150 로컬 모두 `release_sha=395717b`로 응답했고, DB
+  ready/seeded, scheduler 정상 수집(180초 effective tick, 연속 5회 success, rate-limit
+  없음)까지 확인해 rename 자체가 이미 무중단으로 n150에 정착해 있음을 검증했다.
+- rename 작업 중 발견한 사전 버그(두 배포 스크립트 `scripts/deploy-server14.sh`,
+  `scripts/n150-backup-cron.sh`가 git에 100644로 추적돼 `git archive` 재배포 때마다 n150에서
+  실행 권한이 초기화되는 문제, PR #13 활성화 당시 크론이 exit 126으로 실패해 수동
+  chmod로 우회했던 것)를 PR
+  [#16](https://github.com/digitie/kor-travel-airport/pull/16)로 100755로 고쳤다.
+- 이 세션(Windows 로컬)에는 n150 SSH 공개키가 등록돼 있지 않아 처음엔 배포가 막혔다 —
+  사용자가 WSL에는 이미 `digitie@192.168.1.14` SSH 접근이 되어 있음을 알려줘 이후
+  모든 `scripts/deploy-server14.sh` 실행은 `wsl.exe -e bash -lc '... bash
+  scripts/deploy-server14.sh'`로 진행했다(Windows Git Bash에는 여전히 키가 없다는 사실을
+  `docs/dev-environment.md` 또는 이 파일에 남겨 다음 세션이 반복 조사하지 않도록 한다).
+- hostile review(James/Popper)를 PR #16에 대해 실행했다. James는 P0/P1/P2 없음. Popper는
+  P1(파일모드 fix가 git에만 있고 n150에 실제로 재배포·검증됐는지 diff/문서 어디에도 없다는
+  점)과 P2 2건(향후 mode 회귀를 잡는 CI 가드 부재, `backend/Dockerfile`의 `COPY scripts`가
+  mode-only 변경에도 이미지 캐시를 무효화하는 점)을 지적했다. P1은 실제로 HEAD(`605fa80`)를
+  n150에 배포한 뒤 `stat -c '%a'`로 두 스크립트가 `775`인지 확인하고
+  `n150-backup-cron.sh`를 직접 실행해 exit `0`과 실제 `parking-radar-*.dump` 생성까지
+  재현·검증하는 것으로 해소했다(수정 코드는 필요 없었다 — 지적대로 "검증이 없었다"는
+  공백 자체를 이 세션에서 메웠다). P2 두 건은 이번 PR 범위 밖으로 판단해 코드는 고치지
+  않았다 — CI mode 가드는 별도 task로 남길 만하지만 지금 백로그에 넣지 않았고, Dockerfile
+  캐시 무효화는 기능에 영향이 없는 빌드 시간 이슈라 그대로 뒀다.
+- PR #16을 squash-merge(`b893d0b`)했다. squash 특성상 main의 최종 SHA가 배포에 썼던 브랜치
+  팁(`605fa80`)과 달라져, `release_sha`를 main과 정확히 맞추기 위해 `b893d0b`를 다시
+  n150에 배포했다(내용은 동일해 Docker 레이어 대부분 캐시 히트). 최종적으로 외부
+  게이트웨이가 `release_sha=b893d0be8c534d5392ed08453b292ce3493db7e3`로 응답하고 web도
+  200을 반환하는 것까지 확인했다.
