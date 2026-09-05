@@ -5,7 +5,8 @@
 > 정책·결정은 본 파일·`SKILL.md`가 갖는다. 이 저장소는 `CLAUDE.md` + `AGENTS.md` 두 파일만
 > AI agent entry로 둔다 (Copilot/Cursor 등 IDE-side 룰 파일은 두지 않음 — drift 회피).
 
-이 문서는 `parking-radar` 저장소에서 작업하는 사람과 에이전트가 공통으로 따라야 할 기준을 정리한다.
+이 문서는 `kor-travel-airport` 저장소(배포되는 웹앱 브랜드는 여전히 `parking-radar`)에서
+작업하는 사람과 에이전트가 공통으로 따라야 할 기준을 정리한다.
 
 ## 프로젝트 목표
 
@@ -111,14 +112,14 @@ GitHub 운영은 `docs/runbooks/branch-protection.md`, `docs/runbooks/cross-repo
 
 - 이 저장소와 형제 관계인 `python-krairport-api`(`krairport`, `F:\dev\python-krairport-api`)처럼
   이미 검증된 provider 라이브러리가 있으면, 같은 기능을 backend 안에 다시 구현하지 않는다.
-  parking-radar 안에 provider adapter/wrapper를 새로 만들지 않는다.
-  ([ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>))
+  이 저장소(`kor-travel-airport`) 안에 provider adapter/wrapper를 새로 만들지 않는다.
+  ([ADR-004](</F:/dev/kor-travel-airport/docs/adr/004-krairport-provider-library.md>))
 - 형제 라이브러리는 `F:\dev\<repo>` 로컬 체크아웃을 먼저 조회한다. GitHub fetch는 로컬에
   없을 때만 fallback으로 쓴다.
 - provider 응답 필드 의미·파싱 규칙 같은 데이터 정합성의 1차 책임은 해당 provider
-  라이브러리에 있다. 불일치나 부족한 기능을 발견하면 parking-radar 안에 우회 코드를 추가하지
+  라이브러리에 있다. 불일치나 부족한 기능을 발견하면 이 저장소 안에 우회 코드를 추가하지
   말고, 해당 라이브러리(`F:\dev\python-krairport-api` 등)를 직접 수정해 개선한 뒤 그 결과를
-  parking-radar가 소비한다.
+  `parking-radar`(이 저장소가 배포하는 웹앱)가 소비한다.
 
 ## 기본 원칙
 
@@ -196,5 +197,5 @@ GitHub 운영은 `docs/runbooks/branch-protection.md`, `docs/runbooks/cross-repo
 - [ ] `docs/resume.md`의 "현재 상태"/"다음 한 작업" 갱신
 - [ ] 완료 task는 `docs/tasks.md` → `docs/tasks-done.md`로 이동
 - [ ] 되돌림 비용이 큰 결정이면 `docs/adr/README.md`에 ADR 추가
-- [ ] `main` 머지 전 [hostile-review.md](</F:/dev/parking-radar/docs/runbooks/hostile-review.md>)
+- [ ] `main` 머지 전 [hostile-review.md](</F:/dev/kor-travel-airport/docs/runbooks/hostile-review.md>)
       게이트(James/Popper 서브에이전트) 통과

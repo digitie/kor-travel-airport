@@ -3,9 +3,9 @@ set -euo pipefail
 
 REMOTE_HOST="${REMOTE_HOST:-192.168.1.14}"
 REMOTE_USER="${REMOTE_USER:-digitie}"
-REMOTE_APP_DIR="${REMOTE_APP_DIR:-/home/digitie/apps/parking-radar}"
+REMOTE_APP_DIR="${REMOTE_APP_DIR:-/home/digitie/apps/kor-travel-airport}"
 REMOTE_ENV_FILE="${REMOTE_ENV_FILE:-.env.server14}"
-COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-parking-radar}"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-kor-travel-airport}"
 CANDIDATE_SHA="$(git rev-parse HEAD)"
 
 if [[ ! "${CANDIDATE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
@@ -17,20 +17,20 @@ if [[ "${REMOTE_HOST}" != "192.168.1.14" ]]; then
   echo "Refusing deployment: this script may run Docker only on 192.168.1.14 (got ${REMOTE_HOST})." >&2
   exit 2
 fi
-if [[ "${REMOTE_APP_DIR}" != "/home/digitie/apps/parking-radar" ]]; then
-  echo "Refusing deployment: only /home/digitie/apps/parking-radar is an approved server14 app directory." >&2
+if [[ "${REMOTE_APP_DIR}" != "/home/digitie/apps/kor-travel-airport" ]]; then
+  echo "Refusing deployment: only /home/digitie/apps/kor-travel-airport is an approved server14 app directory." >&2
   exit 2
 fi
 if [[ "${REMOTE_ENV_FILE}" != ".env.server14" ]]; then
   echo "Refusing deployment: only .env.server14 is an approved server14 environment file." >&2
   exit 2
 fi
-if [[ "${COMPOSE_PROJECT_NAME}" != "parking-radar" ]]; then
-  echo "Refusing deployment: this script may update only the parking-radar Compose project." >&2
+if [[ "${COMPOSE_PROJECT_NAME}" != "kor-travel-airport" ]]; then
+  echo "Refusing deployment: this script may update only the kor-travel-airport Compose project." >&2
   exit 2
 fi
 
-ARCHIVE_PATH="$(mktemp -p /tmp parking-radar-server14.XXXXXX.tgz)"
+ARCHIVE_PATH="$(mktemp -p /tmp kor-travel-airport-server14.XXXXXX.tgz)"
 REMOTE_ARCHIVE="/tmp/$(basename "${ARCHIVE_PATH}")"
 
 cleanup() {
@@ -54,7 +54,7 @@ if [[ ! -f "${REMOTE_APP_DIR}/${REMOTE_ENV_FILE}" ]]; then
   exit 2
 fi
 
-REMOTE_STAGE="$(mktemp -d /tmp/parking-radar-release.XXXXXX)"
+REMOTE_STAGE="$(mktemp -d /tmp/kor-travel-airport-release.XXXXXX)"
 cleanup_remote() {
   rm -rf -- "${REMOTE_STAGE}" "${REMOTE_ARCHIVE}"
 }

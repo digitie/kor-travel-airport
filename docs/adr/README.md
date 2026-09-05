@@ -9,14 +9,15 @@
 
 | ADR | 제목 | 상태 |
 |---|---|---|
-| [ADR-001](</F:/dev/parking-radar/docs/adr/001-postgresql-as-primary-db.md>) | PostgreSQL을 운영 기준 DB로 채택 | accepted |
-| [ADR-002](</F:/dev/parking-radar/docs/adr/002-dual-check-5min-cutover.md>) | 5분 수집 경계의 이중 확인 컷오버 | accepted |
-| [ADR-003](</F:/dev/parking-radar/docs/adr/003-unauthenticated-backup-network-restriction.md>) | 인증 없는 백업 UI의 네트워크 제한 | accepted |
-| [ADR-004](</F:/dev/parking-radar/docs/adr/004-krairport-provider-library.md>) | 비행편·주차 현황·주차요금 데이터는 `python-krairport-api`를 provider 라이브러리로 사용 | accepted (주차는 구현 완료, 비행편은 미완료) |
-| [ADR-005](</F:/dev/parking-radar/docs/adr/005-versioned-rest-api-contract.md>) | 백엔드 REST API를 `/v1` 버저닝 + RFC7807 에러로 정식 계약화 | accepted |
-| [ADR-006](</F:/dev/parking-radar/docs/adr/006-kasi-provider-library.md>) | 공휴일 데이터는 `python-kasi-api`를 provider 라이브러리로 사용 | accepted |
+| [ADR-001](</F:/dev/kor-travel-airport/docs/adr/001-postgresql-as-primary-db.md>) | PostgreSQL을 운영 기준 DB로 채택 | accepted |
+| [ADR-002](</F:/dev/kor-travel-airport/docs/adr/002-dual-check-5min-cutover.md>) | 5분 수집 경계의 이중 확인 컷오버 | accepted |
+| [ADR-003](</F:/dev/kor-travel-airport/docs/adr/003-unauthenticated-backup-network-restriction.md>) | 인증 없는 백업 UI의 네트워크 제한 | accepted |
+| [ADR-004](</F:/dev/kor-travel-airport/docs/adr/004-krairport-provider-library.md>) | 비행편·주차 현황·주차요금 데이터는 `python-krairport-api`를 provider 라이브러리로 사용 | accepted (주차는 구현 완료, 비행편은 미완료) |
+| [ADR-005](</F:/dev/kor-travel-airport/docs/adr/005-versioned-rest-api-contract.md>) | 백엔드 REST API를 `/v1` 버저닝 + RFC7807 에러로 정식 계약화 | accepted |
+| [ADR-006](</F:/dev/kor-travel-airport/docs/adr/006-kasi-provider-library.md>) | 공휴일 데이터는 `python-kasi-api`를 provider 라이브러리로 사용 | accepted |
+| [ADR-007](</F:/dev/kor-travel-airport/docs/adr/007-repo-rename-kor-travel-airport.md>) | 저장소/패키지/n150 식별자를 `kor-travel-airport`로 개명, 웹앱 브랜드는 `parking-radar` 유지 | accepted |
 
-**다음 번호 = ADR-007.**
+**다음 번호 = ADR-008.**
 
 ## 새 ADR 작성 규약
 

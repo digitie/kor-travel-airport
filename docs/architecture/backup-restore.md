@@ -28,7 +28,7 @@ n150 crontab에 2026-08-23부터 등록해 실제로 동작 중이다(`CRON_TZ=U
 3일마다 18:00 UTC = 03:00 KST):
 
 ```
-0 18 */3 * * /home/digitie/apps/parking-radar/scripts/n150-backup-cron.sh >> /home/digitie/apps/parking-radar/backups/cron.log 2>&1
+0 18 */3 * * /home/digitie/apps/kor-travel-airport/scripts/n150-backup-cron.sh >> /home/digitie/apps/kor-travel-airport/backups/cron.log 2>&1
 ```
 
 n150은 다른 프로젝트(kor-travel-*, pinvi)의 백업 cron도 같은 crontab에 함께 등록돼 있다
@@ -50,8 +50,8 @@ LF 정규화가 필요할 수 있다(`scripts/deploy-server14.sh`도 같은 문�
 ## 수동 확인
 
 ```bash
-docker compose --project-name parking-radar --env-file .env.server14 exec backend ls -lh /app/backups
-docker compose --project-name parking-radar --env-file .env.server14 exec backend pg_dump --version
+docker compose --project-name kor-travel-airport --env-file .env.server14 exec backend ls -lh /app/backups
+docker compose --project-name kor-travel-airport --env-file .env.server14 exec backend pg_dump --version
 ```
 
 백업 파일은 Git에 넣지 않는다. `backups/`는 호스트 bind mount이며 `.gitignore`에서 제외한다.

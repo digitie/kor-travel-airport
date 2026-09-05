@@ -1,7 +1,8 @@
 # branch-protection — GitHub 브랜치 보호 설정
 
-`digitie/parking-radar`가 정본 레포로 확정된 뒤(2026-08-23) 확인한 결과, `main`은 아직
-**branch protection이 전혀 설정되어 있지 않다**(`gh api repos/digitie/parking-radar/branches/main/protection`
+`digitie/parking-radar`가 정본 레포로 확정된 뒤(2026-08-23, 2026-09-06 `digitie/kor-travel-airport`로
+개명) 확인한 결과, `main`은 아직 **branch protection이 전혀 설정되어 있지 않다**
+(`gh api repos/digitie/kor-travel-airport/branches/main/protection`
 → `404 Branch not protected`). 이 문서는 실제로 설정해야 할 값과 확인 명령을 남긴다.
 
 ## 전제
@@ -16,7 +17,7 @@
 
 ## 설정 위치
 
-GitHub → `digitie/parking-radar` → Settings → Branches → Branch protection rules
+GitHub → `digitie/kor-travel-airport` → Settings → Branches → Branch protection rules
 (또는 신형 Rulesets) → branch name pattern = `main`
 
 ## 켜야 할 항목
@@ -56,9 +57,9 @@ live-e2e
 ## 확인 명령
 
 ```bash
-gh pr checks <PR_NUMBER> --repo digitie/parking-radar
-gh pr view <PR_NUMBER> --repo digitie/parking-radar --json mergeStateStatus,statusCheckRollup,reviewDecision
-gh api repos/digitie/parking-radar/branches/main/protection
+gh pr checks <PR_NUMBER> --repo digitie/kor-travel-airport
+gh pr view <PR_NUMBER> --repo digitie/kor-travel-airport --json mergeStateStatus,statusCheckRollup,reviewDecision
+gh api repos/digitie/kor-travel-airport/branches/main/protection
 ```
 
 마지막 명령의 `required_status_checks.contexts`에 `backend`/`frontend`/`live-e2e`가 실제로

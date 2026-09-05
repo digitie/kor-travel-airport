@@ -6,7 +6,7 @@
 # 별도 보존/정리 로직은 두지 않는다.
 #
 # crontab 등록 예시 (3일마다 03:00 KST 실행):
-#   0 18 */3 * * /home/digitie/apps/parking-radar/scripts/n150-backup-cron.sh >> /home/digitie/apps/parking-radar/backups/cron.log 2>&1
+#   0 18 */3 * * /home/digitie/apps/kor-travel-airport/scripts/n150-backup-cron.sh >> /home/digitie/apps/kor-travel-airport/backups/cron.log 2>&1
 set -euo pipefail
 
 API_BASE_URL="${API_BASE_URL:-http://localhost:14001}"

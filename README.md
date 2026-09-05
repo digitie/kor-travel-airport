@@ -1,4 +1,8 @@
-# parking-radar
+# kor-travel-airport
+
+이 저장소는 `parking-radar`라는 웹앱 하나를 담고 있다 — 저장소/패키지 이름은
+`kor-travel-airport`(kor-travel-* 생태계 명명 규칙 정렬)이지만, 배포되는 웹앱의 브랜드/화면
+표시 이름은 계속 `parking-radar`다.
 
 `parking-radar`는 국내 공항 주차장의 현재 잔여 주차면과 과거 패턴을 빠르게 확인하기 위한 반응형 웹앱이다.  
 공항 전체 기준과 세부 주차장 기준을 같은 화면에서 오가며, 여행 출발 전에 “지금 어디가 얼마나 남았는지”와 “보통 언제 빠르게 줄어드는지”를 함께 볼 수 있게 만드는 것이 목표다.
@@ -68,7 +72,7 @@
 ## 빠른 시작
 
 PostgreSQL은 앱(backend/frontend)과 분리된 별도 compose 스택이다(T-032). DB 스택을 먼저
-올려야 `parking-radar-net` 외부 네트워크가 생기고, 앱 스택이 거기에 연결된다.
+올려야 `kor-travel-airport-net` 외부 네트워크가 생기고, 앱 스택이 거기에 연결된다.
 
 ```bash
 docker compose -f docker-compose.db.yml up -d
@@ -90,12 +94,12 @@ live E2E 기준 웹 주소는 [https://pr.digitie.mywire.org/](https://pr.digiti
 기준으로 유지한다.
 
 운영 환경 파일은 n150의
-`/home/digitie/apps/parking-radar/.env.server14`에만 두며
+`/home/digitie/apps/kor-travel-airport/.env.server14`에만 두며
 [`.env.server14.example`](.env.server14.example)을 시작점으로 사용한다.
 
 ```bash
 REMOTE_HOST=192.168.1.14 \
-REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
+REMOTE_APP_DIR=/home/digitie/apps/kor-travel-airport \
 ./scripts/deploy-server14.sh
 ```
 
@@ -118,7 +122,7 @@ E2E_BASE_URL=https://pr.digitie.mywire.org npm run test:e2e
 
 ## Historical: 기존 13번 ODROID 배포 (실행 금지)
 
-배포 기준 정보는 루트의 [.env.odroid](</F:/dev/parking-radar/.env.odroid>)에 저장한다.
+배포 기준 정보는 루트의 [.env.odroid](</F:/dev/kor-travel-airport/.env.odroid>)에 저장한다.
 
 - 대상 IP: `192.168.1.13`
 - 기존 13번 외부 주소: [https://pr2.digitie.mywire.org/](https://pr2.digitie.mywire.org/)
@@ -287,7 +291,7 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 
 ## 주요 API
 
-`/health`를 제외한 모든 경로는 `/v1` 아래에 있다([ADR-005](</F:/dev/parking-radar/docs/adr/005-versioned-rest-api-contract.md>)).
+`/health`를 제외한 모든 경로는 `/v1` 아래에 있다([ADR-005](</F:/dev/kor-travel-airport/docs/adr/005-versioned-rest-api-contract.md>)).
 에러 응답은 RFC7807 `application/problem+json`. 기계 정본은 `docs/openapi.json`.
 
 - `GET /health`
@@ -307,25 +311,25 @@ docker compose run --rm --no-deps frontend npm run test -- --run
 
 ## 문서
 
-- [docs/current-state.md](</F:/dev/parking-radar/docs/current-state.md>)
-- [docs/architecture/data-sources.md](</F:/dev/parking-radar/docs/architecture/data-sources.md>)
-- [AGENTS.md](</F:/dev/parking-radar/AGENTS.md>)
-- [deploy/odroid/README.md](</F:/dev/parking-radar/deploy/odroid/README.md>)
-- [docs/architecture/architecture.md](</F:/dev/parking-radar/docs/architecture/architecture.md>)
-- [docs/architecture/analytics.md](</F:/dev/parking-radar/docs/architecture/analytics.md>)
-- [docs/runbooks/testing.md](</F:/dev/parking-radar/docs/runbooks/testing.md>)
-- [docs/runbooks/deployment.md](</F:/dev/parking-radar/docs/runbooks/deployment.md>)
-- [docs/architecture/collection.md](</F:/dev/parking-radar/docs/architecture/collection.md>)
-- [docs/runbooks/troubleshooting.md](</F:/dev/parking-radar/docs/runbooks/troubleshooting.md>)
-- [docs/runbooks/remote-command-safety.md](</F:/dev/parking-radar/docs/runbooks/remote-command-safety.md>)
-- [docs/test-strategy.md](</F:/dev/parking-radar/docs/test-strategy.md>)
-- [docs/dev-environment.md](</F:/dev/parking-radar/docs/dev-environment.md>)
-- [docs/adr/README.md](</F:/dev/parking-radar/docs/adr/README.md>)
-- [docs/runbooks/agent-failure-patterns.md](</F:/dev/parking-radar/docs/runbooks/agent-failure-patterns.md>)
-- [docs/runbooks/branch-protection.md](</F:/dev/parking-radar/docs/runbooks/branch-protection.md>)
-- [docs/runbooks/cross-repo-audit-checklist.md](</F:/dev/parking-radar/docs/runbooks/cross-repo-audit-checklist.md>)
-- [docs/runbooks/hostile-review.md](</F:/dev/parking-radar/docs/runbooks/hostile-review.md>)
-- [docs/tasks.md](</F:/dev/parking-radar/docs/tasks.md>)
+- [docs/current-state.md](</F:/dev/kor-travel-airport/docs/current-state.md>)
+- [docs/architecture/data-sources.md](</F:/dev/kor-travel-airport/docs/architecture/data-sources.md>)
+- [AGENTS.md](</F:/dev/kor-travel-airport/AGENTS.md>)
+- [deploy/odroid/README.md](</F:/dev/kor-travel-airport/deploy/odroid/README.md>)
+- [docs/architecture/architecture.md](</F:/dev/kor-travel-airport/docs/architecture/architecture.md>)
+- [docs/architecture/analytics.md](</F:/dev/kor-travel-airport/docs/architecture/analytics.md>)
+- [docs/runbooks/testing.md](</F:/dev/kor-travel-airport/docs/runbooks/testing.md>)
+- [docs/runbooks/deployment.md](</F:/dev/kor-travel-airport/docs/runbooks/deployment.md>)
+- [docs/architecture/collection.md](</F:/dev/kor-travel-airport/docs/architecture/collection.md>)
+- [docs/runbooks/troubleshooting.md](</F:/dev/kor-travel-airport/docs/runbooks/troubleshooting.md>)
+- [docs/runbooks/remote-command-safety.md](</F:/dev/kor-travel-airport/docs/runbooks/remote-command-safety.md>)
+- [docs/test-strategy.md](</F:/dev/kor-travel-airport/docs/test-strategy.md>)
+- [docs/dev-environment.md](</F:/dev/kor-travel-airport/docs/dev-environment.md>)
+- [docs/adr/README.md](</F:/dev/kor-travel-airport/docs/adr/README.md>)
+- [docs/runbooks/agent-failure-patterns.md](</F:/dev/kor-travel-airport/docs/runbooks/agent-failure-patterns.md>)
+- [docs/runbooks/branch-protection.md](</F:/dev/kor-travel-airport/docs/runbooks/branch-protection.md>)
+- [docs/runbooks/cross-repo-audit-checklist.md](</F:/dev/kor-travel-airport/docs/runbooks/cross-repo-audit-checklist.md>)
+- [docs/runbooks/hostile-review.md](</F:/dev/kor-travel-airport/docs/runbooks/hostile-review.md>)
+- [docs/tasks.md](</F:/dev/kor-travel-airport/docs/tasks.md>)
 
 ## WSL 테스트 기준
 
