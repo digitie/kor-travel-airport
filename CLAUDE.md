@@ -1,4 +1,4 @@
-# CLAUDE.md — parking-radar 진입 요약
+# CLAUDE.md — kor-travel-airport 진입 요약
 
 이 파일은 Claude Code와 Claude Agent가 가장 먼저 읽는 요약이다. 정식 정책은
 `AGENTS.md`, 상세 실행 규칙은 `SKILL.md`, 진행 상태는 `docs/resume.md`와
@@ -9,6 +9,12 @@
 > AI agent entry로 둔다 (Copilot/Cursor 등 IDE-side 룰 파일은 두지 않음 — drift 회피).
 
 ## 1. 이 저장소가 하는 일
+
+이 저장소(`kor-travel-airport`)는 `parking-radar`라는 반응형 웹앱 하나를 담고 있다 —
+저장소/패키지 식별자는 `kor-travel-airport`(kor-travel-* 생태계 명명 규칙 정렬), 실제
+배포되는 웹앱의 브랜드/화면 표시 이름은 계속 `parking-radar`다(Next.js 페이지
+타이틀, 백엔드 `Settings.app_name`, 백업 파일명 접두어 등은 전부 `parking-radar`로
+유지 — 사용자 눈에 보이는 것은 아무것도 바뀌지 않는다).
 
 `parking-radar`는 국내 공항 주차장의 현재 잔여면과 최근 7일 흐름을 제공하는
 FastAPI + Next.js 앱이다. 주차 관측(`parking_snapshots`), 공항/주차장 기준정보,
@@ -24,7 +30,9 @@ FastAPI + Next.js 앱이다. 주차 관측(`parking_snapshots`), 공항/주차�
 - 수집: 운영 기본 5분. 외부 API rate limit과 실제 관측 시각을 함께 확인한다.
 - 새 운영 호스트: `digitie@192.168.1.14` (별칭 `n150`)
 - 기존 호스트: `digitie@192.168.1.13` — 데이터 확인 외 Docker 조작 금지
-- GitHub 정본: `origin` → `github.com/digitie/parking-radar` (2026-08-23 확정).
+- GitHub 정본: `origin` → `github.com/digitie/kor-travel-airport` (2026-08-23
+  `parking-radar`로 확정 → 2026-09-06 `kor-travel-airport`로 개명, 저장소 식별자만 변경—
+  배포되는 웹앱 자체의 이름은 계속 `parking-radar`다. §1 참고).
   `airport-parking-radar`는 구 개발 fork이며 새 작업의 대상이 아니다. remote가 여러 개
   보이면 `docs/runbooks/cross-repo-audit-checklist.md`를 먼저 확인한다.
 

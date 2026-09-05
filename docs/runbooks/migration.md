@@ -1,9 +1,11 @@
 # 192.168.1.13 → 192.168.1.14 migration runbook
 
-> **포트 번호는 T-032(2026-08-23, PostgreSQL 별도 컨테이너 분리) 이전 기준으로
-> 고정된 historical 기록이다.** 이 문서의 `14000`은 당시 API 포트를 가리키며, 지금
-> 다시 이 문서를 참고해 명령을 실행한다면 현재 값(API `14001`, web `14002`, DB
-> `14000`·별도 컨테이너·loopback 전용)으로 바꿔서 사용해야 한다. 이 컷오버 자체는
+> **포트 번호와 Compose project 이름은 이 문서가 기록한 시점 기준의 historical
+> 기록이다.** 이 문서의 `14000`은 T-032(2026-08-23) 이전 API 포트를 가리키며,
+> `--project-name parking-radar`는 저장소가 `kor-travel-airport`로 개명(2026-09-06)되기
+> 전 이름이다. 지금 다시 이 문서를 참고해 명령을 실행한다면 현재 값(API `14001`, web
+> `14002`, DB `14000`·별도 컨테이너·loopback 전용, Compose project `kor-travel-airport`/
+> `kor-travel-airport-db`)으로 바꿔서 사용해야 한다. 이 컷오버 자체는
 > `T-003`(`docs/tasks-done.md`)으로 이미 완료됐고, 이 문서는 향후 유사한 host 이전이
 > 필요할 때의 절차 참고용으로만 남겨둔다.
 

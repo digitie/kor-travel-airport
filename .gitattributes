@@ -1,0 +1,6 @@
+# Shell scripts must run on WSL2/n150 (Linux). Windows' core.autocrlf keeps
+# re-converting them to CRLF on checkout, which breaks the shebang line
+# (`env: $'bash\r': No such file or directory`) every time they're deployed
+# or copied to n150. Force LF regardless of the checkout platform's autocrlf
+# setting.
+*.sh text eol=lf

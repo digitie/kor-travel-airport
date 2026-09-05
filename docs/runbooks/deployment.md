@@ -4,12 +4,12 @@
 
 ## n150 현재 운영 절차
 
-1. n150에 `/home/digitie/apps/parking-radar/.env.server14`를 만들고
+1. n150에 `/home/digitie/apps/kor-travel-airport/.env.server14`를 만들고
    [`.env.server14.example`](../../.env.server14.example)의 실제 DB 비밀번호와 운영
    API key를 입력한다.
 2. WSL 로컬 테스트와 `docker compose config`를 통과시킨다.
 3. [`scripts/deploy-server14.sh`](../../scripts/deploy-server14.sh)를 실행한다. 이
-   스크립트는 대상 host가 `192.168.1.14`이고 Compose project가 `parking-radar`인지 먼저
+   스크립트는 대상 host가 `192.168.1.14`이고 Compose project가 `kor-travel-airport`인지 먼저
    확인한 뒤 현재 Git `HEAD`를 candidate artifact로 만들어 n150의 `docker compose`만
    호출하며 다른 Compose project를 중지하지 않는다. 배포 직후 `/health.release_sha`가
    candidate SHA와 일치하는지도 확인한다.
@@ -18,7 +18,7 @@
 
 ```bash
 REMOTE_HOST=192.168.1.14 \
-REMOTE_APP_DIR=/home/digitie/apps/parking-radar \
+REMOTE_APP_DIR=/home/digitie/apps/kor-travel-airport \
 ./scripts/deploy-server14.sh
 ```
 
@@ -58,14 +58,14 @@ host에는 443 listener가 없을 수 있으므로 Compose 배포만으로 기�
 PostgreSQL은 `docker-compose.yml`(backend/frontend)이 아니라 `docker-compose.db.yml`에서
 독립 lifecycle로 관리한다(`kor-travel-docker-manager`의 "DB는 앱과 분리된 컨테이너로
 운영한다" 패턴을 단일 프로젝트 규모로 축소 적용). 두 스택은 외부 네트워크
-`parking-radar-net`으로 통신한다.
+`kor-travel-airport-net`으로 통신한다.
 
 ```bash
 # DB 스택 (거의 재기동하지 않음 — 앱 배포와 무관한 lifecycle)
-docker compose --project-name parking-radar-db -f docker-compose.db.yml up -d
+docker compose --project-name kor-travel-airport-db -f docker-compose.db.yml up -d
 
 # 앱 스택 (배포마다 재빌드) — DB 스택이 먼저 떠 있어야 한다
-docker compose --project-name parking-radar -f docker-compose.yml up -d --build
+docker compose --project-name kor-travel-airport -f docker-compose.yml up -d --build
 ```
 
 `scripts/deploy-server14.sh`는 DB 스택이 이미 떠 있으면 건드리지 않고, 없을 때만 올린다 —
@@ -83,7 +83,7 @@ docker compose --project-name parking-radar -f docker-compose.yml up -d --build
 
 ## 로컬 개발 실행
 
-DB 스택을 먼저 올려야 앱 스택이 연결할 `parking-radar-net` 외부 네트워크가 생긴다(T-032).
+DB 스택을 먼저 올려야 앱 스택이 연결할 `kor-travel-airport-net` 외부 네트워크가 생긴다(T-032).
 
 ```bash
 docker compose -f docker-compose.db.yml up -d
@@ -163,11 +163,11 @@ DATA_GO_KR_SERVICE_KEY=...
 
 ## ODROID M1S 배포 파일
 
-- 운영용 compose: [docker-compose.odroid.yml](</F:/dev/parking-radar/docker-compose.odroid.yml>)
-- 운영용 환경 파일: [/.env.odroid](</F:/dev/parking-radar/.env.odroid>)
-- 로컬 배포 스크립트: [scripts/deploy-odroid.ps1](</F:/dev/parking-radar/scripts/deploy-odroid.ps1>)
-- 상태 확인 스크립트: [scripts/odroid-status.ps1](</F:/dev/parking-radar/scripts/odroid-status.ps1>)
-- 원격 실행 스크립트: [deploy/odroid/remote-deploy.sh](</F:/dev/parking-radar/deploy/odroid/remote-deploy.sh>)
+- 운영용 compose: [docker-compose.odroid.yml](</F:/dev/kor-travel-airport/docker-compose.odroid.yml>)
+- 운영용 환경 파일: [/.env.odroid](</F:/dev/kor-travel-airport/.env.odroid>)
+- 로컬 배포 스크립트: [scripts/deploy-odroid.ps1](</F:/dev/kor-travel-airport/scripts/deploy-odroid.ps1>)
+- 상태 확인 스크립트: [scripts/odroid-status.ps1](</F:/dev/kor-travel-airport/scripts/odroid-status.ps1>)
+- 원격 실행 스크립트: [deploy/odroid/remote-deploy.sh](</F:/dev/kor-travel-airport/deploy/odroid/remote-deploy.sh>)
 
 비밀값 관리:
 
@@ -259,7 +259,7 @@ SEED_SAMPLE_DATA=false \
 USE_SAMPLE_CLIENT_WHEN_NO_KEY=false \
 COLLECT_INTERVAL_SECONDS=15 \
 DATA_GO_KR_SERVICE_KEY=... \
-docker compose -f docker-compose.live.yml --project-name parking-radar-live up -d
+docker compose -f docker-compose.live.yml --project-name kor-travel-airport-live up -d
 ```
 
 이 스택은 빠른 검증이 끝나면 반드시 바로 내린다.
@@ -267,7 +267,7 @@ docker compose -f docker-compose.live.yml --project-name parking-radar-live up -
 종료:
 
 ```bash
-docker compose -f docker-compose.live.yml --project-name parking-radar-live down
+docker compose -f docker-compose.live.yml --project-name kor-travel-airport-live down
 ```
 
 주의:
@@ -324,7 +324,7 @@ curl -X POST http://localhost:8000/v1/admin/collect
 
 관련 문서:
 
-- [current-state.md](</F:/dev/parking-radar/docs/current-state.md>)
+- [current-state.md](</F:/dev/kor-travel-airport/docs/current-state.md>)
 - [../architecture/collection.md](../architecture/collection.md)
 
 ## WSL 테스트 기준
