@@ -2,13 +2,24 @@
 
 ## 현재 상태
 
-- 기준일: 2026-08-24
-- 작업 브랜치: `main` (로컬/원격 모두 `9911e19`).
-- `digitie/parking-radar` PR #2~#13 모두 **MERGED** 상태다. 이 세션에서 다룬 마지막
-  코드/운영 PR은 [#13](https://github.com/digitie/parking-radar/pull/13)(n150 백업
-  cron)이다.
-- `docs/tasks.md`의 진행 중 백로그가 비어 있다 — `T-029`/`T-031`을 포함해 이 세션에서
-  파악한 항목은 모두 완료·머지·live 검증까지 끝났다.
+- 기준일: 2026-09-06
+- 작업 브랜치: `main` (로컬/원격 모두 `b893d0b`).
+- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#16 모두 **MERGED**
+  상태다. 이 세션에서 다룬 마지막 코드/운영 PR은
+  [#16](https://github.com/digitie/kor-travel-airport/pull/16)(배포 스크립트 실행
+  권한 fix)이다.
+- 저장소 식별자가 `parking-radar` → `kor-travel-airport`로 개명됐다(PR
+  [#15](https://github.com/digitie/kor-travel-airport/pull/15), ADR-007). 배포되는
+  웹앱 브랜드/백업 파일명/쿠키 키는 계속 `parking-radar`다 — `CLAUDE.md` §1 참고.
+  n150 앱 디렉터리도 `/home/digitie/apps/kor-travel-airport`로 이미 이동 완료됐고,
+  이 세션에서 n150 컨테이너 실사(`docker compose ps`)로 재확인했다.
+- n150 SSH 접근: 이 저장소를 여는 Windows 로컬 세션(Git Bash)에는 n150용 SSH 키가
+  등록돼 있지 않다. **WSL(`wsl.exe -e bash -lc '...'`)에는 `digitie@192.168.1.14`
+  접근이 이미 되어 있으므로, `scripts/deploy-server14.sh`를 포함한 모든 n150 SSH
+  작업은 WSL을 경유해서 실행한다.**
+- `docs/tasks.md`의 진행 중 백로그가 비어 있다 — `T-029`/`T-031`을 포함해 이전 세션에서
+  파악한 항목은 모두 완료·머지·live 검증까지 끝났고, 이번 rename/배포 검증 작업은
+  tasks.md에 등록된 task가 아니라 사용자의 직접 요청으로 진행했다.
 - 운영 호스트 `192.168.1.14`의 별칭을 "server14"/"14번"에서 "n150"으로 통일했다(PR
   [#12](https://github.com/digitie/parking-radar/pull/12)). IP·실제 파일명은 그대로다.
 - n150에 `vm.swappiness=10`을 영구 적용했다(`/etc/sysctl.d/99-parking-radar-swappiness.conf`).
@@ -53,11 +64,13 @@
 - n150 공개 포트 (T-032 이후): API `14001`, web `14002`, DB `14000`(loopback 전용, 별도
   컨테이너). live E2E 기준 URL: `https://pr.digitie.mywire.org`
 - n150 외부 API URL: `https://pr-api.digitie.mywire.org`
-- Windows 로컬 체크아웃은 `core.autocrlf`로 CRLF 변환되므로, WSL bash에서 셸 스크립트를
-  직접 실행하면(`bash scripts/foo.sh`) shebang 파싱이 깨질 수 있다 — 이 세션에서는
-  `sed 's/\r$//'`로 LF 정규화한 임시 사본을 실행해 우회했다
-  (`scripts/deploy-server14.sh` 배포 시 매번 재현됨, 스크립트 자체는 git상 LF로 정상
-  저장돼 있음).
+- (해결됨, PR #15/#16) 예전에는 Windows 로컬 체크아웃의 `core.autocrlf`가 배포 스크립트를
+  CRLF로 깨뜨려 매 배포마다 `sed 's/\r$//'`로 우회해야 했고, git이 두 스크립트를
+  100644(non-executable)로 추적해 재배포 때마다 실행 권한이 초기화되는 문제도 있었다.
+  PR #15가 `.gitattributes`(`*.sh eol=lf`)를, PR #16이 파일모드(100755)를 고쳐 지금은
+  `scripts/deploy-server14.sh`/`scripts/n150-backup-cron.sh` 모두 추가 우회 없이
+  그대로 실행된다 — 2026-09-06 세션에서 n150 재배포 후 `stat -c '%a'`로 `775` 확인,
+  `n150-backup-cron.sh` 직접 실행으로 exit `0` + 실제 dump 생성까지 재검증했다.
 
 ## 다음 한 작업
 
@@ -75,8 +88,9 @@
 - HTTP fallback migration은 snapshots 38,946건/lot 44개 관측, reference lot 53개/legacy ID
   53개 상태로 운영되고, duplicate legacy ID는 0개다.
 - 현재 n150 runtime은 배포 Git full SHA와 `/health`의 release SHA가 일치하며 API/web 포트 계약
-  (`14000`/`14001`)을 지킨다. 마지막 기능 코드 candidate `aefaf8c5bc2efc4604135529f85c51b2c8236839`와
-  docs-only release에서 exact live E2E는 5개 테스트 모두 통과했다.
+  (`14001`/`14002`)을 지킨다. 2026-09-06 기준 `release_sha=b893d0be8c534d5392ed08453b292ce3493db7e3`
+  (=`main` HEAD, PR #16 squash-merge 커밋)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
+  양쪽에서 이 값과 정상 응답을 재확인했다.
 
 ## 남은 운영 확인
 
