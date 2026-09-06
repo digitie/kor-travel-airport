@@ -108,6 +108,10 @@ logger = logging.getLogger(__name__)
 # T-036: 과거 자료 조회의 명시적 start_date/end_date 범위 상한(일). 관측 데이터는
 # 삭제 정책 없이 전체 보존되므로 상한이 없으면 임의로 큰 범위가 무거운 시계열
 # 버킷 계산(interval_minutes=10 기준 1년이면 5만 버킷 이상)을 유발할 수 있다.
+# 같은 엔드포인트의 상대(`days`, 최대 30일) 조회보다 3배 넓다 - 상대 조회는 기본
+# 캐시를 계속 갱신하며 자주 호출되지만, 명시적 범위 조회는 캐시를 타지 않는
+# 일회성 히스토리 조회라 더 넓은 상한을 허용해도 상시 부하로 이어지지 않는다
+# (threshold_insights의 기존 90일 상한과 동일한 값).
 MAX_TIMESERIES_RANGE_DAYS = 90
 
 
@@ -410,7 +414,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         snapshots = await _load_snapshots(session, airport_code, parking_lot_id, days)
         return [WeekdayHourlyPattern(**pattern) for pattern in build_weekday_hour_patterns(snapshots)]
 
-    @router.get("/parking/analytics/timeseries", response_model=ParkingTimeSeriesResponse)
+    @router.get(
+        "/parking/analytics/timeseries",
+        response_model=ParkingTimeSeriesResponse,
+        description=(
+            "상대 조회(`days`)와 명시적 범위 조회(`start_date`+`end_date`)는 상호배타적이다. "
+            "start_date/end_date를 지정하면 days와 future_hours는 무시되고(future_hours=0으로 "
+            "고정) airport_code 또는 parking_lot_id가 필요하며, 최대 90일까지 조회할 수 있다."
+        ),
+    )
     async def parking_time_series(
         airport_code: str | None = Query(default=None),
         parking_lot_id: int | None = Query(default=None),
@@ -418,13 +430,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         interval_minutes: int = Query(default=DEFAULT_TIMESERIES_INTERVAL_MINUTES, ge=10, le=60),
         future_hours: int = Query(default=0, ge=0, le=12),
         session: AsyncSession = Depends(get_db),
-        start_date: str | None = Query(default=None),
-        end_date: str | None = Query(default=None),
+        start_date: str | None = Query(default=None, description="명시적 범위 조회 시작일(YYYY-MM-DD). end_date와 함께 지정한다. 지정 시 days/future_hours는 무시된다."),
+        end_date: str | None = Query(default=None, description="명시적 범위 조회 종료일(YYYY-MM-DD). start_date와 함께 지정한다."),
     ) -> ParkingTimeSeriesResponse:
         # T-036: 명시적 과거 날짜범위 조회. days와 상호배타적이며 지정 시 이쪽이 우선한다.
         if start_date or end_date:
             if not (start_date and end_date):
                 raise HTTPException(status_code=400, detail="start_date와 end_date는 함께 지정해야 합니다.")
+            if not airport_code and not parking_lot_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="start_date/end_date 조회는 airport_code 또는 parking_lot_id가 필요합니다.",
+                )
             resolved_start = _parse_local_date_query(start_date, "start_date")
             resolved_end = _parse_local_date_query(end_date, "end_date")
             if resolved_end < resolved_start:
@@ -438,6 +455,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             snapshots = await _load_snapshots_between_local_dates(
                 session, airport_code, parking_lot_id, resolved_start, resolved_end
             )
+            # Anchor bucket placement on the *requested* end of range, not on whichever
+            # snapshot happens to be latest - otherwise a trailing collection gap (a
+            # maintenance-window restore, an upstream rate-limit block, or simply asking
+            # for "today" before end of day) silently shifts the whole window backward
+            # while start_date/end_date below keep claiming the originally-requested range.
+            tz = ZoneInfo(resolved_settings.app_timezone)
+            range_end_exclusive_local = datetime.combine(resolved_end, time.min, tzinfo=tz) + timedelta(days=1)
+            anchor_at = range_end_exclusive_local - timedelta(minutes=interval_minutes)
             return ParkingTimeSeriesResponse(
                 generated_at=now_utc(),
                 airport_code=airport_code.upper() if airport_code else None,
@@ -455,6 +480,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         interval_minutes=interval_minutes,
                         future_hours=0,
                         tz_name=resolved_settings.app_timezone,
+                        anchor_at=anchor_at,
                     )
                 ],
             )
@@ -986,8 +1012,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 DEFAULT_TIMESERIES_INTERVAL_MINUTES,
                 DEFAULT_TIMESERIES_FUTURE_HOURS,
                 session,
-                None,
-                None,
+                start_date=None,
+                end_date=None,
             ),
         )
 
@@ -1188,13 +1214,22 @@ async def _load_collection_run_statuses(
 
 
 async def _load_latest_snapshot_metadata(session: AsyncSession) -> dict[str, object | None]:
-    latest_observed_at = await session.scalar(select(func.max(ParkingSnapshot.observed_at)))
-    latest_collected_at = await session.scalar(select(func.max(ParkingSnapshot.collected_at)))
-    earliest_observed_at = await session.scalar(select(func.min(ParkingSnapshot.observed_at)))
+    # Polled every 15s by every open tab (admin/collector-status) - one round trip for
+    # all three aggregates instead of three, Postgres computes each via its own
+    # min/max-over-index scan regardless.
+    row = (
+        await session.execute(
+            select(
+                func.max(ParkingSnapshot.observed_at),
+                func.max(ParkingSnapshot.collected_at),
+                func.min(ParkingSnapshot.observed_at),
+            )
+        )
+    ).one()
     return {
-        "observed_at": latest_observed_at,
-        "collected_at": latest_collected_at,
-        "earliest_observed_at": earliest_observed_at,
+        "observed_at": row[0],
+        "collected_at": row[1],
+        "earliest_observed_at": row[2],
     }
 
 

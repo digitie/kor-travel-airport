@@ -13,12 +13,32 @@ export function parseApiDate(value: string): Date {
   return new Date(normalizeApiDate(value));
 }
 
-/** Formats a JS Date's local calendar date (as picked in a browser-local date picker) as YYYY-MM-DD. */
+/**
+ * Formats a JS Date's browser-local calendar fields as YYYY-MM-DD. Intentionally reads
+ * local (not Asia/Seoul) fields: a date picker's day cells are themselves constructed as
+ * browser-local midnight for that grid position, so reading local fields back recovers
+ * exactly the calendar day the user clicked, regardless of the browser's own timezone -
+ * the API treats the resulting string as an opaque Asia/Seoul calendar-day label, so no
+ * timezone conversion belongs here. Use `seoulDateBoundary` instead when you need to turn
+ * an API timestamp into a Date comparable against day-picker grid cells (e.g. disabled-day
+ * bounds) - that direction DOES need an explicit Asia/Seoul reading.
+ */
 export function toDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Converts an API timestamp into a browser-local Date at midnight representing the same
+ * Asia/Seoul calendar day - safe to compare against date-picker grid cells (which are also
+ * browser-local midnight) via day-difference helpers like react-day-picker's `before`/
+ * `after` matchers, regardless of the viewer's own timezone.
+ */
+export function seoulDateBoundary(value: string): Date {
+  const { year, month, day } = getSeoulDateParts(value);
+  return new Date(year, month - 1, day);
 }
 
 export function formatDateTime(value: string): string {

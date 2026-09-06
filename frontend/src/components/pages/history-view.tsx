@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { differenceInCalendarDays } from "date-fns";
+import { ko } from "date-fns/locale";
+import { useEffect, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 
 import { HistoryChart } from "@/components/history-chart";
@@ -8,19 +10,35 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { useDashboard } from "@/lib/dashboard-context";
 import { historyLabel, summarizeTimeSeriesAvailability } from "@/lib/dashboard-view-helpers";
-import { toDateKey } from "@/lib/format";
+import { seoulDateBoundary, toDateKey } from "@/lib/format";
 import type { ParkingTimeSeriesResponse } from "@/lib/types";
 
 const DEFAULT_RELATIVE_DAYS = 7;
 
 function formatRangeLabel(range: DateRange | undefined): string {
-  if (!range?.from || !range?.to) {
+  if (!range?.from) {
     return "날짜 범위 선택";
   }
+  if (!range.to) {
+    return `${toDateKey(range.from)} ~ 종료일 선택`;
+  }
   return `${toDateKey(range.from)} ~ ${toDateKey(range.to)}`;
+}
+
+/** Coarsens the bucket interval as the requested span grows, so a multi-week lookup
+ * doesn't request tens of thousands of 10-minute buckets in one response/chart render. */
+function pickIntervalMinutes(from: Date, to: Date): number {
+  const spanDays = differenceInCalendarDays(to, from) + 1;
+  if (spanDays <= 3) {
+    return 10;
+  }
+  if (spanDays <= 14) {
+    return 30;
+  }
+  return 60;
 }
 
 export function HistoryView() {
@@ -38,12 +56,17 @@ export function HistoryView() {
   const [timeSeries, setTimeSeries] = useState<ParkingTimeSeriesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const scopeLabel = historyLabel(selectedParkingLotName, selectedAirport?.name_ko);
+  // Both bounds must be read as Asia/Seoul calendar days, not the viewer's own timezone -
+  // the calendar's day cells are browser-local Dates, so comparing them against a bound
+  // built from a raw UTC instant (or the browser's own "now") can be off by a day for any
+  // viewer not in KST.
   const earliestSelectable = collectorStatus?.earliest_snapshot_observed_at
-    ? new Date(collectorStatus.earliest_snapshot_observed_at)
+    ? seoulDateBoundary(collectorStatus.earliest_snapshot_observed_at)
     : undefined;
-  const today = new Date();
+  const today = seoulDateBoundary(new Date().toISOString());
   const hasCustomRange = Boolean(range?.from && range?.to);
 
   useEffect(() => {
@@ -61,6 +84,7 @@ export function HistoryView() {
             parkingLotId: selectedParkingLotId,
             startDate: toDateKey(range.from),
             endDate: toDateKey(range.to),
+            intervalMinutes: pickIntervalMinutes(range.from, range.to),
           })
         : api.getTimeSeries(selectedAirportCode, { parkingLotId: selectedParkingLotId, days: DEFAULT_RELATIVE_DAYS });
 
@@ -90,6 +114,13 @@ export function HistoryView() {
 
   const summary = timeSeries ? summarizeTimeSeriesAvailability(timeSeries.items) : null;
 
+  function resetToRelativeWindow() {
+    setRange(undefined);
+    // The button being clicked disappears once hasCustomRange flips to false - move focus
+    // back to the picker trigger instead of letting it fall through to <body>.
+    triggerRef.current?.focus();
+  }
+
   return (
     <div className="page-shell">
       <header className="page-header">
@@ -98,12 +129,14 @@ export function HistoryView() {
 
       <div className="action-stack">
         <Popover>
-          <PopoverTrigger className="button secondary" type="button">
+          <PopoverTrigger ref={triggerRef} className="button secondary" type="button">
             {formatRangeLabel(range)}
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
+            <PopoverTitle className="sr-only">조회할 날짜 범위 선택</PopoverTitle>
             <Calendar
               mode="range"
+              locale={ko}
               selected={range}
               onSelect={setRange}
               defaultMonth={range?.from ?? earliestSelectable}
@@ -111,12 +144,12 @@ export function HistoryView() {
                 ...(earliestSelectable ? [{ before: earliestSelectable }] : []),
                 { after: today },
               ]}
-              numberOfMonths={2}
+              numberOfMonths={1}
             />
           </PopoverContent>
         </Popover>
         {hasCustomRange ? (
-          <Button className="button secondary" variant="secondary" type="button" onClick={() => setRange(undefined)}>
+          <Button className="button secondary" variant="secondary" type="button" onClick={resetToRelativeWindow}>
             최근 {DEFAULT_RELATIVE_DAYS}일 보기
           </Button>
         ) : null}
@@ -127,7 +160,11 @@ export function HistoryView() {
           {error}
         </Alert>
       ) : null}
-      {loading ? <p className="notice">데이터를 불러오는 중입니다.</p> : null}
+      {loading ? (
+        <p className="notice" aria-live="polite">
+          데이터를 불러오는 중입니다.
+        </p>
+      ) : null}
 
       {summary && (summary.min !== null || summary.max !== null || summary.average !== null) ? (
         <section className="detail-ribbon">

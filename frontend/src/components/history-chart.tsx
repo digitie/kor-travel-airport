@@ -54,6 +54,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function historyRangeLabel(series: ParkingTimeSeriesResponse): string {
+  return series.start_date && series.end_date ? `${series.start_date} ~ ${series.end_date}` : `최근 ${series.days}일`;
+}
+
 function buildLabelIndexes(points: TimeSeriesPoint[]): number[] {
   if (points.length === 0) {
     return [];
@@ -249,7 +253,7 @@ export function HistoryChart({ holidays, series, scopeLabel }: HistoryChartProps
       <article className="panel-surface history-panel">
         <div className="panel-head">
           <div>
-            <h3>최근 7일 잔여 주차면</h3>
+            <h3>{series ? `${historyRangeLabel(series)} 잔여 주차면` : "잔여 주차면"}</h3>
             <p className="history-scope">기준: {scopeLabel}</p>
           </div>
         </div>
@@ -265,7 +269,7 @@ export function HistoryChart({ holidays, series, scopeLabel }: HistoryChartProps
       <article className="panel-surface history-panel">
         <div className="panel-head">
           <div>
-            <h3>최근 {series.days}일 잔여 주차면</h3>
+            <h3>{historyRangeLabel(series)} 잔여 주차면</h3>
             <p className="history-scope">기준: {scopeLabel}</p>
           </div>
         </div>
@@ -317,7 +321,7 @@ export function HistoryChart({ holidays, series, scopeLabel }: HistoryChartProps
     <article className="panel-surface history-panel">
       <div className="panel-head">
         <div>
-          <h3>최근 {series.days}일 잔여 주차면</h3>
+          <h3>{historyRangeLabel(series)} 잔여 주차면</h3>
           <p className="history-scope">기준: {scopeLabel}</p>
         </div>
         <p className="section-hint">마지막 관측 {formatDateTime(latestPoint.bucket_at)}</p>
@@ -340,7 +344,7 @@ export function HistoryChart({ holidays, series, scopeLabel }: HistoryChartProps
             ) : null}
 
             <svg
-              aria-label={`최근 ${series.days}일 ${series.interval_minutes}분 간격 ${scopeLabel} 시계열`}
+              aria-label={`${historyRangeLabel(series)} ${series.interval_minutes}분 간격 ${scopeLabel} 시계열`}
               className="history-chart"
               role="img"
               viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`}

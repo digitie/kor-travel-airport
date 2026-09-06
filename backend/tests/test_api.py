@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.core.config import Settings
 from app.core.time_utils import now_utc
 from app.main import create_app
-from app.models import AnalyticsCache, CollectionRun
+from app.models import AnalyticsCache, Airport, CollectionRun, ParkingLot, ParkingSnapshot
 
 
 def assert_is_utc_iso(value: str | None) -> None:
@@ -59,6 +59,30 @@ async def insert_collection_run(
                 status=status,
                 trigger=trigger,
                 error_message=error_message,
+            )
+        )
+        await session.commit()
+
+
+async def insert_isolated_snapshot(client: TestClient, *, airport_code: str, observed_at: datetime) -> None:
+    """Adds one extra snapshot at an exact timestamp, for tests that need a snapshot at a
+    controlled instant (e.g. to create a deliberate trailing gap before a range's end)."""
+    session_factory = client.app.state.session_factory
+    async with session_factory() as session:
+        airport = await session.scalar(select(Airport).where(Airport.code == airport_code))
+        assert airport is not None
+        lot = await session.scalar(select(ParkingLot).where(ParkingLot.airport_id == airport.id))
+        assert lot is not None
+        session.add(
+            ParkingSnapshot(
+                airport_id=airport.id,
+                parking_lot_id=lot.id,
+                source="kac_parking",
+                observed_at=observed_at,
+                collected_at=observed_at,
+                occupied_spaces=10,
+                total_spaces=100,
+                available_spaces=90,
             )
         )
         await session.commit()
@@ -314,6 +338,15 @@ def test_time_series_rejects_range_exceeding_cap(client) -> None:
     assert "90일" in response.json()["detail"]
 
 
+def test_time_series_rejects_unscoped_date_range(client) -> None:
+    response = client.get(
+        "/v1/parking/analytics/timeseries",
+        params={"start_date": "2026-05-01", "end_date": "2026-05-07"},
+    )
+    assert response.status_code == 400
+    assert "airport_code" in response.json()["detail"]
+
+
 def test_time_series_rejects_invalid_date_format(client) -> None:
     response = client.get(
         "/v1/parking/analytics/timeseries",
@@ -321,6 +354,49 @@ def test_time_series_rejects_invalid_date_format(client) -> None:
     )
     assert response.status_code == 400
     assert "YYYY-MM-DD" in response.json()["detail"]
+
+
+def test_time_series_range_stays_pinned_to_requested_end_despite_trailing_gap(client) -> None:
+    # Isolated far-past date so this test's single snapshot never overlaps the sample
+    # fixture's own "last 7 days ending now" data.
+    asyncio.run(
+        insert_isolated_snapshot(
+            client,
+            airport_code="GMP",
+            observed_at=datetime(2026, 1, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+        )
+    )
+
+    response = client.get(
+        "/v1/parking/analytics/timeseries",
+        params={
+            "airport_code": "GMP",
+            "start_date": "2026-01-01",
+            "end_date": "2026-01-05",
+            "interval_minutes": 60,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["start_date"] == "2026-01-01"
+    assert payload["end_date"] == "2026-01-05"
+    assert payload["items"]
+
+    first_bucket = datetime.fromisoformat(payload["items"][0]["bucket_at"].replace("Z", "+00:00"))
+    last_bucket = datetime.fromisoformat(payload["items"][-1]["bucket_at"].replace("Z", "+00:00"))
+    range_start_seoul = datetime(2026, 1, 1, 0, 0, tzinfo=ZoneInfo("Asia/Seoul"))
+    range_end_exclusive_seoul = datetime(2026, 1, 6, 0, 0, tzinfo=ZoneInfo("Asia/Seoul"))
+
+    # The window must stay pinned to the *requested* range even though the only real
+    # snapshot is on day 1 - not silently shift back to wherever that snapshot happens
+    # to be (hostile-review P0: build_time_series previously anchored on the latest
+    # *observed* snapshot instead of the requested end_date).
+    assert first_bucket >= range_start_seoul
+    assert last_bucket < range_end_exclusive_seoul
+    # The tail (days 2-5, after the only snapshot) must be honestly reported as
+    # no-observation, not fabricated and not silently dropped from the response.
+    assert any(point["lot_observations"] == 0 for point in payload["items"])
 
 
 def test_collector_status_reports_earliest_snapshot(client) -> None:
