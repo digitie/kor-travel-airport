@@ -2,6 +2,62 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-09-06 (T-036)
+
+### `T-036` — 과거 자료 조회 기능
+
+- 원래 계획은 `/v1/parking/history`(raw 리스트 endpoint)에 날짜범위를 추가하는
+  것이었지만, 조사 결과 프론트가 이 endpoint를 전혀 호출하지 않는다는 걸 확인하고
+  범위를 재조정했다 — `/history` 라우트가 실제로 렌더링하는 건
+  `/v1/parking/analytics/timeseries`(`getTimeSeries`)이므로, 여기에
+  `start_date`/`end_date`(YYYY-MM-DD, `days`와 상호배타)를 추가했다. `days` 기반
+  상대 조회는 완전히 그대로 유지된다. `_parse_local_date_query`/
+  `_load_snapshots_between_local_dates`(`/v1/holidays/summary`가 이미 쓰는 로컬→UTC
+  변환 템플릿)를 재사용했고, 최대 조회 기간은 90일(기존 `threshold_insights`와 동일
+  캡)로 뒀다. `CollectorStatusResponse`에 `earliest_snapshot_observed_at`을 추가해
+  프론트 date picker가 실제 데이터 존재 범위로 선택 가능 날짜를 제한할 수 있게 했다.
+- `/history`에 shadcn `Calendar`(react-day-picker, 새로 설치) + `Popover` 날짜범위
+  선택 UI와 최소/평균/최대 잔여 주차면 요약 카드를 추가했다. `/analytics`의 "일별
+  흐름" 탭이 쓰는 공유 `useAnalyticsData` 훅은 건드리지 않고 `/history`만의 독립
+  fetch로 구현해, 날짜범위 조회가 `/analytics` 쪽에 영향을 주지 않는다.
+- hostile review(James/Popper, 서브에이전트 2개 독립 실행)에서 P0를 하나 찾았다 —
+  Popper가 `build_time_series`를 실제로 실행해 재현: 이 함수는 버킷 배치 기준점을
+  요청한 `end_date`가 아니라 "실제로 관측된 마지막 스냅샷"으로 잡는다(원래
+  상대(`days`) 조회를 위해 설계된 동작). 그 결과 요청 범위 끝부분에 수집 공백(백업
+  복원을 위한 scheduler 중지 창, 업스트림 rate-limit 차단, 혹은 그냥 "오늘"을 하루가
+  끝나기 전에 조회하는 경우도 포함)이 있으면 응답이 조용히 요청 범위보다 앞쪽으로
+  밀려서 반환되는데, 응답의 `start_date`/`end_date` 필드는 여전히 원래 요청한 범위를
+  주장한다 — 재현·수정하고 일부러 수집 공백을 만든 회귀 테스트를 추가해 수정 전엔
+  실패·수정 후엔 통과함을 확인했다. P1도 여럿 반영했다: (1) Popper — 무인증
+  endpoint에서 `airport_code`/`parking_lot_id` 없이 90일 전체 조회가 가능해 기존
+  30일 상한보다 3배 넓은 미인증 대량 조회를 허용하던 것 → 필수 파라미터로 막음.
+  (2) Popper — ADR-005가 명시한 "라우트/DTO 변경 시 같은 커밋에 openapi 재생성" 정책을
+  안 지킨 것 → `scripts/export_openapi.py` 재실행. (3) James — 달력의 선택 가능
+  범위(`disabled`)가 실제 UTC 시각을 뷰어의 브라우저 타임존 기준 달력일로 비교해
+  Asia/Seoul 기준과 최대 하루 어긋날 수 있던 것 → `seoulDateBoundary()` 추가(단,
+  `toDateKey()` 자체는 5개 타임존으로 직접 재현 검증한 결과 문제 없음을 확인하고
+  그대로 뒀다 — 달력 그리드 셀은 이미 브라우저-로컬 Date라 로컬 필드를 그대로 읽는 게
+  맞는 설계였다). (4) James — Popover에 접근 가능한 이름이 없던 것(`PopoverTitle`
+  누락), 앱 전체가 한글인데 달력만 영어로 뜨던 것(`date-fns/locale/ko` 추가), "최근
+  N일 보기" 버튼이 스스로 사라지며 포커스를 body로 떨어뜨리던 것, 로딩 상태가
+  `aria-live` 없던 것, Popover 안 2개월 달력이 모바일에서 넘칠 수 있던 것(1개월로
+  축소), 임의 범위 + 고정 10분 간격이 한 응답에 수만 버킷을 요청할 수 있던 것(범위
+  길이에 따라 interval 자동 조정), `HistoryChart` 제목이 명시적 범위 조회에도 "최근
+  N일"로 고정 표시되던 것 — 전부 재현·수정했다. 달력 상호작용 테스트는 실제로 클릭한
+  날짜가 API 호출에 그대로 반영되는지 검증하도록 강화했고(기존엔 "YYYY-MM-DD 형식인지"
+  만 확인해 James가 지적한 타임존 버그류를 못 잡았을 것), locale 텍스트 대신 `data-day`
+  속성으로 조회해 로케일 변경에도 안 깨지게 했다.
+- PR [#24](https://github.com/digitie/kor-travel-airport/pull/24) squash-merge
+  (`b9bdf1a`). CI는 backend/frontend PASS, live-e2e는 PR #18/#20/#22와 동일한
+  이유로 FAIL(신규 기능이 머지 전 배포된 prod에는 아직 없어) — 선례대로 머지를 막지
+  않았다. n150 배포 후 `release_sha=b9bdf1a9c6832217922934e1f8a0128a3bdf339f` 일치
+  확인. 배포 직후 외부 게이트웨이(`pr-api.digitie.mywire.org`)가 일시적으로 504/timeout을
+  반환했으나 n150 로컬(`127.0.0.1:14001`/`14002`, SSH로 직접 확인)은 두 컨테이너 모두
+  `healthy`였다 — 배포 문제가 아니라 외부 게이트웨이 쪽 일시 장애로 판단, 2분 후
+  재확인해 정상 복구됐다. live E2E 15개 중 14개 PASS, 나머지 1개는 T-035에서도 이미
+  관측한 것과 동일한 기존(비-T-036) `collector-status.last_run.status` 실시간 플레이크
+  (`success`/`partial_success` 오가는 실제 운영 데이터 특성) — 코드 회귀 아님.
+
 ## 2026-09-06 (T-035)
 
 ### `T-035` — 라우트 기반 앱 셸(pinvi 스타일 모바일 하단 탭바)

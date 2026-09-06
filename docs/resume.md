@@ -3,16 +3,35 @@
 ## 현재 상태
 
 - 기준일: 2026-09-06
-- 작업 브랜치: `main` (로컬/원격 모두 `0f15751`).
-- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#22 모두 **MERGED**
+- 작업 브랜치: `main` (로컬/원격 모두 `b9bdf1a`).
+- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#24 모두 **MERGED**
   상태다. 이 세션에서 다룬 마지막 코드/운영 PR은
-  [#22](https://github.com/digitie/kor-travel-airport/pull/22)(라우트 기반 앱 셸,
-  T-035)이다.
+  [#24](https://github.com/digitie/kor-travel-airport/pull/24)(과거 자료 조회 기능,
+  T-036)이다.
 - **진행 중인 initiative**: shadcn/ui 전환 + 과거 자료 조회 기능 + Hallmark
-  재감사/재설계(`docs/tasks.md` T-036~T-038, 계획
+  재감사/재설계(`docs/tasks.md` T-037~T-038, 계획
   `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`). T-033(shadcn 기반
-  도입)·T-034(button/card/table/alert/confirm-dialog 치환)·T-035(라우트 기반 앱 셸)까지
-  완료·배포·live E2E 검증 끝났다. 다음은 T-036(과거 자료 조회 기능)이다.
+  도입)·T-034(button/card/table/alert/confirm-dialog 치환)·T-035(라우트 기반 앱
+  셸)·T-036(과거 자료 조회 기능)까지 완료·배포·live E2E 검증 끝났다. 다음은
+  T-037(Hallmark audit)이다.
+  - **T-036에서 새로 배운 것**: (1) 계획서에 적힌 API 대상(`/v1/parking/history`)이
+    실제로 프론트에서 전혀 안 쓰이는 걸 조사로 발견했다 — task를 시작하기 전에 항상
+    "이 endpoint를 실제로 누가 호출하는지" 먼저 확인할 것, 계획 문서가 최신이라고
+    가정하지 말 것. (2) hostile review 지적을 무조건 수용하지 말고 재현해서 검증할
+    것 — Popper의 P0(`build_time_series` 앵커 버그)는 직접 재현해 실제 버그로
+    확인했지만, James가 같이 지적한 `toDateKey()` 자체의 타임존 버그 주장은 5개
+    타임존으로 직접 재현 시도한 결과 사실이 아님을 확인하고 그 부분은 고치지
+    않았다(반대로 James가 지적한 `disabled` 범위 비교 쪽 타임존 버그는 진짜였다 —
+    같은 리뷰 안에서도 finding별로 따로 검증해야 한다). (3) 상대(`days`) 조회용으로
+    설계된 시계열 버킷 함수(`build_time_series`)를 명시적 날짜범위 조회에 재사용할
+    때는 "버킷 배치 기준점"이 암묵적으로 "최신 관측 시각"에 고정돼 있는지부터
+    확인할 것 — 수집 공백이 있으면 조용히 잘못된 기간의 데이터를 반환할 수 있다.
+    (4) react-day-picker(mode="range")는 클릭 1번으로 `{from, to}`를 모두 채운다
+    (같은 날짜로) — "선택 완료 시 자동 닫기" 같은 로직을 짤 때 `from !== to`까지
+    확인하지 않으면 첫 클릭만으로 팝오버가 닫혀버린다(실제로 이 버그를 만들었다가
+    되돌렸다). 또한 react-day-picker는 선택이 바뀔 때마다 day-grid DOM 노드를
+    리마운트하므로, 첫 클릭 전에 캡처해둔 두 번째 버튼 참조는 첫 클릭 후 detached된다
+    — 테스트에서 두 번째 요소는 항상 재조회해야 한다.
   - **T-034에서 `<select>`/`ResponsiveSection`의 `<details>`/daily-flight-overlay의
     토글·체크박스는 의도적으로 안 건드렸다** — 기존 테스트가 native DOM 구조
     (`getByDisplayValue`, `<summary>` 클릭+`open` 속성, `aria-pressed`)에 의존해서다.
@@ -59,9 +78,9 @@
   등록돼 있지 않다. **WSL(`wsl.exe -e bash -lc '...'`)에는 `digitie@192.168.1.14`
   접근이 이미 되어 있으므로, `scripts/deploy-server14.sh`를 포함한 모든 n150 SSH
   작업은 WSL을 경유해서 실행한다.**
-- `docs/tasks.md`의 진행 중 백로그: `T-034`~`T-038`(shadcn 컴포넌트 치환 → 라우트 셸 →
-  과거 조회 기능 → Hallmark audit → redesign, 위 initiative 참고). `T-029`/`T-031`
-  등 이전 세션 항목은 모두 완료·머지·live 검증까지 끝나 있다.
+- `docs/tasks.md`의 진행 중 백로그: `T-037`~`T-038`(Hallmark audit → redesign, 위
+  initiative 참고). `T-029`/`T-031` 등 이전 세션 항목은 모두 완료·머지·live 검증까지
+  끝나 있다.
 - 운영 호스트 `192.168.1.14`의 별칭을 "server14"/"14번"에서 "n150"으로 통일했다(PR
   [#12](https://github.com/digitie/parking-radar/pull/12)). IP·실제 파일명은 그대로다.
 - n150에 `vm.swappiness=10`을 영구 적용했다(`/etc/sysctl.d/99-parking-radar-swappiness.conf`).
@@ -116,18 +135,11 @@
 
 ## 다음 한 작업
 
-`T-036` — 과거 자료 조회 기능. `GET /v1/parking/history`에 `start_date`/`end_date`
-(YYYY-MM-DD) 옵션 파라미터를 추가한다(기존 `days` 상대조회는 하위호환 유지) —
-`main.py`의 `_parse_local_date_query`/`_load_snapshots_between_local_dates`
-(`/v1/holidays/summary`·`holiday_patterns`가 이미 쓰는 로컬→UTC 변환 템플릿)를 그대로
-재사용한다. `end_date >= start_date` 검증과 최대 조회 기간 캡을 같은 한국어 400 에러
-스타일로 추가한다. 이 신규 파라미터는 analytics cache(상대 window 전용 키 구조)와
-맞지 않으니 비-캐시로 간다. 백엔드 pytest는 현재 `/v1/parking/history`에 0개이므로
-기존 `days` 동작(회귀 방지) + 신규 명시 범위(정상/역순/기간초과/데이터없음)를 새로
-작성한다. 프론트엔드는 이미 만들어진 `/history` 라우트(T-035, `history-view.tsx`)에
-shadcn `Calendar`(아직 미설치) + `Popover` + `Button`으로 날짜 범위 선택 UI를 추가하고
-`lib/api.ts`에 대응 메서드를 붙여 기존 `HistoryChart` 렌더러를 재사용한다. 완료
-조건은 `docs/tasks.md` T-036 참고.
+`T-037` — Hallmark audit. `T-033`~`T-036`으로 완료된 전체 결과물(shadcn 기반 도입,
+컴포넌트 치환, 라우트 기반 앱 셸, 과거 자료 조회 date picker)에 `hallmark audit`을
+read-only로 실행해 critical/major/minor 펀치리스트를 만든다. 이 단계는 코드를 고치지
+않는다 — 다음 `T-038`(redesign)이 critical/major를 반영하고, minor는 반영하거나
+`docs/journal.md`에 근거를 남긴다. 완료 조건은 `docs/tasks.md` T-037/T-038 참고.
 
 ## 확인된 사실
 
@@ -141,9 +153,15 @@ shadcn `Calendar`(아직 미설치) + `Popover` + `Button`으로 날짜 범위 �
 - HTTP fallback migration은 snapshots 38,946건/lot 44개 관측, reference lot 53개/legacy ID
   53개 상태로 운영되고, duplicate legacy ID는 0개다.
 - 현재 n150 runtime은 배포 Git full SHA와 `/health`의 release SHA가 일치하며 API/web 포트 계약
-  (`14001`/`14002`)을 지킨다. 2026-09-06 기준 `release_sha=0f157514aee5d9d4fa2792754055b82d9dbb9485`
-  (=`main` HEAD, PR #22 squash-merge 커밋, T-035)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
-  양쪽에서 이 값과 정상 응답을 재확인했다(live E2E 15개 전부 PASS).
+  (`14001`/`14002`)을 지킨다. 2026-09-06 기준 `release_sha=b9bdf1a9c6832217922934e1f8a0128a3bdf339f`
+  (=`main` HEAD, PR #24 squash-merge 커밋, T-036)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
+  양쪽에서 이 값과 정상 응답을 재확인했다(live E2E 15개 중 14개 PASS, 나머지 1개는
+  기존 `collector-status` 실시간 플레이크). 배포 직후 `pr-api`가 약 2분간 504/timeout을
+  반환한 적이 있었는데 n150 로컬(`127.0.0.1:14001`/`14002`, SSH로 직접 확인)은 그 순간에도
+  두 컨테이너 모두 `healthy`였다 — 배포 문제가 아니라 외부 게이트웨이 쪽 일시 장애였고
+  자연 복구됐다. 외부 게이트웨이가 응답하지 않을 때는 항상 먼저 n150에 SSH로 직접
+  접속해 로컬 포트(`14001`/`14002`)를 확인해 "배포가 실패했는지" vs "게이트웨이만
+  문제인지"를 구분할 것.
 
 ## 남은 운영 확인
 
