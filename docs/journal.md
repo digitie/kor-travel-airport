@@ -221,3 +221,31 @@
   n150에 배포했다(내용은 동일해 Docker 레이어 대부분 캐시 히트). 최종적으로 외부
   게이트웨이가 `release_sha=b893d0be8c534d5392ed08453b292ce3493db7e3`로 응답하고 web도
   200을 반환하는 것까지 확인했다.
+- 사용자 요청으로 shadcn/ui 전환 + 과거 자료 조회 기능 + Hallmark 재감사/재설계
+  initiative를 시작했다(`docs/tasks.md` T-033~T-038, 계획 파일
+  `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`). 조사 결과 프론트엔드는
+  Tailwind/컴포넌트 라이브러리 없이 순수 CSS(1844줄 `globals.css` + oklch `tokens.css`)로
+  된 단일 페이지 앱이었고, 백엔드 history/analytics API는 전부 상대 `days` 조회만
+  지원해 임의 과거 날짜 조회가 불가능했다. `F:\dev\pinvi`의 `AppShell.tsx`(데스크톱
+  상단 탭 / 모바일 하단 탭바 4+더보기)를 IA 참고 패턴으로 확인했다.
+- T-033(shadcn/ui 기반 도입, PR [#18](https://github.com/digitie/kor-travel-airport/pull/18))을
+  구현했다. `npx skills add shadcn/ui`로 스킬을 저장소 루트 `.agents/skills`(관례에 맞춰
+  `.claude/skills`는 심볼릭 링크가 아닌 실제 복사본으로 — 이 환경은 `core.symlinks=false`라
+  심볼릭 링크를 커밋하면 세션 로컬 절대경로가 박힌 깨진 텍스트 파일이 된다)에 설치한 뒤
+  `npx shadcn@latest init --defaults`(Tailwind v4 + Base UI, nova style)로 초기화했다.
+  init이 자동으로 저지른 세 가지 사고를 감지·수정했다: (1) 이 프로젝트가 이미 쓰던
+  `--muted`/`--accent`/`--radius`를 shadcn 자체 기본값으로 덮어써 기존 ~30곳의 규칙이
+  깨질 뻔한 것을 소스 토큰(`--muted-foreground`/`--color-accent`/`--radius-card`)으로
+  재배선, (2) `next/font/google`의 Geist를 주입해 한글 최적화 Pretendard 스택을 덮어쓴
+  것을 되돌림, (3) Next.js 16이 `frontend/AGENTS.md`/`CLAUDE.md`를 자동 생성한 것을
+  `agentRules: false`로 차단(저장소는 루트에만 CLAUDE.md/AGENTS.md를 둠, CLAUDE.md §1).
+  hostile review(James/Popper)에서 James가 P0(Tailwind Preflight가 h1~h6의
+  font-weight/font-size를 inherit로 리셋해 헤딩이 굵기·크기를 잃는 것, 브라우저에서
+  `getComputedStyle`로 재현 확인 — h1 400/h2·h3 16px)를 지적해 원래 UA 기본값(h1 bold,
+  h2 1.5em/700, h3 1.17em/700)을 명시적으로 복원했다. Popper가 지적한 P1(Tailwind v4
+  네이티브 바이너리가 n150의 Alpine(musl) 이미지에서 실제로 빌드되는지 CI만으로는
+  증명 못 한다는 점)은 WSL Docker로 `frontend/Dockerfile`을 직접 빌드해 성공을
+  확인하는 것으로 해소했다. PR #18을 squash-merge(`67e9199`)하고 n150에 배포,
+  release_sha 일치와 live E2E `5 passed`(320/375/414/768px 무-오버플로 포함)까지
+  확인했다. 컴포넌트 JSX는 아직 바꾸지 않았다 — T-034(shadcn 프리미티브 치환)가 다음
+  단계다.

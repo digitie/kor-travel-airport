@@ -3,11 +3,20 @@
 ## 현재 상태
 
 - 기준일: 2026-09-06
-- 작업 브랜치: `main` (로컬/원격 모두 `b893d0b`).
-- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#16 모두 **MERGED**
+- 작업 브랜치: `main` (로컬/원격 모두 `67e9199`).
+- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#18 모두 **MERGED**
   상태다. 이 세션에서 다룬 마지막 코드/운영 PR은
-  [#16](https://github.com/digitie/kor-travel-airport/pull/16)(배포 스크립트 실행
-  권한 fix)이다.
+  [#18](https://github.com/digitie/kor-travel-airport/pull/18)(shadcn/ui 기반 도입,
+  T-033)이다.
+- **진행 중인 initiative**: shadcn/ui 전환 + 과거 자료 조회 기능 + Hallmark
+  재감사/재설계(`docs/tasks.md` T-033~T-038, 계획
+  `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`). T-033(shadcn 기반
+  도입, Tailwind v4 + Base UI, 컴포넌트 JSX 무변경)만 완료·배포·live E2E 검증까지
+  끝났다. 다음은 T-034(컴포넌트를 shadcn 프리미티브로 치환)다. shadcn init이 프로젝트
+  기존 `--muted`/`--accent`/`--radius`를 덮어쓰고 Geist 폰트를 주입하려던 문제,
+  Tailwind Preflight가 헤딩 bold를 지우던 문제를 이미 겪고 고쳤으니 — T-034에서 새
+  컴포넌트를 추가할 때도 shadcn CLI의 자동 편집(특히 `globals.css`/`layout.tsx`)을
+  항상 diff로 재확인할 것.
 - 저장소 식별자가 `parking-radar` → `kor-travel-airport`로 개명됐다(PR
   [#15](https://github.com/digitie/kor-travel-airport/pull/15), ADR-007). 배포되는
   웹앱 브랜드/백업 파일명/쿠키 키는 계속 `parking-radar`다 — `CLAUDE.md` §1 참고.
@@ -17,9 +26,9 @@
   등록돼 있지 않다. **WSL(`wsl.exe -e bash -lc '...'`)에는 `digitie@192.168.1.14`
   접근이 이미 되어 있으므로, `scripts/deploy-server14.sh`를 포함한 모든 n150 SSH
   작업은 WSL을 경유해서 실행한다.**
-- `docs/tasks.md`의 진행 중 백로그가 비어 있다 — `T-029`/`T-031`을 포함해 이전 세션에서
-  파악한 항목은 모두 완료·머지·live 검증까지 끝났고, 이번 rename/배포 검증 작업은
-  tasks.md에 등록된 task가 아니라 사용자의 직접 요청으로 진행했다.
+- `docs/tasks.md`의 진행 중 백로그: `T-034`~`T-038`(shadcn 컴포넌트 치환 → 라우트 셸 →
+  과거 조회 기능 → Hallmark audit → redesign, 위 initiative 참고). `T-029`/`T-031`
+  등 이전 세션 항목은 모두 완료·머지·live 검증까지 끝나 있다.
 - 운영 호스트 `192.168.1.14`의 별칭을 "server14"/"14번"에서 "n150"으로 통일했다(PR
   [#12](https://github.com/digitie/parking-radar/pull/12)). IP·실제 파일명은 그대로다.
 - n150에 `vm.swappiness=10`을 영구 적용했다(`/etc/sysctl.d/99-parking-radar-swappiness.conf`).
@@ -74,7 +83,10 @@
 
 ## 다음 한 작업
 
-`docs/tasks.md`에 등록된 진행 중 task가 없다. 다음 작업은 사용자 지시를 기다린다.
+`T-034` — 기존 hand-rolled UI(select/button/card/badge/table/accordion/alert/
+confirm-dialog/toggle)를 shadcn 프리미티브로 치환한다. 차트(history-chart,
+daily-flight-overlay-chart)의 SVG 렌더링 로직 자체는 그대로 두고 주변 chrome만
+교체한다. 모든 `data-testid` 보존 필수. 계획 파일의 "대표 치환표" 참고.
 
 ## 확인된 사실
 

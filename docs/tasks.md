@@ -9,21 +9,13 @@
 
 ## 진행 중인 작업 인덱스
 
-- [ ] `T-033` — shadcn/ui 기반 도입 (Tailwind v4 + 토큰 브릿지, 시각적 무변경)
 - [ ] `T-034` — 컴포넌트를 shadcn 프리미티브로 교체
 - [ ] `T-035` — 라우트 기반 앱 셸(pinvi 스타일 모바일 하단 탭바)
 - [ ] `T-036` — 과거 자료 조회 기능(백엔드 날짜범위 + 프론트 date picker)
 - [ ] `T-037` — Hallmark audit (read-only 펀치리스트)
 - [ ] `T-038` — Hallmark redesign (audit 지적 반영)
 
-### `T-033` — shadcn/ui 기반 도입
-
-- `npx skills add shadcn/ui` 실행 후 Tailwind v4 + shadcn CLI init(`components.json`,
-  `lib/utils.ts`).
-- `tokens.css`의 기존 oklch 값을 Tailwind `@theme` + shadcn 시맨틱 변수로 번역(값 보존,
-  다크모드는 기존 `prefers-color-scheme` 유지).
-- 완료 조건: 컴포넌트 JSX 무변경, `npm run build` 통과, 기존 vitest 전부 통과, 화면
-  픽셀 단위 무변경.
+`T-033`(shadcn/ui 기반 도입)은 완료돼 `docs/tasks-done.md`로 이동했다.
 
 ### `T-034` — 컴포넌트를 shadcn 프리미티브로 교체
 

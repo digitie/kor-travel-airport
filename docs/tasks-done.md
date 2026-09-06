@@ -2,6 +2,31 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-09-06 (T-033)
+
+### `T-033` — shadcn/ui 기반 도입
+
+- shadcn/ui 전환 + 과거 자료 조회 + Hallmark 재감사/재설계 initiative의 첫 단계
+  (계획 `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`, 하위 task
+  T-034~T-038은 `docs/tasks.md` 진행 중).
+- `npx skills add shadcn/ui`로 스킬 설치 후 `npx shadcn@latest init --defaults`
+  (Tailwind v4 + Base UI, nova style)로 `frontend/`를 초기화했다. 컴포넌트 JSX는
+  전혀 바꾸지 않았다 — 순수 빌드 도구 배선.
+- shadcn init이 자동으로 저지른 세 가지를 감지·수정: (1) 프로젝트가 이미 쓰던
+  `--muted`/`--accent`/`--radius`를 자체 기본값으로 덮어쓴 것을 소스 토큰으로
+  재배선, (2) `next/font/google` Geist 주입으로 Pretendard 한글 폰트 스택이
+  깨질 뻔한 것을 되돌림, (3) Next.js 16이 자동 생성한 `frontend/AGENTS.md`/
+  `CLAUDE.md`를 `agentRules: false`로 차단(저장소는 루트에만 이 파일들을 둠).
+  Tailwind v4 CSS 값은 `frontend/src/app/tokens.css`의 기존 oklch 값에서 파생했다.
+- hostile review(James/Popper): James의 P0(Tailwind Preflight가 h1~h6
+  font-weight/size를 inherit로 리셋해 헤딩 굵기·크기 소실 — 브라우저 재현 확인)를
+  h1 bold/h2 1.5em·700/h3 1.17em·700 명시 복원으로 수정. Popper의 P1(Tailwind v4
+  네이티브 바이너리의 n150 Alpine/musl 호환성 미검증)은 WSL Docker로
+  `frontend/Dockerfile` 직접 빌드 성공으로 해소.
+- PR [#18](https://github.com/digitie/kor-travel-airport/pull/18) squash-merge
+  (`67e9199`), n150 배포·release_sha 일치·live E2E `5 passed`(320/375/414/768px
+  무-오버플로 포함) 확인 완료.
+
 ## 2026-08-23 (T-029)
 
 ### `T-029` — `flight_status.py`를 `python-krairport-api`(krairport) client로 전환
