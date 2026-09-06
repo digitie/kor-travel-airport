@@ -9,23 +9,20 @@
 
 ## 진행 중인 작업 인덱스
 
-- [ ] `T-035` — 라우트 기반 앱 셸(pinvi 스타일 모바일 하단 탭바)
 - [ ] `T-036` — 과거 자료 조회 기능(백엔드 날짜범위 + 프론트 date picker)
 - [ ] `T-037` — Hallmark audit (read-only 펀치리스트)
 - [ ] `T-038` — Hallmark redesign (audit 지적 반영)
 
-`T-033`(shadcn/ui 기반 도입), `T-034`(컴포넌트를 shadcn 프리미티브로 교체)는 완료돼
-`docs/tasks-done.md`로 이동했다. `T-034`에서는 `<select>`/`ResponsiveSection`의
-`<details>`/daily-flight-overlay-chart의 토글·체크박스는 테스트 호환성 위험 때문에
-의도적으로 native 구현을 유지했다 — `T-035`에서 라우트 구조가 바뀌면 재검토한다.
-
-### `T-035` — 라우트 기반 앱 셸
-
-- `/`(현황)·`/analytics`(분석)·`/history`(과거조회)·`/fees`(요금계산)·`/backup`(백업)
-  라우트 분리 + 공유 `AppShell`(데스크톱 상단 탭 / 모바일 하단 탭바 4+더보기, pinvi
-  `AppShell.tsx` 패턴 참고, "더보기"는 shadcn `Popover`).
-- 완료 조건: 320/375/414/768px 무-오버플로, 탭바 키보드 포커스/`aria-current`, 기존
-  golden path E2E 통과.
+`T-033`(shadcn/ui 기반 도입), `T-034`(컴포넌트를 shadcn 프리미티브로 교체), `T-035`
+(라우트 기반 앱 셸)는 완료돼 `docs/tasks-done.md`로 이동했다. `T-034`에서는
+`<select>`/`ResponsiveSection`의 `<details>`/daily-flight-overlay-chart의 토글·체크박스는
+테스트 호환성 위험 때문에 의도적으로 native 구현을 유지했다 — `T-035`에서 라우트
+구조가 바뀌었지만 이 판단은 그대로 유효하다(재검토 결과 변경 없음). `T-035`가 남긴
+후속 미해결 항목(`docs/tasks-done.md` T-035 참고): 분석 뷰의 브레이크포인트가
+860px→1024px(Tailwind 기본값)로 바뀐 것은 의도적이나 별도 공지·테스트는 없음, 라우트
+전환 시 analytics 데이터가 캐시되지 않아 `/analytics`↔`/history` 왕복마다 재요청됨,
+백업 생성/복원 진행 중 다른 라우트로 이동하면 진행 상태가 사라짐(백엔드
+`operation_lock`이 데이터 손상은 막지만 사용자 피드백은 소실).
 
 ### `T-036` — 과거 자료 조회 기능
 

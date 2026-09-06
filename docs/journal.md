@@ -272,3 +272,23 @@
   기준 타입에러(`pre_restore_backup: null` vs 실제 타입 `| undefined`, 기본
   tsconfig는 tests/를 제외해서 로컬에서 못 잡았었다)를 한 번 더 고쳤다. n150 배포,
   release_sha `95ac97d` 일치, live E2E `5 passed`(백업 패널 노출 확인 포함) 확인했다.
+- T-035(라우트 기반 앱 셸, PR [#22](https://github.com/digitie/kor-travel-airport/pull/22))를
+  구현했다. 531줄 단일 컨트롤러 `dashboard-app.tsx`를 `DashboardProvider` context +
+  라우트별 view 5개(`/`·`/analytics`·`/history`·`/fees`·`/backup`)로 쪼개고, pinvi
+  `AppShell.tsx` 패턴을 참고한 새 `AppShell`(데스크톱 상단 탭 전부 인라인, 모바일 하단
+  탭바 4 primary + shadcn `Popover` 기반 "더보기"로 백업을 뒤로 뺌)을 얹었다. 데스크톱/
+  모바일 마크업을 CSS-only(`hidden lg:block`/`lg:hidden`)로 동시에 렌더링해 기존 JS
+  뷰포트 분기(`useViewportMode()`)를 제거했고, `/analytics`엔 2차 탭(요일별/공휴일/
+  임계치/일별 흐름)을 둬 사용자가 요청한 "PC 화면도 메뉴나 탭으로 상세 뷰 분리"를
+  달성했다. hostile review(James/Popper, 서로 다른 렌즈의 독립 서브에이전트 2개)에서
+  P1을 다섯 건 이상 발견했다 — 분석/과거조회 fetch 에러가 라우트 분리 과정에서 완전히
+  조용히 사라지던 것(두 리뷰어가 공통으로 지적), 공항/주차장 변경 시 분석 데이터가
+  이중으로 fetch되던 것, 모바일 "더보기" popover가 라우트 이동 후에도 안 닫히던 것,
+  요금계산 화면이 bootstrap 실패 시 "불러오는 중"에 영원히 멈추던 것, 임계치 탭
+  패널이 그리드 CSS 없이 고아 클래스로 남아 레이아웃이 무너진 것, `/backup`이 무인증
+  destructive 관리 UI인데 크롤러가 바로 찾을 수 있는 고정 링크가 된 것(ADR-003 전제
+  변경, 관련 addendum을 ADR-003에 남김). 전부 재현·수정하고 회귀 테스트를 추가했다.
+  PR #22를 squash-merge(`0f15751`)하고 n150에 배포, release_sha 일치와 live E2E
+  `15 passed`(첫 회는 실시간 collector 상태가 마침 `partial_success`였던 기존
+  단언 1건만 일시 실패, 다음 스케줄러 사이클에서 재확인해 `success`로 통과 — 코드
+  회귀 아님)까지 확인했다. 상세는 `docs/tasks-done.md` T-035 참고.

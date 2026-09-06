@@ -2,6 +2,56 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-09-06 (T-035)
+
+### `T-035` — 라우트 기반 앱 셸(pinvi 스타일 모바일 하단 탭바)
+
+- 531줄 단일 컨트롤러 `dashboard-app.tsx` + 750줄 표시 컴포넌트 `dashboard-screen.tsx`를
+  `DashboardProvider` context(`lib/dashboard-context.tsx`, bootstrap/15초 폴링/localStorage·
+  cookie 영속화/`dataVersion` 카운터 보유) + 라우트별 view(`components/pages/*.tsx`)로
+  분리했다. 라우트: `/`(현황)·`/analytics`(분석)·`/history`(과거조회)·`/fees`(요금계산)·
+  `/backup`(백업). `useAnalyticsData` 훅이 analytics-only 상태(threshold/weekday/holiday/
+  timeSeries/flightStatus)를 라우트 마운트 시점에만 불러온다 — 기존 IntersectionObserver
+  lazy-load를 대체.
+- 신규 `AppShell`(`components/app-shell.tsx`, pinvi `AppShell.tsx` 패턴 참고): 데스크톱은
+  5개 라우트 전부 상단 탭 인라인 노출, 모바일은 하단 탭바(4 primary + shadcn `Popover`
+  기반 "더보기"로 백업을 한 단계 뒤로 뺌). 데스크톱/모바일 마크업을 CSS-only(`hidden
+  lg:block`/`lg:hidden`, Tailwind 기본 1024px 브레이크포인트)로 동시에 렌더링해 JS
+  뷰포트 분기(`useViewportMode()`, 기존 860px 기준)를 제거했다.
+- `/analytics`에 2차 탭(요일별 패턴/공휴일 패턴/임계치/일별 흐름, shadcn `Tabs`)을 둬
+  기존처럼 전부 세로로 쌓지 않고 관점별로 바로 전환할 수 있게 했다(사용자 요청:
+  "PC 화면도 메뉴나 탭 같은걸로 상세한 뷰를 분리").
+- hostile review(James/Popper, 서브에이전트 2개 독립 실행)에서 P1을 다수 발견해 전부
+  반영했다: (1) 공통 지적 — `useAnalyticsData`의 `error`/`loading`을 `analytics-view.tsx`/
+  `history-view.tsx` 둘 다 destructure하지 않아 분석 fetch 실패가 완전히 조용히
+  사라지던 것(기존엔 같은 에러가 페이지 상단 Alert로 항상 보였음) → Alert 렌더링 추가 +
+  회귀 테스트 추가. (2) James P1 — 공항/주차장 변경 시 `useAnalyticsData`가 선택 상태
+  변경과 그 결과인 `dataVersion` 증가 두 번 모두에 반응해 분석+비행편 fetch가 매번
+  중복 발생하던 것(비행편 API는 외부 rate-limit 대상) → effect deps를 `dataVersion`만
+  쓰도록 정리 + 회귀 테스트 추가. (3) James P1 — 모바일 "더보기" Popover가 내부 링크
+  클릭으로 라우트 이동해도 안 닫히던 것(Base UI Popover는 outside-press/Escape로만
+  닫힘) → `usePathname()` 변경 시 명시적으로 닫도록 제어형으로 변경, 실제 브라우저로
+  재현·수정 확인. (4) James P1 — `FeesView`가 bootstrap 실패 시 "불러오는 중"
+  메시지에 영원히 멈춰 있던 것 → `error` 분기 추가. (5) James P1 — 분석 "임계치" 탭의
+  패널 3개가 추출 과정에서 그리드 클래스(`analytics-threshold-panels`)가 CSS 룰 없이
+  고아로 남아 세로 스택으로 무너진 것 → 2열 그리드 CSS 추가(브라우저로 레이아웃 복원
+  확인). (6) Popper P1 — `/backup`이 JS로 열고 닫던 접이식 버튼(href 없음)에서 홈
+  화면 SSR HTML에 바로 노출되는 고정 `<a href>`가 돼 무인증 destructive 백업 UI의
+  발견 용이성이 높아진 것(ADR-003 전제 변경) → `X-Robots-Tag: noindex,nofollow` 추가
+  + ADR-003에 추가 기록 문단 남김. P2는 일부만 반영(withTimeout dangling timer 정리,
+  live-e2e 오버플로 스윕을 전체 라우트×전체 width에서 "/"만 4개+나머지는 320/768px로
+  축소해 rate-limited 비행편 API 호출량 감소, 롤백 시 신규 라우트 404 위험을
+  `deployment.md`에 한 줄 기록) — 나머지(브레이크포인트 860→1024px 변경을 코드 주석으로
+  남김, 라우트 간 analytics 캐시 없음, 백업 진행 중 라우트 이탈 시 상태 소실)는 이번
+  PR 범위 밖으로 남기고 여기 기록한다.
+- PR [#22](https://github.com/digitie/kor-travel-airport/pull/22) squash-merge
+  (`0f15751`). CI는 backend/frontend PASS, live-e2e는 PR #18/#20과 동일한 이유로 FAIL
+  (신규 라우트가 머지 전 배포된 prod에는 아직 없어 404) — 선례대로 머지를 막지 않았다.
+  n150 배포 후 `release_sha=0f157514aee5d9d4fa2792754055b82d9dbb9485` 일치 확인,
+  live E2E 15개 전부 PASS(첫 회는 실시간 collector 상태 `partial_success`로 인한
+  기존(비-T-035) 단언 1건이 일시적으로 실패했다가 다음 스케줄러 사이클에서 `success`로
+  돌아와 재실행 시 통과 — 실제 데이터 정상, 코드 회귀 아님).
+
 ## 2026-09-06 (T-034)
 
 ### `T-034` — 컴포넌트를 shadcn 프리미티브로 교체
