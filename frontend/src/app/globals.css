@@ -35,7 +35,10 @@
   /* shadcn 시맨틱 변수 — 전부 위 tokens.css 파생 값으로 배선한다(shadcn 기본 회색 팔레트
    * 대신). var(--color-*)를 참조하므로 tokens.css의 다크모드 재정의를 그대로 상속받아
    * 아래 dark media query에서 다시 선언할 필요가 없다(--muted/--accent 제외 — 의미가
-   * 달라 별도 처리). */
+   * 달라 별도 처리). 단, --primary/--primary-foreground가 참조하는
+   * --color-button-bg/--color-button-ink는 tokens.css의 dark media query에 재정의가
+   * 없어 다크모드에서도 라이트 값 그대로 고정된다 — 이는 tokens.css의 기존 설계(버튼
+   * 색은 테마 불문 고정)를 그대로 반영한 것이지 이 배선의 버그가 아니다. */
   --background: var(--color-canvas);
   --foreground: var(--color-ink);
   --card: var(--color-surface-raised);
@@ -123,6 +126,7 @@ select {
 .page-header h1 {
   margin: 0;
   font-size: clamp(1.15rem, 1.7vw, 1.4rem);
+  font-weight: 700;
   line-height: 1.1;
   letter-spacing: 0;
 }
@@ -288,10 +292,20 @@ select {
   font-size: 0.82rem;
 }
 
-.status-header h2,
+/* Tailwind Preflight가 h1~h6의 font-size/font-weight를 inherit로 리셋하므로
+ * (shadcn/ui 도입, T-033) 기존 브라우저 기본값(h2=1.5em bold, h3=1.17em bold)을
+ * 명시적으로 복원한다 — 그러지 않으면 패널 제목이 본문과 같은 굵기/크기로 보인다. */
+.status-header h2 {
+  margin: 0;
+  font-size: 1.5em;
+  font-weight: 700;
+}
+
 .panel-head h3,
 .lot-card h3 {
   margin: 0;
+  font-size: 1.17em;
+  font-weight: 700;
 }
 
 .table-surface,
