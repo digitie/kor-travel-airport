@@ -1,6 +1,20 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 const ROUTES = ["/", "/analytics", "/history", "/fees", "/backup"] as const;
+
+/**
+ * A click right after a client-side route change can land before React has finished
+ * re-attaching event handlers on a slow connection (confirmed via CDP network throttling
+ * against the live site: a plain click silently no-ops, but retrying it a moment later
+ * succeeds). `expect(...).toPass()` retries the whole click+check until the interaction
+ * actually took effect, instead of failing on the first no-op click.
+ */
+async function clickUntilEffective(trigger: Locator, check: () => Promise<void>) {
+  await expect(async () => {
+    await trigger.click();
+    await check();
+  }).toPass({ timeout: 15_000 });
+}
 
 test.describe("live parking-radar dashboard", () => {
   test("paints current data, remembers selection, and exposes the backup route", async ({ page, context }) => {
@@ -80,8 +94,9 @@ test.describe("live parking-radar dashboard", () => {
     await expect(desktopNav.getByRole("link", { name: "분석" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("tab", { name: "요일별 패턴" })).toBeVisible();
 
-    await page.getByRole("tab", { name: "일별 흐름" }).click();
-    await expect(page.getByRole("tab", { name: "일별 흐름" })).toHaveAttribute("aria-selected", "true");
+    await clickUntilEffective(page.getByRole("tab", { name: "일별 흐름" }), () =>
+      expect(page.getByRole("tab", { name: "일별 흐름" })).toHaveAttribute("aria-selected", "true", { timeout: 1_000 })
+    );
   });
 
   test("mobile bottom tabbar navigates routes and tucks 백업 behind 더보기", async ({ page }) => {
@@ -94,8 +109,11 @@ test.describe("live parking-radar dashboard", () => {
     await expect(page).toHaveURL(/\/history$/);
     await expect(bottomNav.getByRole("link", { name: "과거조회" })).toHaveAttribute("aria-current", "page");
 
-    await bottomNav.getByRole("button", { name: "더보기" }).click();
-    await page.getByRole("link", { name: "백업" }).click();
+    const moreMenu = page.getByRole("dialog");
+    await clickUntilEffective(bottomNav.getByRole("button", { name: "더보기" }), () =>
+      expect(moreMenu).toBeVisible({ timeout: 1_000 })
+    );
+    await moreMenu.getByRole("link", { name: "백업" }).click();
     await expect(page).toHaveURL(/\/backup$/);
   });
 

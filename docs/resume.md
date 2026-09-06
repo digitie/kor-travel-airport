@@ -3,27 +3,53 @@
 ## 현재 상태
 
 - 기준일: 2026-09-06
-- 작업 브랜치: `main` (로컬/원격 모두 `95ac97d`).
-- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#20 모두 **MERGED**
+- 작업 브랜치: `main` (로컬/원격 모두 `0f15751`).
+- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#22 모두 **MERGED**
   상태다. 이 세션에서 다룬 마지막 코드/운영 PR은
-  [#20](https://github.com/digitie/kor-travel-airport/pull/20)(컴포넌트를 shadcn
-  프리미티브로 교체, T-034)이다.
+  [#22](https://github.com/digitie/kor-travel-airport/pull/22)(라우트 기반 앱 셸,
+  T-035)이다.
 - **진행 중인 initiative**: shadcn/ui 전환 + 과거 자료 조회 기능 + Hallmark
-  재감사/재설계(`docs/tasks.md` T-033~T-038, 계획
+  재감사/재설계(`docs/tasks.md` T-036~T-038, 계획
   `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`). T-033(shadcn 기반
-  도입)·T-034(button/card/table/alert/confirm-dialog 치환)까지 완료·배포·live E2E
-  검증 끝났다. 다음은 T-035(라우트 기반 앱 셸)다.
+  도입)·T-034(button/card/table/alert/confirm-dialog 치환)·T-035(라우트 기반 앱 셸)까지
+  완료·배포·live E2E 검증 끝났다. 다음은 T-036(과거 자료 조회 기능)이다.
   - **T-034에서 `<select>`/`ResponsiveSection`의 `<details>`/daily-flight-overlay의
     토글·체크박스는 의도적으로 안 건드렸다** — 기존 테스트가 native DOM 구조
     (`getByDisplayValue`, `<summary>` 클릭+`open` 속성, `aria-pressed`)에 의존해서다.
-    T-035가 라우팅을 바꾸면 `ResponsiveSection` 패턴 자체가 없어질 가능성이 높으니
-    그때 재검토.
+    T-035에서 라우팅이 실제로 바뀌었고 `ResponsiveSection`/`mobile-disclosure`
+    패턴 자체가 없어졌지만(각 라우트가 자기 콘텐츠만 보여주므로 접이식 섹션이 불필요),
+    `<select>`는 여전히 native로 남아 있다(AppShell의 공항/주차장 선택) — 그대로 유효한
+    판단이다.
   - **로컬 검증 시 반드시 `npx tsc -p tsconfig.test.json --noEmit`도 같이 돌릴 것**
     (기본 `tsc --noEmit`은 `tests/`를 제외해서 안 잡힘) — T-034에서 이걸 놓쳐 CI에서
     한 번 걸렸다(`frontend` job이 정확히 이 명령을 실행함).
   - shadcn CLI(`init`/`add`)가 `globals.css`/`layout.tsx`를 자동 편집할 수 있으니
     (T-033에서 겪음: 기존 `--muted`/`--accent`/`--radius` 덮어쓰기, Geist 폰트 주입,
     Tailwind Preflight의 헤딩 bold 제거) 새 컴포넌트 추가 때마다 diff를 재확인할 것.
+  - **T-035에서 새로 배운 것**: (1) 데스크톱/모바일을 CSS-only 동시 렌더링(`hidden
+    lg:block`/`lg:hidden`)으로 바꾸면 RTL 테스트의 singular 쿼리(`getByRole`/
+    `findByText`)가 "여러 개 찾음"으로 깨진다 — `getAllBy*`/`findAllBy*`로 바꾸거나
+    `within()`으로 특정 nav를 스코프해야 한다. (2) 이 저장소의 `live-e2e` CI job은
+    PR별 preview가 아니라 **실제 n150 운영 배포**(`pr.digitie.mywire.org`)를 대상으로
+    돈다 — 새 라우트를 추가하는 PR은 머지 전 CI에서 항상 404로 실패한다(PR #18/#20/#22
+    전부 동일 패턴, backend/frontend만 통과하면 머지 진행). (3) live E2E의
+    `collector-status.last_run.status`를 `"success"`로 단언하는 기존 테스트는 실제
+    운영 스케줄러가 `success`/`partial_success`를 주기적으로 오가서 실패할 수 있다 —
+    코드 문제가 아니라 실시간 외부 API(KAC/인천) 특성이다. 보통 다음 스케줄러 사이클
+    (3분 이내)에 `success`로 돌아오지만, 2026-09-06 재검증 때는 13분·5사이클 연속
+    `partial_success`가 관측된 적도 있다(`raw_response_count`는 3으로 정상 — 소스
+    자체는 다 응답하지만 그 중 일부 lot이 간헐적으로 실패). 여러 번 재시도해도 계속
+    실패하면 코드 회귀가 아니라 실시간 데이터 상태이니 이 단언을 느슨하게(예:
+    `["success","partial_success"]`에 포함되는지) 바꾸는 걸 별도 task로 고려할 만하다
+    — 지금은 손대지 않았다. (4) **hydration 타이밍 레이스**: 클라이언트 라우트 전환
+    직후 곧바로 다른 요소를 클릭하면(예: 탭 전환 직후 "더보기" 클릭) 로컬의 빠른
+    연결에서는 안 드러나다가 CI 러너처럼 지연이 큰 환경에서만 클릭이 조용히
+    무시되는 경우가 있다 — Chrome DevTools Protocol
+    (`context.newCDPSession(page)` + `Network.emulateNetworkConditions`)로 실제
+    네트워크를 로컬에서 스로틀링해 재현할 수 있다. 이런 클릭은
+    `expect(async () => { await el.click(); await expect(result).toBe(...); }).toPass()`
+    로 감싸 "효과가 실제로 나타날 때까지 클릭 자체를 재시도"하게 만들어야 한다(단순
+    `.click()` 뒤 단언만 재시도하는 것으로는 해결 안 됨 — 클릭 자체가 무효였으므로).
 - 저장소 식별자가 `parking-radar` → `kor-travel-airport`로 개명됐다(PR
   [#15](https://github.com/digitie/kor-travel-airport/pull/15), ADR-007). 배포되는
   웹앱 브랜드/백업 파일명/쿠키 키는 계속 `parking-radar`다 — `CLAUDE.md` §1 참고.
@@ -90,14 +116,18 @@
 
 ## 다음 한 작업
 
-`T-035` — 라우트 기반 앱 셸. `/`(현황)·`/analytics`(분석)·`/history`(신규 과거조회)·
-`/fees`(요금계산)·`/backup`(백업) 라우트로 분리하고, 모바일 하단 탭바(4 primary +
-더보기, pinvi `AppShell.tsx` 패턴 참고)와 데스크톱 상단 탭을 만든다. 사용자가 추가
-요청한 사항: 데스크톱도 탭/메뉴로 상세 뷰를 분리하고, `/analytics`는 시간대별/요일별/
-공휴일/임계치/항공편 관점을 2차 탭으로 나눠 더 상세하게 만들 것(계획 파일 Phase 3
-상단의 "추가 요청" 참고). 공유 상태(공항/주차장 선택)는 `dashboard-preferences.ts`를
-재사용하는 얇은 context로. `e2e/live-dashboard.spec.ts`의 `mobile-disclosure`/`open`
-속성 의존 부분은 라우팅 전환에 맞춰 다시 써야 한다.
+`T-036` — 과거 자료 조회 기능. `GET /v1/parking/history`에 `start_date`/`end_date`
+(YYYY-MM-DD) 옵션 파라미터를 추가한다(기존 `days` 상대조회는 하위호환 유지) —
+`main.py`의 `_parse_local_date_query`/`_load_snapshots_between_local_dates`
+(`/v1/holidays/summary`·`holiday_patterns`가 이미 쓰는 로컬→UTC 변환 템플릿)를 그대로
+재사용한다. `end_date >= start_date` 검증과 최대 조회 기간 캡을 같은 한국어 400 에러
+스타일로 추가한다. 이 신규 파라미터는 analytics cache(상대 window 전용 키 구조)와
+맞지 않으니 비-캐시로 간다. 백엔드 pytest는 현재 `/v1/parking/history`에 0개이므로
+기존 `days` 동작(회귀 방지) + 신규 명시 범위(정상/역순/기간초과/데이터없음)를 새로
+작성한다. 프론트엔드는 이미 만들어진 `/history` 라우트(T-035, `history-view.tsx`)에
+shadcn `Calendar`(아직 미설치) + `Popover` + `Button`으로 날짜 범위 선택 UI를 추가하고
+`lib/api.ts`에 대응 메서드를 붙여 기존 `HistoryChart` 렌더러를 재사용한다. 완료
+조건은 `docs/tasks.md` T-036 참고.
 
 ## 확인된 사실
 
@@ -111,9 +141,9 @@
 - HTTP fallback migration은 snapshots 38,946건/lot 44개 관측, reference lot 53개/legacy ID
   53개 상태로 운영되고, duplicate legacy ID는 0개다.
 - 현재 n150 runtime은 배포 Git full SHA와 `/health`의 release SHA가 일치하며 API/web 포트 계약
-  (`14001`/`14002`)을 지킨다. 2026-09-06 기준 `release_sha=b893d0be8c534d5392ed08453b292ce3493db7e3`
-  (=`main` HEAD, PR #16 squash-merge 커밋)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
-  양쪽에서 이 값과 정상 응답을 재확인했다.
+  (`14001`/`14002`)을 지킨다. 2026-09-06 기준 `release_sha=0f157514aee5d9d4fa2792754055b82d9dbb9485`
+  (=`main` HEAD, PR #22 squash-merge 커밋, T-035)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
+  양쪽에서 이 값과 정상 응답을 재확인했다(live E2E 15개 전부 PASS).
 
 ## 남은 운영 확인
 
