@@ -2,6 +2,40 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-09-06 (T-034)
+
+### `T-034` — 컴포넌트를 shadcn 프리미티브로 교체
+
+- native `<button>`/`<table>`/`window.confirm()`/`.metric-card`/`.notice`를 shadcn
+  `Button`/`Card`/`Table`/`Alert`/`AlertDialog`로 치환했다(`dashboard-screen.tsx`,
+  `fee-calculator.tsx`, `backup-panel.tsx`). 기존 className/`data-testid`를 전부
+  보존했다 — Tailwind utility class는 `@layer utilities`에 속해 unlayered legacy
+  CSS보다 우선순위가 항상 낮으므로 시각적으로 대부분 그대로였다(Playwright로 데스크톱/
+  375px 확인).
+- `backup-panel`의 `window.confirm()` 복원 확인을 Base UI `AlertDialog`(state로 제어,
+  파일 선택 → 확인 다이얼로그 → "계속" 클릭 시에만 실제 API 호출)로 교체했다.
+- **의도적으로 교체 안 함**(근거를 커밋에 남김): `<select>`(Base UI Select는 native
+  select가 아니라 `getByDisplayValue` 등 기존 테스트가 깨짐), `ResponsiveSection`의
+  `<details>/<summary>`(e2e가 `<summary>` 클릭과 `open` 속성을 직접 확인함),
+  daily-flight-overlay-chart의 date toggle/체크박스(native `aria-pressed`/
+  `getByLabelText` 의존).
+- hostile review(James/Popper)에서 실제 결함을 발견해 반영했다: (1) James P1 — 성공
+  메시지(`actionMessage`, `isError=false`)까지 shadcn `Alert`(무조건 `role="alert"`)로
+  감싸 매 수동 수집 성공마다 assertive 알림이 발생하던 것을 plain
+  `<p aria-live="polite">`로 분리, (2) James P2 — 다운로드 버튼의 `variant="link"`가
+  기존에 없던 `hover:underline`을 추가한 것을 `hover:no-underline`으로 상쇄(cascade
+  layer는 "겹치는 속성"만 보호하지 새 속성까지 막아주지 않는다는 점을 확인), (3) James
+  P2 — `AlertDialogCancel`의 중복 취소 호출(onClick + onOpenChange) 제거, (4) Popper
+  P1 — `AlertDialogAction`에 누락된 `disabled={busy}` 가드 추가 및 dialog 대기 중
+  나머지 액션 버튼에도 `disabled` 추가, (5) Popper P1 — 무인증 destructive API(ADR-003)
+  안전장치를 교체하면서 회귀 테스트가 전혀 없던 공백을 메움: 선택만으로는 복원 안 됨,
+  취소 시 미호출+input 초기화, 확인 시 정확히 1회 호출, 그리고 Base UI가 dialog가 열린
+  동안 배경 전체를 `inert` 처리해 접근성 트리에서 완전히 제외한다는 것을 실제 테스트로
+  증명(Popper가 "jsdom은 검증 불가"라고 예상했던 것과 달리 검증 가능했다).
+- PR [#20](https://github.com/digitie/kor-travel-airport/pull/20) squash-merge
+  (`95ac97d`), n150 배포·release_sha 일치·live E2E `5 passed`(백업 패널 노출 확인
+  포함) 확인 완료.
+
 ## 2026-09-06 (T-033)
 
 ### `T-033` — shadcn/ui 기반 도입
