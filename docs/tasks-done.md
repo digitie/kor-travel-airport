@@ -2,6 +2,69 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-09-07 (T-039)
+
+### `T-039` — UI 밀도 개선(컴팩트화)
+
+- 2026-09-07 사용자 요청: 전체적으로 UI를 더 컴팩트하게 — 공항/주차장 선택 +
+  새로고침을 모바일에서도 한 줄로, 분석 페이지의 비효율적인 칼럼 크기 등.
+- 헤더 `.control-band`(공항 선택 + 세부 주차장 + 새로고침)가 모바일에서 3행으로
+  붕괴되던 것을 한 줄로 유지하도록 변경했다. `<select>` 레이블은 `sr-only
+  lg:not-sr-only`로 모바일에서만 시각적으로 숨기고(select 자체의 `aria-label`로
+  접근성 유지), 새로고침 버튼은 모바일에서 아이콘 전용(lucide `RefreshCw`,
+  `aria-label="새로고침"`)으로 압축했다.
+- 조사 중 실제 운영 버그를 하나 발견해 고쳤다: `current-status-view.tsx`의
+  `.lot-card-grid lg:hidden`이 데스크톱을 포함한 모든 폭에서 전혀 숨겨지지
+  않고 있었다(라이브 사이트 컴퓨티드 스타일로 확인 — 1280px에서도 모바일 카드
+  목록이 데스크톱 테이블 아래 그대로 렌더링). 원인: `.lot-card-grid`가
+  `@import "tailwindcss"` 뒤에 이어붙인 순수 커스텀 클래스(unlayered CSS)라
+  `display:grid`가 항상 Tailwind `@layer utilities` 안의 `lg:hidden`을 이긴다
+  (CSS Cascade Layers 스펙상 unlayered가 specificity/순서 무관하게 항상 이김).
+  `.lot-card-grid` 자체에 `@media (min-width: 64rem)` 규칙을 추가해 고쳤다.
+  전체 코드베이스를 훑어 같은 패턴의 다른 인스턴스가 없음을 확인했다.
+- 분석 `/analytics` → 임계치 탭의 2열 그리드(`.analytics-threshold-panels`)가
+  기본 `align-items: stretch`라 왼쪽 패널(요일별, 데이터 2행)이 오른쪽 패널
+  (날짜별, 스크롤 가능한 긴 목록) 높이에 맞춰 늘어나 아래쪽에 큰 빈 공간이
+  생기던 것을 `align-items: start`로 고쳐 각 패널이 자기 콘텐츠 높이만큼만
+  차지하도록 했다.
+- hostile review(James=frontend/UI, Popper=backend/ops, 서브에이전트 2개 독립
+  실행)에서 실제 데이터 기준 P1 2건을 찾아 재현·수정했다:
+  - 공항명(최대 6자, 앞 2~3자만으로 구분 가능)과 달리 세부 주차장명은 실제
+    운영 데이터(`GET /v1/airports`)에서 최대 13자이고 구분자가 뒤쪽에 있다
+    (`T1 장기 P1/P2/P3/P4 주차타워`, `국내선 제1/제2주차장` 등). 두 `<select>`를
+    정확히 반씩 나눈 최초 구현은 320px에서 이 구분자를 통째로 잘라 서로 다른
+    주차장이 같은 텍스트("국내선 제1주차장"/"국내선 제2주차장"이 둘 다
+    "국내선 ㅈ"로)로 보이는 걸 실제 스크린샷으로 확인했다 —
+    `grid-template-columns`을 0.8fr/1.2fr로 재배분하고 select 자체
+    padding·font-size를 더 압축해 고쳤다(재검증: 최장 실데이터 "T1 장기 P1
+    주차타워"도 320px에서 구분자까지 보임).
+  - `current-status-view.tsx`가 쓰는 `.action-stack`의 860px 이하 2열 그리드
+    규칙(원래 그쪽의 수동 수집 버튼+힌트 쌍을 위한 것)을 헤더의 새로고침
+    버튼도 같은 클래스로 감싸는 바람에 381-1023px 구간에서 그대로 상속받아,
+    빈 두 번째 칸이 실측 44px→98px로 부풀며 select 폭을 추가로 빼앗고 있었다
+    — 헤더 쪽은 `.action-stack`으로 감싸지 않고 버튼을 `.control-band`의
+    그리드 자식으로 직접 둬서 분리했다(`.button.secondary`의 기존
+    `align-self: end`만으로 정렬 충분).
+  - P2 후속: 다른 `@media` 블록에 덮여 861px 미만에서는 항상 무시되던 죽은
+    `gap: 8px` 선언을 제거했고, e2e에 데스크톱 폭에서 `.lot-card-grid`가
+    실제로 숨는지(둘 다 보이면 실패) 회귀 테스트를 추가했다
+    (`e2e/live-dashboard.spec.ts`, 원래 `.first()` 단언은 이 버그를 놓쳤을
+    것이다).
+- accepted-not-fixed로 남긴 항목: 새로고침 버튼 tap target이 320px에서
+  44×42px(WCAG AA 24×24는 통과, AAA 44×44에는 2px 못 미침), `.lot-card-grid`가
+  숨는 이유가 JSX에는 클래스명이 아니라 주석으로만 남아 있어 향후 편집 시
+  실수로 `lg:hidden`을 다시 붙이면 같은 버그가 재현될 수 있음(유지보수성
+  지적, 기능 결함 아님).
+- PR [#28](https://github.com/digitie/kor-travel-airport/pull/28) squash-merge
+  (`e39f05b`). CI backend/frontend PASS. live-e2e는 첫 push에서 PR #18 이후
+  선례와 같은 release-SHA 불일치로 FAIL했고, hostile-review 수정을 반영한 두
+  번째 push에서는 이번 PR이 새로 추가한 회귀 테스트(`.lot-card-grid`가
+  데스크톱에서 숨는지 확인)가 **아직 배포되지 않은 구버전 운영 사이트에서
+  실제로 그 버그가 남아 있었기 때문에** 정확히 의도대로 FAIL했다(자기 자신이
+  고치려는 버그를 스스로 잡아낸 것 — 머지를 막을 이유는 아님). n150 배포 후
+  `release_sha=e39f05b52e56d363eccf4a146c6271a4ad800cad` 일치 확인, live E2E
+  `15/15 PASS`(새 회귀 테스트 포함, 배포된 코드에서는 정상 통과).
+
 ## 2026-09-07 (T-037, T-038)
 
 ### `T-037` — Hallmark audit
