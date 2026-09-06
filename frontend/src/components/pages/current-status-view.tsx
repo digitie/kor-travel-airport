@@ -108,13 +108,26 @@ export function CurrentStatusView() {
         </Card>
       </section>
 
+      {/* T-038 Hallmark audit: a screen reader is not guaranteed to announce a live
+          region that arrives already-mounted with its final content - the region
+          must exist first, then have its content change. These two announcers stay
+          permanently mounted (empty text = nothing announced) instead of the visible
+          notices below, which mount/unmount freely since sighted users see them
+          appear without needing an ARIA announcement. */}
+      <p className="sr-only" aria-live="polite">
+        {actionMessage && !actionMessageIsError ? actionMessage : ""}
+      </p>
+      <p className="sr-only" aria-live="polite">
+        {loading ? "데이터를 불러오는 중입니다." : ""}
+      </p>
+
       {actionMessage ? (
         actionMessageIsError ? (
           <Alert className="notice error" variant="destructive">
             {actionMessage}
           </Alert>
         ) : (
-          <p className="notice" aria-live="polite">
+          <p className="notice" aria-hidden="true">
             {actionMessage}
           </p>
         )
@@ -124,7 +137,11 @@ export function CurrentStatusView() {
           {error}
         </Alert>
       ) : null}
-      {loading ? <p className="notice">데이터를 불러오는 중입니다.</p> : null}
+      {loading ? (
+        <p className="notice" aria-hidden="true">
+          데이터를 불러오는 중입니다.
+        </p>
+      ) : null}
 
       <div className="hidden lg:block">
         <section className="table-surface" data-testid="desktop-lot-table">

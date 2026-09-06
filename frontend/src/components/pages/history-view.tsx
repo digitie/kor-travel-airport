@@ -155,13 +155,20 @@ export function HistoryView() {
         ) : null}
       </div>
 
+      {/* T-038 Hallmark audit: a screen reader is not guaranteed to announce a live
+          region that arrives already-mounted with its final content - keep this
+          announcer permanently mounted and let only its content change. */}
+      <p className="sr-only" aria-live="polite">
+        {loading ? "데이터를 불러오는 중입니다." : ""}
+      </p>
+
       {error ? (
         <Alert className="notice error" variant="destructive">
           {error}
         </Alert>
       ) : null}
       {loading ? (
-        <p className="notice" aria-live="polite">
+        <p className="notice" aria-hidden="true">
           데이터를 불러오는 중입니다.
         </p>
       ) : null}

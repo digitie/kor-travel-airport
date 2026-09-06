@@ -230,6 +230,18 @@ describe("DashboardProvider + CurrentStatusView", () => {
     expect(screen.getAllByRole("combobox")[1]).toHaveValue("5");
   });
 
+  test("keeps a persistent aria-live region for the loading state instead of mounting one on demand", async () => {
+    renderCurrentStatus();
+    await screen.findByDisplayValue("Gimpo");
+
+    // A screen reader is not guaranteed to announce a live region that is inserted
+    // into the DOM already carrying its final content - the region must already
+    // exist, then have its content change. Assert the announcer is present even
+    // while nothing is loading (empty text), proving it isn't a mount/unmount node.
+    const announcers = Array.from(document.querySelectorAll('[aria-live="polite"]'));
+    expect(announcers.some((el) => el.className.includes("sr-only"))).toBe(true);
+  });
+
   test("stores the selected airport when the user changes it", async () => {
     const user = userEvent.setup();
     renderCurrentStatus();
@@ -283,7 +295,9 @@ describe("DashboardProvider + CurrentStatusView", () => {
     await waitFor(() => {
       expect(apiClient.runCollector).toHaveBeenCalledWith();
     });
-    expect(await screen.findByText(/즉시 수집을 완료했습니다/)).toBeInTheDocument();
+    // Matches both the visible notice and the persistent sr-only aria-live announcer
+    // that mirrors it (T-038) - assert at least one is present rather than exactly one.
+    expect((await screen.findAllByText(/즉시 수집을 완료했습니다/)).length).toBeGreaterThan(0);
   });
 
   test("does not fetch analytics data when only the current-status view is mounted", async () => {

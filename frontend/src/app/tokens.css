@@ -32,6 +32,43 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-10: 40px;
+
+  /* T-038 Hallmark audit gate 48: chart-series palette (history/daily-overlay
+     SVG charts, globals.css:495-1012). Values kept exactly as originally
+     authored (not re-derived to OKLCH) to guarantee zero visual change - the
+     T-033 migration plan explicitly scoped chart internals out ("차트는 그대로
+     둔다"). Named so chart CSS never inlines a colour value directly. */
+  --color-chart-holiday: #1d4ed8;
+  --color-chart-holiday-fill: rgba(37, 99, 235, 0.09);
+  --color-chart-holiday-stroke: rgba(37, 99, 235, 0.18);
+  --color-chart-saturday-fill: rgba(12, 139, 125, 0.08);
+  --color-chart-saturday-stroke: rgba(12, 139, 125, 0.18);
+  --color-chart-sunday-fill: rgba(220, 38, 38, 0.08);
+  --color-chart-sunday-stroke: rgba(220, 38, 38, 0.2);
+  --color-chart-flight-departure: #2563eb;
+  --color-chart-flight-arrival: #db2777;
+  --color-chart-flight-departure-border: rgba(37, 99, 235, 0.22);
+  --color-chart-flight-arrival-border: rgba(219, 39, 119, 0.22);
+  --color-chart-series-0: #0c8b7d;
+  --color-chart-series-1: #2563eb;
+  --color-chart-series-2: #db2777;
+  --color-chart-series-3: #8c6116;
+  --color-chart-series-4: #7c3aed;
+  --color-chart-series-5: #c2410c;
+  --color-chart-series-6: #334155;
+
+  /* T-038 Hallmark audit gate 48: status-pill tone backgrounds
+     (globals.css .tone-*). Kept as their own precise, as-authored values
+     rather than remapped to --red/--teal, to avoid any drift from those
+     tokens' OKLCH conversion. */
+  --color-tone-critical-bg: rgba(188, 58, 45, 0.12);
+  --color-tone-warning-bg: rgba(217, 162, 48, 0.14);
+  --color-tone-warning-ink: #8c6116;
+  --color-tone-busy-bg: rgba(212, 106, 31, 0.14);
+  --color-tone-stable-bg: rgba(12, 139, 125, 0.12);
+  --color-tone-critical-solid: #bc3a2d;
+  --color-tone-warning-solid: #d9a230;
+  --color-tone-stable-solid: #0c8b7d;
 }
 
 @media (prefers-color-scheme: dark) {
