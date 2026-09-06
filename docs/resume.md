@@ -3,17 +3,32 @@
 ## 현재 상태
 
 - 기준일: 2026-09-07
-- 작업 브랜치: `main` (로컬/원격 모두 `603884f`).
-- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#26 모두 **MERGED**
+- 작업 브랜치: `main` (로컬/원격 모두 `e39f05b`).
+- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#28 모두 **MERGED**
   상태다. 이 세션에서 다룬 마지막 코드/운영 PR은
-  [#26](https://github.com/digitie/kor-travel-airport/pull/26)(Hallmark redesign,
-  T-038)이다.
+  [#28](https://github.com/digitie/kor-travel-airport/pull/28)(UI 밀도 개선,
+  T-039)이다.
 - **완료된 initiative**: shadcn/ui 전환 + 과거 자료 조회 기능 + Hallmark
-  재감사/재설계(계획 `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`).
+  재감사/재설계(계획 `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`)
+  + UI 밀도 개선(T-039, 별도 계획 문서 없이 직접 요청).
   T-033(shadcn 기반 도입)·T-034(button/card/table/alert/confirm-dialog 치환)·
   T-035(라우트 기반 앱 셸)·T-036(과거 자료 조회 기능)·T-037(Hallmark audit)·
-  T-038(Hallmark redesign) 전부 완료·배포·live E2E 검증까지 끝났다. 현재
-  `docs/tasks.md`에 진행 중/예정 task가 없다 — 다음 작업은 사용자 요청을 기다린다.
+  T-038(Hallmark redesign)·T-039(UI 밀도 개선) 전부 완료·배포·live E2E 검증까지
+  끝났다. 현재 `docs/tasks.md`에 진행 중/예정 task가 없다 — 다음 작업은 사용자
+  요청을 기다린다.
+  - **T-039에서 새로 배운 것**: (1) "레이아웃이 비효율적"처럼 모호한 사용자
+    피드백은 코드만 읽어서는 특정하기 어렵다 — 브라우저 확장이 연결 안 될 때는
+    Playwright를 라이브 사이트에 직접 붙여 스크린샷으로 확인하는 게 코드
+    추측보다 훨씬 빠르고 정확했다(이번 세션 내내 `mcp__claude-in-chrome__*`가
+    연결되지 않은 상태였다). (2) 좁은 화면에 여러 텍스트 필드를 압축할 때는
+    테스트에 쓴 표본 데이터가 아니라 실제 운영 데이터의 최댓값(길이·구분자
+    위치)을 반드시 확인할 것 — 청주공항의 짧은 이름으로 검증하고 끝냈다면
+    인천공항의 13자 주차장명(`T1 장기 P1/P2/P3/P4 주차타워`)에서 서로 다른
+    주차장이 구분 안 되는 실사용 버그를 놓쳤을 것이다(hostile review가 잡음).
+    (3) 새 UI가 기존 공유 CSS 클래스(`.action-stack`)를 재사용하면 그 클래스가
+    다른 컨텍스트에서 이미 갖고 있는 반응형 규칙까지 같이 상속된다 — 공유
+    클래스에 새 용도를 얹기 전에 기존 모든 사용처와 각자의 breakpoint 규칙을
+    확인할 것.
   - **T-038에서 새로 배운 것**: (1) Hallmark 감사 지적을 그대로 코드로 옮길 때도
     새 버그를 만들 수 있다 — `.control-band` 브레이크포인트를
     `max-width: 64rem`으로 고쳤다가 Tailwind `lg:`의 `min-width: 64rem`과
@@ -150,10 +165,10 @@
 
 ## 다음 한 작업
 
-`docs/tasks.md`에 진행 중/예정 task가 없다. `T-033`~`T-038`(shadcn/ui 전환 + 과거
-자료 조회 + Hallmark 재감사/재설계) initiative 전체가 완료됐다. 다음 작업은 사용자
-요청을 기다린다 — 후보로 남겨둔 미해결 항목은 `docs/tasks.md`의 "진행 중인 작업
-인덱스" 절 하단(T-035/T-036/T-038이 남긴 후속 항목)을 참고.
+`docs/tasks.md`에 진행 중/예정 task가 없다. `T-033`~`T-039`(shadcn/ui 전환 + 과거
+자료 조회 + Hallmark 재감사/재설계 + UI 밀도 개선) 전체가 완료됐다. 다음 작업은
+사용자 요청을 기다린다 — 후보로 남겨둔 미해결 항목은 `docs/tasks.md`의 "진행 중인
+작업 인덱스" 절 하단(T-035/T-036/T-038/T-039가 남긴 후속 항목)을 참고.
 
 ## 확인된 사실
 
@@ -167,10 +182,10 @@
 - HTTP fallback migration은 snapshots 38,946건/lot 44개 관측, reference lot 53개/legacy ID
   53개 상태로 운영되고, duplicate legacy ID는 0개다.
 - 현재 n150 runtime은 배포 Git full SHA와 `/health`의 release SHA가 일치하며 API/web 포트 계약
-  (`14001`/`14002`)을 지킨다. 2026-09-07 기준 `release_sha=603884f9adec43d160373ca33b90f4a351d3c5a0`
-  (=`main` HEAD, PR #26 squash-merge 커밋, T-038)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
-  양쪽에서 이 값과 정상 응답을 재확인했다(live E2E `15/15 PASS`, 이번엔 기존
-  `collector-status` 플레이크도 관측 안 됨). 외부 게이트웨이가 응답하지 않을 때는 항상 먼저
+  (`14001`/`14002`)을 지킨다. 2026-09-07 기준 `release_sha=e39f05b52e56d363eccf4a146c6271a4ad800cad`
+  (=`main` HEAD, PR #28 squash-merge 커밋, T-039)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
+  양쪽에서 이 값과 정상 응답을 재확인했다(live E2E `15/15 PASS`, 새로 추가한
+  `.lot-card-grid` 데스크톱-숨김 회귀 테스트 포함). 외부 게이트웨이가 응답하지 않을 때는 항상 먼저
   n150에 SSH로 직접 접속해 로컬 포트(`14001`/`14002`)를 확인해 "배포가 실패했는지" vs
   "게이트웨이만 문제인지"를 구분할 것(T-036 배포 때 실제로 겪은 패턴).
 
