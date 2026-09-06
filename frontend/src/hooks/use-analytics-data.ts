@@ -46,10 +46,16 @@ function buildFlightStatusError(airportCode: string, caughtError: unknown): Flig
   };
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, buildFallback: () => T): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  buildFallback: () => T,
+  onTimeoutId?: (id: ReturnType<typeof setTimeout>) => void
+): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<T>((resolve) => {
     timeoutId = setTimeout(() => resolve(buildFallback()), timeoutMs);
+    onTimeoutId?.(timeoutId);
   });
 
   return Promise.race([
@@ -79,6 +85,7 @@ export function useAnalyticsData(flightStatusTimeoutMs = 6_000): AnalyticsState 
     }
 
     let active = true;
+    let flightStatusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     setState((current) => ({ ...current, loading: true, error: null }));
 
     async function load() {
@@ -86,7 +93,10 @@ export function useAnalyticsData(flightStatusTimeoutMs = 6_000): AnalyticsState 
         const flightStatusRequest = withTimeout(
           api.getFlightStatus(selectedAirportCode).catch((caughtError) => buildFlightStatusError(selectedAirportCode, caughtError)),
           flightStatusTimeoutMs,
-          () => buildFlightStatusError(selectedAirportCode, new Error("비행편 정보 응답이 지연되어 주차 현황을 먼저 표시합니다."))
+          () => buildFlightStatusError(selectedAirportCode, new Error("비행편 정보 응답이 지연되어 주차 현황을 먼저 표시합니다.")),
+          (id) => {
+            flightStatusTimeoutId = id;
+          }
         );
         const analyticsRequest = api.getDashboardAnalytics(selectedAirportCode, selectedParkingLotId);
         const [analytics, flights] = await Promise.all([analyticsRequest, flightStatusRequest]);
@@ -119,8 +129,17 @@ export function useAnalyticsData(flightStatusTimeoutMs = 6_000): AnalyticsState 
     void load();
     return () => {
       active = false;
+      if (flightStatusTimeoutId) {
+        clearTimeout(flightStatusTimeoutId);
+      }
     };
-  }, [api, selectedAirportCode, selectedParkingLotId, dataVersion, flightStatusTimeoutMs]);
+    // selectedAirportCode/selectedParkingLotId are intentionally excluded: every airport/lot
+    // change goes through DashboardProvider's loadAirportData, which bumps dataVersion on
+    // success. Keying only on dataVersion (plus mount) avoids firing this fetch twice per
+    // selection change - once for the selection state update, once for the dataVersion bump -
+    // against the same (now-current) selectedAirportCode/selectedParkingLotId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, dataVersion, flightStatusTimeoutMs]);
 
   return state;
 }

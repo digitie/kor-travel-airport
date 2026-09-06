@@ -1,6 +1,7 @@
 "use client";
 
 import { DailyFlightOverlayChart } from "@/components/daily-flight-overlay-chart";
+import { Alert } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAnalyticsData } from "@/hooks/use-analytics-data";
@@ -24,7 +25,7 @@ import type { ThresholdDateHistoryItem } from "@/lib/types";
 
 export function AnalyticsView() {
   const { selectedAirport, selectedParkingLotName, holidaySummary } = useDashboard();
-  const { thresholdEvents, thresholdInsights, weekdayHourlyPatterns, holidayPatterns, flightStatus, timeSeries } =
+  const { error, thresholdEvents, thresholdInsights, weekdayHourlyPatterns, holidayPatterns, flightStatus, timeSeries } =
     useAnalyticsData();
 
   const scopeLabel = historyLabel(selectedParkingLotName, selectedAirport?.name_ko);
@@ -47,6 +48,12 @@ export function AnalyticsView() {
       <header className="page-header">
         <h2>분석</h2>
       </header>
+
+      {error ? (
+        <Alert className="notice error" variant="destructive">
+          {error}
+        </Alert>
+      ) : null}
 
       <Tabs defaultValue="weekday" className="analytics-tabs">
         <TabsList variant="line">

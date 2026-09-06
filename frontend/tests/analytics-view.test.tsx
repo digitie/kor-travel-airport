@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import { AnalyticsView } from "@/components/pages/analytics-view";
 import { CurrentStatusView } from "@/components/pages/current-status-view";
-import { DashboardProvider } from "@/lib/dashboard-context";
+import { DashboardProvider, useDashboard } from "@/lib/dashboard-context";
 import type {
   Airport,
   CollectorStatusResponse,
@@ -208,6 +208,46 @@ describe("AnalyticsView", () => {
     });
     // AnalyticsView still needs the shared selection/bootstrap from DashboardProvider.
     expect(apiClient.getDashboardBootstrap).toHaveBeenCalledTimes(1);
+  });
+
+  test("shows an error alert when the analytics fetch fails", async () => {
+    apiClient.getDashboardAnalytics.mockRejectedValueOnce(new Error("분석 데이터를 불러오지 못했습니다."));
+    renderAnalytics();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("분석 데이터를 불러오지 못했습니다.");
+  });
+
+  test("does not fetch analytics twice for a single parking-lot selection change", async () => {
+    function Harness() {
+      const { onParkingLotChange } = useDashboard();
+      return (
+        <>
+          <button type="button" onClick={() => onParkingLotChange(1)}>
+            select lot
+          </button>
+          <AnalyticsView />
+        </>
+      );
+    }
+
+    const user = userEvent.setup();
+    render(
+      <DashboardProvider apiBaseUrl="http://localhost:8000">
+        <Harness />
+      </DashboardProvider>
+    );
+
+    await waitFor(() => {
+      expect(apiClient.getDashboardAnalytics).toHaveBeenCalledWith("GMP", null);
+    });
+    apiClient.getDashboardAnalytics.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "select lot" }));
+
+    await waitFor(() => {
+      expect(apiClient.getDashboardAnalytics).toHaveBeenCalledWith("GMP", 1);
+    });
+    expect(apiClient.getDashboardAnalytics).toHaveBeenCalledTimes(1);
   });
 });
 

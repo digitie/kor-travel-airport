@@ -10,7 +10,7 @@ import {
   LayoutDashboard,
   MoreHorizontal,
 } from "lucide-react";
-import type { ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,6 +29,10 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/fees", label: "요금계산", icon: Calculator },
   { href: "/backup", label: "백업", icon: DatabaseBackup },
 ];
+
+// 데스크톱/모바일 분기는 Tailwind 기본 lg(1024px) 브레이크포인트를 쓴다 - 이전 JS
+// useViewportMode()의 860px 기준에서 의도적으로 올렸다(shadcn/Tailwind 표준값을 그대로
+// 따름). 860~1023px 구간은 이전엔 데스크톱 레이아웃이었지만 지금은 모바일 레이아웃이다.
 
 // 모바일 하단 탭바 primary 4개 — 매일 쓰는 조회 화면. 백업(occasional/admin 성격,
 // ADR-003 무인증 destructive API)은 "더보기"로 한 단계 뒤로 뺀다.
@@ -57,6 +61,14 @@ const tabbarLinkClass = (active: boolean) =>
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  // Base UI's Popover only auto-closes on outside-press/Escape, not on an internal <Link>
+  // click that navigates away - close it explicitly whenever the route actually changes.
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
   const {
     airports,
     selectedAirportCode,
@@ -159,7 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
           <li>
-            <Popover>
+            <Popover open={moreOpen} onOpenChange={setMoreOpen}>
               <PopoverTrigger className={`${tabbarLinkClass(secondaryActive)} w-full`}>
                 <MoreHorizontal className="size-5" aria-hidden="true" />
                 <span>더보기</span>

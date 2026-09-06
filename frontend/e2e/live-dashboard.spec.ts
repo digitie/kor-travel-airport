@@ -99,8 +99,22 @@ test.describe("live parking-radar dashboard", () => {
     await expect(page).toHaveURL(/\/backup$/);
   });
 
+  // "/" keeps the full 320/375/414/768px sweep (established baseline coverage). The other
+  // routes mount useAnalyticsData (flight-status is a live, rate-limited upstream) - checking
+  // only the narrowest and widest widths there still catches overflow regressions without
+  // multiplying live calls across every intermediate breakpoint for a CSS-only assertion.
   for (const width of [320, 375, 414, 768]) {
-    for (const route of ROUTES) {
+    test(`does not create page overflow at ${width}px on /`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("combobox", { name: "공항 선택" })).toBeVisible();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow).toBeLessThanOrEqual(1);
+    });
+  }
+
+  for (const width of [320, 768]) {
+    for (const route of ROUTES.filter((route) => route !== "/")) {
       test(`does not create page overflow at ${width}px on ${route}`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await page.goto(route, { waitUntil: "domcontentloaded" });

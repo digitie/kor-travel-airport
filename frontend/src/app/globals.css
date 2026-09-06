@@ -431,6 +431,20 @@ select {
   grid-column: 1 / -1;
 }
 
+/* T-035: 분석 탭의 임계치 패널 3개(요일별/날짜별/이벤트)는 더 이상 .analytics-grid의
+   직접 자식이 아니라 TabsContent 안에 있다 - 나머지 두 개는 항상 나란히 붙는
+   패널이라 3열이 아닌 2열 그리드로 감싼다(3열이면 빈 칸이 하나 남는다). */
+.analytics-threshold-panels {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 18px 0 36px;
+}
+
+.analytics-threshold-panels > * {
+  min-width: 0;
+}
+
 .history-scope {
   margin: 6px 0 0;
   color: var(--muted-foreground);
@@ -1355,6 +1369,7 @@ select {
 
 @media (max-width: 980px) {
   .analytics-grid,
+  .analytics-threshold-panels,
   .fee-form {
     grid-template-columns: 1fr;
   }
@@ -1497,7 +1512,8 @@ select {
     font-size: 0.78rem;
   }
 
-  .analytics-grid {
+  .analytics-grid,
+  .analytics-threshold-panels {
     gap: 12px;
     padding: 14px 0 30px;
   }

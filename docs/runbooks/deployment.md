@@ -16,6 +16,11 @@
 4. [migration.md](migration.md)의 prewarm → final delta → 180초 scheduler와 300초 이내 cutover 검증을
    완료한다.
 
+> **롤백 시 주의(T-035 이후)**: frontend만 이전 이미지로 되돌리고 PostgreSQL 상태는
+> 그대로 유지하는 롤백을 하면, T-035 이후 추가된 `/analytics`·`/history`·`/fees`·`/backup`
+> 라우트는 롤백된(라우트 분리 이전) 빌드에서 404가 된다. 그 사이 공유되거나 북마크된 딥링크는
+> 롤백 창에서 깨질 수 있다는 것을 감안하고, 필요하면 롤백 공지에 "/"로 이동하라고 안내한다.
+
 ```bash
 REMOTE_HOST=192.168.1.14 \
 REMOTE_APP_DIR=/home/digitie/apps/kor-travel-airport \
