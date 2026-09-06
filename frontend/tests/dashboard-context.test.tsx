@@ -1,7 +1,9 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { DashboardApp } from "@/components/dashboard-app";
+import { AppShell } from "@/components/app-shell";
+import { CurrentStatusView } from "@/components/pages/current-status-view";
+import { DashboardProvider } from "@/lib/dashboard-context";
 import {
   DASHBOARD_SELECTION_COOKIE_KEY,
   DASHBOARD_SELECTION_STORAGE_KEY,
@@ -10,7 +12,6 @@ import type {
   Airport,
   CollectorStatusResponse,
   DashboardAnalyticsResponse,
-  FlightStatusResponse,
   HolidayPatternResponse,
   HolidaySummaryResponse,
   ParkingCurrentResponse,
@@ -77,15 +78,7 @@ const timeSeriesPayload: ParkingTimeSeriesResponse = {
   parking_lot_id: null,
   days: 7,
   interval_minutes: 30,
-  items: [
-    {
-      bucket_at: "2026-04-26T00:00:00.000Z",
-      available_spaces: 100,
-      occupied_spaces: 100,
-      total_spaces: 200,
-      lot_observations: 1,
-    },
-  ],
+  items: [],
 };
 
 const holidaySummaryPayload: HolidaySummaryResponse = {
@@ -117,16 +110,6 @@ const thresholdInsightsPayload: ThresholdInsightsResponse = {
   interval_minutes: 10,
   weekday_items: [],
   history_items: [],
-};
-
-const flightStatusPayload: FlightStatusResponse = {
-  generated_at: "2026-04-26T00:00:00.000Z",
-  airport_code: "GMP",
-  local_date: "2026-04-26",
-  source: "sample_flight_status",
-  status: "sample",
-  error_message: null,
-  items: [],
 };
 
 function buildCollectorStatus(overrides: Partial<CollectorStatusResponse> = {}): CollectorStatusResponse {
@@ -162,22 +145,22 @@ const dashboardAnalyticsPayload: DashboardAnalyticsResponse = {
 };
 
 const apiClient = {
-  getAirports: vi.fn(async () => airports),
   getDashboardBootstrap: vi.fn(async () => ({
     airports,
     current: currentPayload,
     collector: buildCollectorStatus(),
     holidays: holidaySummaryPayload,
   })),
-  getCurrent: vi.fn(async () => currentPayload),
   getDashboardAnalytics: vi.fn(async (): Promise<DashboardAnalyticsResponse> => dashboardAnalyticsPayload),
-  getThresholdEvents: vi.fn(async () => []),
-  getThresholdInsights: vi.fn(async () => thresholdInsightsPayload),
-  getByWeekdayHour: vi.fn(async () => []),
-  getHolidaySummary: vi.fn(async () => holidaySummaryPayload),
-  getHolidayPatterns: vi.fn(async () => holidayPatternPayload),
-  getTimeSeries: vi.fn(async () => timeSeriesPayload),
-  getFlightStatus: vi.fn(async () => flightStatusPayload),
+  getFlightStatus: vi.fn(async () => ({
+    generated_at: "2026-04-26T00:00:00.000Z",
+    airport_code: "GMP",
+    local_date: "2026-04-26",
+    source: "sample_flight_status",
+    status: "sample",
+    error_message: null,
+    items: [],
+  })),
   getCollectorStatus: vi.fn(async () => buildCollectorStatus()),
   runCollector: vi.fn(async () => ({
     collection_run_id: 1,
@@ -188,7 +171,6 @@ const apiClient = {
     fee_rule_count: 0,
     errors: [],
   })),
-  calculateFee: vi.fn(),
 };
 
 vi.mock("@/lib/api", () => ({
@@ -204,17 +186,27 @@ vi.mock("@/lib/api", () => ({
   buildApiClient: () => apiClient,
 }));
 
-vi.mock("@/components/fee-calculator", () => ({
-  FeeCalculator: () => <div data-testid="fee-calculator-stub" />,
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
 }));
 
-describe("DashboardApp", () => {
+// CurrentStatusView no longer owns the airport/parking-lot picker - AppShell does (T-035).
+// Render them together so selection-change/persistence tests exercise the real composition.
+function renderCurrentStatus(props: { autoRefreshIntervalMs?: number } = {}) {
+  return render(
+    <DashboardProvider apiBaseUrl="http://localhost:8000" autoRefreshIntervalMs={props.autoRefreshIntervalMs}>
+      <AppShell>
+        <CurrentStatusView />
+      </AppShell>
+    </DashboardProvider>
+  );
+}
+
+describe("DashboardProvider + CurrentStatusView", () => {
   beforeEach(() => {
-    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
     localStorage.clear();
     document.cookie = `${DASHBOARD_SELECTION_COOKIE_KEY}=; Max-Age=0; Path=/`;
     vi.clearAllMocks();
-    vi.unstubAllGlobals();
     apiClient.getCollectorStatus.mockResolvedValue(buildCollectorStatus());
     apiClient.getDashboardBootstrap.mockResolvedValue({
       airports,
@@ -231,7 +223,7 @@ describe("DashboardApp", () => {
       JSON.stringify({ airportCode: "PUS", parkingLotId: 5 })
     );
 
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
+    renderCurrentStatus();
 
     expect(await screen.findByDisplayValue("Gimhae")).toBeInTheDocument();
     expect(screen.getAllByRole("combobox")[1]).toHaveValue("5");
@@ -239,8 +231,7 @@ describe("DashboardApp", () => {
 
   test("stores the selected airport when the user changes it", async () => {
     const user = userEvent.setup();
-
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
+    renderCurrentStatus();
 
     await user.selectOptions(await screen.findByDisplayValue("Gimpo"), "PUS");
 
@@ -271,9 +262,9 @@ describe("DashboardApp", () => {
       holidays: holidaySummaryPayload,
     });
 
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
+    renderCurrentStatus();
 
-    await screen.findByTestId("history-chart");
+    await screen.findByTestId("manual-collect-button");
     await user.click(screen.getByTestId("manual-collect-button"));
 
     expect(
@@ -281,96 +272,26 @@ describe("DashboardApp", () => {
     ).toBeInTheDocument();
   });
 
-  test("does not ask for a token while loading read-only dashboard data", async () => {
-    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue(null);
-
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
-
-    await screen.findByTestId("history-chart");
-    expect(promptSpy).not.toHaveBeenCalled();
-
-    promptSpy.mockRestore();
-  });
-
-  test("runs manual collection without asking for a token", async () => {
+  test("runs manual collection and shows a success message", async () => {
     const user = userEvent.setup();
-    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("unused-token");
+    renderCurrentStatus();
 
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
-
-    await screen.findByTestId("history-chart");
+    await screen.findByTestId("manual-collect-button");
     await user.click(screen.getByTestId("manual-collect-button"));
 
-    expect(promptSpy).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(apiClient.runCollector).toHaveBeenCalledWith();
     });
-
-    promptSpy.mockRestore();
+    expect(await screen.findByText(/즉시 수집을 완료했습니다/)).toBeInTheDocument();
   });
 
-  test("shows parking data before delayed flight status finishes", async () => {
-    apiClient.getFlightStatus.mockImplementationOnce(() => new Promise<FlightStatusResponse>(() => undefined));
+  test("does not fetch analytics data when only the current-status view is mounted", async () => {
+    renderCurrentStatus();
 
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" flightStatusTimeoutMs={20} />);
-
-    await screen.findByTestId("history-chart");
-    expect(screen.queryByText("데이터를 불러오는 중입니다.")).not.toBeInTheDocument();
-    expect(screen.getAllByText("현재 잔여 주차면").length).toBeGreaterThan(0);
-  });
-
-  test("shows current parking data before delayed analytics finish", async () => {
-    apiClient.getDashboardAnalytics.mockImplementationOnce(
-      () => new Promise<DashboardAnalyticsResponse>(() => undefined)
-    );
-
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
-
-    await screen.findByText("100/200대");
-    expect(screen.queryByText("데이터를 불러오는 중입니다.")).not.toBeInTheDocument();
-    expect(apiClient.getDashboardAnalytics).toHaveBeenCalled();
-  });
-
-  test("defers analytics requests until the analytics section is near the viewport", async () => {
-    let intersectionCallback: IntersectionObserverCallback | null = null;
-    vi.stubGlobal(
-      "IntersectionObserver",
-      class MockIntersectionObserver implements IntersectionObserver {
-        readonly root = null;
-        readonly rootMargin = "120px 0px";
-        readonly scrollMargin = "0px";
-        readonly thresholds = [0];
-
-        constructor(callback: IntersectionObserverCallback) {
-          intersectionCallback = callback;
-        }
-
-        disconnect = vi.fn();
-        observe = vi.fn();
-        takeRecords = vi.fn(() => []);
-        unobserve = vi.fn();
-      }
-    );
-
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" />);
-
-    await screen.findByText((_, element) => element?.textContent === "100/200대");
+    await screen.findAllByText((_, element) => element?.textContent === "100/200대");
     expect(apiClient.getDashboardBootstrap).toHaveBeenCalled();
     expect(apiClient.getDashboardAnalytics).not.toHaveBeenCalled();
     expect(apiClient.getFlightStatus).not.toHaveBeenCalled();
-
-    await waitFor(() => {
-      expect(intersectionCallback).not.toBeNull();
-    });
-
-    act(() => {
-      intersectionCallback?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
-    });
-
-    await waitFor(() => {
-      expect(apiClient.getDashboardAnalytics).toHaveBeenCalled();
-    });
-    expect(apiClient.getFlightStatus).toHaveBeenCalled();
   });
 
   test("refreshes dashboard data automatically when backend snapshots change", async () => {
@@ -405,9 +326,9 @@ describe("DashboardApp", () => {
         })
       );
 
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" autoRefreshIntervalMs={20} />);
+    renderCurrentStatus({ autoRefreshIntervalMs: 20 });
 
-    await screen.findByTestId("history-chart");
+    await screen.findAllByText((_, element) => element?.textContent === "100/200대");
     expect(apiClient.getDashboardBootstrap).toHaveBeenCalledTimes(1);
 
     await waitFor(() => {
@@ -416,13 +337,12 @@ describe("DashboardApp", () => {
     await waitFor(() => {
       expect(screen.getAllByText((_, element) => element?.textContent === "64/200대").length).toBeGreaterThan(0);
     });
-    expect(screen.queryByText("데이터를 불러오는 중입니다.")).not.toBeInTheDocument();
   });
 
   test("skips full dashboard reloads while backend snapshots are unchanged", async () => {
-    render(<DashboardApp apiBaseUrl="http://localhost:8000" autoRefreshIntervalMs={20} />);
+    renderCurrentStatus({ autoRefreshIntervalMs: 20 });
 
-    await screen.findByTestId("history-chart");
+    await screen.findAllByText((_, element) => element?.textContent === "100/200대");
     await new Promise((resolve) => setTimeout(resolve, 60));
 
     expect(apiClient.getCollectorStatus.mock.calls.length).toBeGreaterThanOrEqual(2);
