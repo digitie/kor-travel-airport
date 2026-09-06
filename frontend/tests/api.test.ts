@@ -127,6 +127,22 @@ describe("api client", () => {
     );
   });
 
+  test("requests an explicit date range instead of days when both are given", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ items: [] }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const client = buildApiClient("http://localhost:8000");
+    await client.getTimeSeries("GMP", { parkingLotId: 12, startDate: "2026-05-01", endDate: "2026-05-07" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/v1/parking/analytics/timeseries?airport_code=GMP&parking_lot_id=12&start_date=2026-05-01&end_date=2026-05-07&interval_minutes=10&future_hours=0",
+      expect.objectContaining({ cache: "no-store" })
+    );
+  });
+
   test("requests the holiday summary endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

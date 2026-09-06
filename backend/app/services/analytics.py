@@ -179,6 +179,7 @@ def build_time_series(
     interval_minutes: int = 10,
     future_hours: int = 0,
     tz_name: str = "Asia/Seoul",
+    anchor_at: datetime | None = None,
 ) -> list[dict[str, int | datetime]]:
     if not snapshots:
         return []
@@ -188,9 +189,21 @@ def build_time_series(
         snapshots_by_lot[snapshot.parking_lot_id].append(snapshot)
 
     latest_snapshots = [lot_snapshots[-1] for lot_snapshots in snapshots_by_lot.values() if lot_snapshots]
-    latest_observed_at = max(
-        (ensure_tz(snapshot.observed_at, "UTC") for snapshot in latest_snapshots),
-        default=ensure_tz(now or now_utc(), "UTC"),
+    # For a "relative to now" query (anchor_at not given), the window is anchored on
+    # whatever was actually observed last - that's the whole point of "recent N days".
+    # For an explicit calendar date-range query (anchor_at given), the window must stay
+    # pinned to the *requested* end of range regardless of collection gaps - otherwise a
+    # trailing gap (scheduler paused for a backup restore, an upstream rate-limit block,
+    # a request for "today" made before end of day) silently shifts the whole window
+    # backward to whenever data actually stops, while the response's own start_date/
+    # end_date fields keep claiming the originally-requested range.
+    latest_observed_at = (
+        ensure_tz(anchor_at, "UTC")
+        if anchor_at is not None
+        else max(
+            (ensure_tz(snapshot.observed_at, "UTC") for snapshot in latest_snapshots),
+            default=ensure_tz(now or now_utc(), "UTC"),
+        )
     )
 
     history_bucket_count = max(1, int((days * 24 * 60) / interval_minutes))
@@ -230,7 +243,12 @@ def build_time_series(
             item["total_spaces"] += current.total_spaces
             item["lot_observations"] += 1
 
-    if latest_snapshots:
+    # Stamping the exact latest per-lot reading into the final bucket only makes sense
+    # when that bucket genuinely represents "now" (the relative-days path) - for an
+    # explicit date-range anchor, the final bucket represents the *requested* end of
+    # range, which may be well after the last real observation (a trailing gap). Forcing
+    # stale data into that slot would misrepresent it as current-as-of-end-of-range.
+    if anchor_at is None and latest_snapshots:
         current_index = history_bucket_count - 1
         items[current_index] = {
             "bucket_at": latest_observed_at,

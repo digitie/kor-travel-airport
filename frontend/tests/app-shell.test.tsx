@@ -32,6 +32,7 @@ function buildCollectorStatus(): CollectorStatusResponse {
     supported_airport_codes: ["GMP"],
     latest_snapshot_observed_at: null,
     latest_snapshot_collected_at: null,
+    earliest_snapshot_observed_at: null,
     manual_collect_available_at: null,
     manual_collect_blocked: false,
     upstream_rate_limited: false,

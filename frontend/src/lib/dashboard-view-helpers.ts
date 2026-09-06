@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 import { formatNumber } from "@/lib/format";
-import type { ParkingStatus, ThresholdWeekdayTime, WeekdayHourBucket, WeekdayHourlyPattern } from "@/lib/types";
+import type { ParkingStatus, ThresholdWeekdayTime, TimeSeriesPoint, WeekdayHourBucket, WeekdayHourlyPattern } from "@/lib/types";
 
 export function statusTone(statusLevel: ParkingStatus["status_level"]): string {
   switch (statusLevel) {
@@ -115,6 +115,24 @@ export function hasThresholdSamples(items: ThresholdWeekdayTime[]): boolean {
 
 export function historyLabel(selectedParkingLotName: string | null, airportName: string | undefined): string {
   return selectedParkingLotName ?? `${airportName ?? "공항"} 전체`;
+}
+
+export function summarizeTimeSeriesAvailability(items: TimeSeriesPoint[]): {
+  min: number | null;
+  max: number | null;
+  average: number | null;
+} {
+  const observed = items.filter((item) => item.lot_observations > 0);
+  if (observed.length === 0) {
+    return { min: null, max: null, average: null };
+  }
+  const values = observed.map((item) => item.available_spaces);
+  const sum = values.reduce((total, value) => total + value, 0);
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values),
+    average: Math.round(sum / values.length),
+  };
 }
 
 export const HOURS = Array.from({ length: 24 }, (_, hour) => hour);

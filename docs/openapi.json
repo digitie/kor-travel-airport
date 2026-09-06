@@ -241,6 +241,18 @@
             "title": "Data Go Kr Service Key Configured",
             "type": "boolean"
           },
+          "earliest_snapshot_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Snapshot Observed At"
+          },
           "effective_collect_interval_seconds": {
             "title": "Effective Collect Interval Seconds",
             "type": "integer"
@@ -1271,6 +1283,17 @@
             "title": "Days",
             "type": "integer"
           },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
           "future_hours": {
             "default": 0,
             "title": "Future Hours",
@@ -1302,6 +1325,17 @@
               }
             ],
             "title": "Parking Lot Id"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
           }
         },
         "required": [
@@ -2680,6 +2714,7 @@
     },
     "/v1/parking/analytics/timeseries": {
       "get": {
+        "description": "상대 조회(`days`)와 명시적 범위 조회(`start_date`+`end_date`)는 상호배타적이다. start_date/end_date를 지정하면 days와 future_hours는 무시되고(future_hours=0으로 고정) airport_code 또는 parking_lot_id가 필요하며, 최대 90일까지 조회할 수 있다.",
         "operationId": "parking_time_series_v1_parking_analytics_timeseries_get",
         "parameters": [
           {
@@ -2748,6 +2783,42 @@
               "minimum": 0,
               "title": "Future Hours",
               "type": "integer"
+            }
+          },
+          {
+            "description": "명시적 범위 조회 시작일(YYYY-MM-DD). end_date와 함께 지정한다. 지정 시 days/future_hours는 무시된다.",
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "명시적 범위 조회 시작일(YYYY-MM-DD). end_date와 함께 지정한다. 지정 시 days/future_hours는 무시된다.",
+              "title": "Start Date"
+            }
+          },
+          {
+            "description": "명시적 범위 조회 종료일(YYYY-MM-DD). start_date와 함께 지정한다.",
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "명시적 범위 조회 종료일(YYYY-MM-DD). start_date와 함께 지정한다.",
+              "title": "End Date"
             }
           }
         ],

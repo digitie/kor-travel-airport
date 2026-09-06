@@ -51,13 +51,18 @@ function buildAnalyticsUrl(
     days?: number;
     intervalMinutes?: number;
     futureHours?: number;
+    startDate?: string;
+    endDate?: string;
   } = {}
 ): string {
   const params = new URLSearchParams({ airport_code: airportCode });
   if (options.parkingLotId != null) {
     params.set("parking_lot_id", String(options.parkingLotId));
   }
-  if (options.days != null) {
+  if (options.startDate && options.endDate) {
+    params.set("start_date", options.startDate);
+    params.set("end_date", options.endDate);
+  } else if (options.days != null) {
     params.set("days", String(options.days));
   }
   if (options.intervalMinutes != null) {
@@ -175,15 +180,24 @@ export function buildApiClient(apiBaseUrl?: string) {
     },
     getTimeSeries(
       airportCode: string,
-      options: { parkingLotId?: number | null; days?: number; intervalMinutes?: number; futureHours?: number } = {}
+      options: {
+        parkingLotId?: number | null;
+        days?: number;
+        intervalMinutes?: number;
+        futureHours?: number;
+        startDate?: string;
+        endDate?: string;
+      } = {}
     ): Promise<ParkingTimeSeriesResponse> {
-      const { parkingLotId = null, days = 7, intervalMinutes = 10, futureHours = 0 } = options;
+      const { parkingLotId = null, days = 7, intervalMinutes = 10, futureHours = 0, startDate, endDate } = options;
       return getJson<ParkingTimeSeriesResponse>(
         buildAnalyticsUrl(baseUrl, "/v1/parking/analytics/timeseries", airportCode, {
           parkingLotId,
           days,
           intervalMinutes,
           futureHours,
+          startDate,
+          endDate,
         })
       );
     },
