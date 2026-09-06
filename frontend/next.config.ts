@@ -25,6 +25,12 @@ const nextConfig: NextConfig = {
         headers: NO_STORE_HEADERS,
       },
       {
+        // T-035: 라우트 기반 앱 셸 도입 이후 모든 페이지가 실시간 대시보드 화면이다 -
+        // "/" 하나에만 걸려 있던 no-store 규칙을 신규 라우트에도 적용한다.
+        source: "/:page(analytics|history|fees|backup)",
+        headers: NO_STORE_HEADERS,
+      },
+      {
         source: "/api/backend/:path*",
         headers: NO_STORE_HEADERS,
       },

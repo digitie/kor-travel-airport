@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import "./globals.css";
+import { AppShell } from "@/components/app-shell";
+import { DashboardProvider } from "@/lib/dashboard-context";
 
 export const metadata: Metadata = {
   title: "parking-radar",
@@ -10,7 +12,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <DashboardProvider>
+          <AppShell>{children}</AppShell>
+        </DashboardProvider>
+      </body>
     </html>
   );
 }
