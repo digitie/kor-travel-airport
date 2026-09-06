@@ -178,7 +178,12 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
             복원은 현재 PostgreSQL 데이터를 덮어쓰며, 서버가 자동 백업을 먼저 만든 뒤 진행합니다.
           </p>
           <div className="backup-panel-actions">
-            <Button type="button" className="button" onClick={() => void handleCreate()} disabled={busy}>
+            <Button
+              type="button"
+              className="button"
+              onClick={() => void handleCreate()}
+              disabled={busy || pendingRestoreFile !== null}
+            >
               {busy ? "처리 중…" : "새 백업 만들기"}
             </Button>
             <label className={cn(buttonVariants({ variant: "secondary" }), "button secondary backup-upload-label")}>
@@ -188,10 +193,16 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
                 type="file"
                 accept=".dump,application/octet-stream"
                 onChange={(event) => handleRestoreFileSelected(event.currentTarget.files?.[0])}
-                disabled={busy}
+                disabled={busy || pendingRestoreFile !== null}
               />
             </label>
-            <Button type="button" variant="secondary" className="button secondary" onClick={() => void refresh()} disabled={busy}>
+            <Button
+              type="button"
+              variant="secondary"
+              className="button secondary"
+              onClick={() => void refresh()}
+              disabled={busy || pendingRestoreFile !== null}
+            >
               목록 새로고침
             </Button>
           </div>
@@ -213,12 +224,14 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
               <AlertDialogHeader>
                 <AlertDialogTitle>PostgreSQL 데이터를 덮어씁니다</AlertDialogTitle>
                 <AlertDialogDescription>
-                  복원 전에 자동 백업을 만든 뒤 계속합니다. {pendingRestoreFile?.name}로 복원할까요?
+                  {pendingRestoreFile?.name}(으)로 복원하면 현재 데이터를 덮어씁니다. 복원 전에 자동 백업을 먼저 만든 뒤 진행합니다.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel onClick={cancelRestore}>취소</AlertDialogCancel>
-                <AlertDialogAction onClick={() => void confirmRestore()}>계속</AlertDialogAction>
+                <AlertDialogCancel disabled={busy}>취소</AlertDialogCancel>
+                <AlertDialogAction disabled={busy} onClick={() => void confirmRestore()}>
+                  계속
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -237,7 +250,7 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
                   <Button
                     type="button"
                     variant="link"
-                    className="text-button"
+                    className="text-button hover:no-underline"
                     onClick={() => void handleDownload(item.filename)}
                     disabled={busy}
                   >

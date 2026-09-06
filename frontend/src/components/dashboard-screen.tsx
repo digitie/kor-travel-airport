@@ -409,12 +409,15 @@ export function DashboardScreen({
       </section>
 
       {actionMessage ? (
-        <Alert
-          className={`notice ${actionMessageIsError ? "error" : ""}`}
-          variant={actionMessageIsError ? "destructive" : "default"}
-        >
-          {actionMessage}
-        </Alert>
+        actionMessageIsError ? (
+          <Alert className="notice error" variant="destructive">
+            {actionMessage}
+          </Alert>
+        ) : (
+          <p className="notice" aria-live="polite">
+            {actionMessage}
+          </p>
+        )
       ) : null}
       {error ? (
         <Alert className="notice error" variant="destructive">
