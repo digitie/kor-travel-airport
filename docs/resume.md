@@ -2,18 +2,33 @@
 
 ## 현재 상태
 
-- 기준일: 2026-09-06
-- 작업 브랜치: `main` (로컬/원격 모두 `b9bdf1a`).
-- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#24 모두 **MERGED**
+- 기준일: 2026-09-07
+- 작업 브랜치: `main` (로컬/원격 모두 `603884f`).
+- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#26 모두 **MERGED**
   상태다. 이 세션에서 다룬 마지막 코드/운영 PR은
-  [#24](https://github.com/digitie/kor-travel-airport/pull/24)(과거 자료 조회 기능,
-  T-036)이다.
-- **진행 중인 initiative**: shadcn/ui 전환 + 과거 자료 조회 기능 + Hallmark
-  재감사/재설계(`docs/tasks.md` T-037~T-038, 계획
-  `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`). T-033(shadcn 기반
-  도입)·T-034(button/card/table/alert/confirm-dialog 치환)·T-035(라우트 기반 앱
-  셸)·T-036(과거 자료 조회 기능)까지 완료·배포·live E2E 검증 끝났다. 다음은
-  T-037(Hallmark audit)이다.
+  [#26](https://github.com/digitie/kor-travel-airport/pull/26)(Hallmark redesign,
+  T-038)이다.
+- **완료된 initiative**: shadcn/ui 전환 + 과거 자료 조회 기능 + Hallmark
+  재감사/재설계(계획 `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`).
+  T-033(shadcn 기반 도입)·T-034(button/card/table/alert/confirm-dialog 치환)·
+  T-035(라우트 기반 앱 셸)·T-036(과거 자료 조회 기능)·T-037(Hallmark audit)·
+  T-038(Hallmark redesign) 전부 완료·배포·live E2E 검증까지 끝났다. 현재
+  `docs/tasks.md`에 진행 중/예정 task가 없다 — 다음 작업은 사용자 요청을 기다린다.
+  - **T-038에서 새로 배운 것**: (1) Hallmark 감사 지적을 그대로 코드로 옮길 때도
+    새 버그를 만들 수 있다 — `.control-band` 브레이크포인트를
+    `max-width: 64rem`으로 고쳤다가 Tailwind `lg:`의 `min-width: 64rem`과
+    정확히 1024px에서 겹치는 새 overlap 버그를 만들었다(둘 다 경계값 포함이라
+    같은 값을 쓰면 항상 겹친다) — `63.9375rem`처럼 한 스텝 아래 값을 써야
+    진짜 배타적 구간이 된다. (2) `aria-live`는 "속성을 붙이는 것"이 아니라
+    "상시 마운트된 엘리먼트의 내용을 바꾸는 것"이 핵심이다 — 이미 최종 내용을
+    가진 채로 마운트되는 엘리먼트에 `aria-live="polite"`를 붙이는 건 스크린
+    리더 announce를 보장하지 않는다(브라우저/AT마다 다름). 이 실수는
+    `history-view.tsx`의 기존(이미 hostile-review를 거친) 패턴을 그대로 베낀
+    데서 나왔다 — "이미 리뷰를 거친 기존 코드"도 검증 없이 복제하면 안 된다.
+    (3) 디자인 감사가 지적한 minor(예: "클릭이 하나 더 필요함")를 고치기 전에
+    그 UI가 무엇을 보호하는지 확인할 것 — `/backup`의 기본-접힘은 UX 결함이
+    아니라 인증 없는 파괴적 관리 UI의 유일한 상호작용 게이트였다. 이 세션은
+    hostile review가 지적하기 전까지 이걸 놓쳤다.
   - **T-036에서 새로 배운 것**: (1) 계획서에 적힌 API 대상(`/v1/parking/history`)이
     실제로 프론트에서 전혀 안 쓰이는 걸 조사로 발견했다 — task를 시작하기 전에 항상
     "이 endpoint를 실제로 누가 호출하는지" 먼저 확인할 것, 계획 문서가 최신이라고
@@ -135,11 +150,10 @@
 
 ## 다음 한 작업
 
-`T-037` — Hallmark audit. `T-033`~`T-036`으로 완료된 전체 결과물(shadcn 기반 도입,
-컴포넌트 치환, 라우트 기반 앱 셸, 과거 자료 조회 date picker)에 `hallmark audit`을
-read-only로 실행해 critical/major/minor 펀치리스트를 만든다. 이 단계는 코드를 고치지
-않는다 — 다음 `T-038`(redesign)이 critical/major를 반영하고, minor는 반영하거나
-`docs/journal.md`에 근거를 남긴다. 완료 조건은 `docs/tasks.md` T-037/T-038 참고.
+`docs/tasks.md`에 진행 중/예정 task가 없다. `T-033`~`T-038`(shadcn/ui 전환 + 과거
+자료 조회 + Hallmark 재감사/재설계) initiative 전체가 완료됐다. 다음 작업은 사용자
+요청을 기다린다 — 후보로 남겨둔 미해결 항목은 `docs/tasks.md`의 "진행 중인 작업
+인덱스" 절 하단(T-035/T-036/T-038이 남긴 후속 항목)을 참고.
 
 ## 확인된 사실
 
@@ -153,15 +167,12 @@ read-only로 실행해 critical/major/minor 펀치리스트를 만든다. 이 �
 - HTTP fallback migration은 snapshots 38,946건/lot 44개 관측, reference lot 53개/legacy ID
   53개 상태로 운영되고, duplicate legacy ID는 0개다.
 - 현재 n150 runtime은 배포 Git full SHA와 `/health`의 release SHA가 일치하며 API/web 포트 계약
-  (`14001`/`14002`)을 지킨다. 2026-09-06 기준 `release_sha=b9bdf1a9c6832217922934e1f8a0128a3bdf339f`
-  (=`main` HEAD, PR #24 squash-merge 커밋, T-036)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
-  양쪽에서 이 값과 정상 응답을 재확인했다(live E2E 15개 중 14개 PASS, 나머지 1개는
-  기존 `collector-status` 실시간 플레이크). 배포 직후 `pr-api`가 약 2분간 504/timeout을
-  반환한 적이 있었는데 n150 로컬(`127.0.0.1:14001`/`14002`, SSH로 직접 확인)은 그 순간에도
-  두 컨테이너 모두 `healthy`였다 — 배포 문제가 아니라 외부 게이트웨이 쪽 일시 장애였고
-  자연 복구됐다. 외부 게이트웨이가 응답하지 않을 때는 항상 먼저 n150에 SSH로 직접
-  접속해 로컬 포트(`14001`/`14002`)를 확인해 "배포가 실패했는지" vs "게이트웨이만
-  문제인지"를 구분할 것.
+  (`14001`/`14002`)을 지킨다. 2026-09-07 기준 `release_sha=603884f9adec43d160373ca33b90f4a351d3c5a0`
+  (=`main` HEAD, PR #26 squash-merge 커밋, T-038)이고, 외부 게이트웨이(`pr-api`/`pr.digitie.mywire.org`)
+  양쪽에서 이 값과 정상 응답을 재확인했다(live E2E `15/15 PASS`, 이번엔 기존
+  `collector-status` 플레이크도 관측 안 됨). 외부 게이트웨이가 응답하지 않을 때는 항상 먼저
+  n150에 SSH로 직접 접속해 로컬 포트(`14001`/`14002`)를 확인해 "배포가 실패했는지" vs
+  "게이트웨이만 문제인지"를 구분할 것(T-036 배포 때 실제로 겪은 패턴).
 
 ## 남은 운영 확인
 
