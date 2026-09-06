@@ -1333,12 +1333,18 @@ select {
    쿼리가 동시에 참이 된다(T-038에서 겪은 문제를 폭만 좁혀 재현하게 됨). */
 @media (max-width: 63.9375rem) {
   .control-band {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-    gap: 8px;
+    /* 공항명(최대 6자, 전부 앞 2~3자만으로 구분 가능)보다 세부 주차장명(최대
+       13자, "T1 장기 P1 주차타워"처럼 구분자가 뒤쪽에 있음)이 실제로 훨씬 길다
+       (backend/app/services/sample_data.py) - hostile review에서 320px 폭에서
+       두 <select>를 정확히 반씩 나누면 주차장명의 구분자(P1/P2/.../국내선
+       제1/제2...)가 통째로 잘려 서로 다른 주차장이 같은 텍스트로 보이는 걸
+       실측으로 확인했다. 주차장 select에 더 넓은 비율을 준다. */
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
   }
 
   .control-band .input {
-    padding: 0 10px;
+    padding: 0 8px;
+    font-size: 0.85rem;
   }
 
   .refresh-button {

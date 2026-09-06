@@ -126,18 +126,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 ))}
               </select>
             </label>
-            <div className="action-stack">
-              <Button
-                aria-label="새로고침"
-                className="button secondary refresh-button"
-                variant="secondary"
-                type="button"
-                onClick={onRefresh}
-              >
-                <RefreshCw className="size-4" aria-hidden="true" />
-                <span className="hidden lg:inline">새로고침</span>
-              </Button>
-            </div>
+            {/* action-stack로 감싸지 않는다 - 그 클래스는 current-status-view.tsx의
+                수동 수집 버튼+힌트(자식 2개) 쌍을 위한 860px 폭 이하 2열 그리드 규칙도
+                갖고 있어서, 자식이 버튼 하나뿐인 여기서 재사용하면 빈 두 번째 칸이 실제
+                폭을 차지해(381-1023px에서 측정: 44px가 아니라 98px) 모바일 한 줄
+                레이아웃에서 select 두 개의 폭을 그만큼 빼앗는다(hostile review에서
+                발견). 버튼을 control-band의 그리드 자식으로 직접 두면 `.button.secondary`
+                자체의 `align-self: end`만으로 정렬이 충분하다. */}
+            <Button
+              aria-label="새로고침"
+              className="button secondary refresh-button"
+              variant="secondary"
+              type="button"
+              onClick={onRefresh}
+            >
+              <RefreshCw className="size-4" aria-hidden="true" />
+              <span className="hidden lg:inline">새로고침</span>
+            </Button>
           </div>
 
           {/* 데스크톱: 상단 탭 전부 인라인 노출. 모바일에서는 하단 탭바가 대신하므로 숨긴다. */}
