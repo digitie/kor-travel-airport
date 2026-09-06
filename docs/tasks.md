@@ -3,12 +3,60 @@
 진행 중/예정(`[ ]`) task만 두는 백로그다. 완료 항목은
 [`docs/tasks-done.md`](tasks-done.md)에 이동하고, 현재 진척과 다음 작업은
 [`docs/resume.md`](resume.md)에 기록한다. 작성 규칙은 [`docs/tasks-rule.md`](tasks-rule.md)를
-따른다. 2026-08-22 기준 기능·문서·검증 task는 모두 완료됐고, 2026-08-23에 문서화 task 1건이
-추가됐다.
+따른다. 2026-09-06에 사용자 요청으로 shadcn/ui 전환 + 과거 자료 조회 + Hallmark
+재감사/재설계 initiative(T-033~T-038)가 추가됐다. 계획 전체는
+`C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`에 있다.
 
 ## 진행 중인 작업 인덱스
 
-현재 진행 중이거나 예정된 task가 없다.
+- [ ] `T-033` — shadcn/ui 기반 도입 (Tailwind v4 + 토큰 브릿지, 시각적 무변경)
+- [ ] `T-034` — 컴포넌트를 shadcn 프리미티브로 교체
+- [ ] `T-035` — 라우트 기반 앱 셸(pinvi 스타일 모바일 하단 탭바)
+- [ ] `T-036` — 과거 자료 조회 기능(백엔드 날짜범위 + 프론트 date picker)
+- [ ] `T-037` — Hallmark audit (read-only 펀치리스트)
+- [ ] `T-038` — Hallmark redesign (audit 지적 반영)
+
+### `T-033` — shadcn/ui 기반 도입
+
+- `npx skills add shadcn/ui` 실행 후 Tailwind v4 + shadcn CLI init(`components.json`,
+  `lib/utils.ts`).
+- `tokens.css`의 기존 oklch 값을 Tailwind `@theme` + shadcn 시맨틱 변수로 번역(값 보존,
+  다크모드는 기존 `prefers-color-scheme` 유지).
+- 완료 조건: 컴포넌트 JSX 무변경, `npm run build` 통과, 기존 vitest 전부 통과, 화면
+  픽셀 단위 무변경.
+
+### `T-034` — 컴포넌트를 shadcn 프리미티브로 교체
+
+- select/button/card/badge/table/accordion/alert/confirm-dialog/toggle을 shadcn
+  컴포넌트로 치환(차트 SVG 렌더링 로직 자체는 유지, chrome만 교체).
+- 모든 `data-testid` 보존, `history-chart.test.tsx`/`daily-flight-overlay-chart.test.tsx`/
+  `dashboard.test.tsx`의 raw className 쿼리 갱신.
+- 완료 조건: vitest 전부 통과, `npm run build`, 320/375/414/768px 무-오버플로.
+
+### `T-035` — 라우트 기반 앱 셸
+
+- `/`(현황)·`/analytics`(분석)·`/history`(과거조회)·`/fees`(요금계산)·`/backup`(백업)
+  라우트 분리 + 공유 `AppShell`(데스크톱 상단 탭 / 모바일 하단 탭바 4+더보기, pinvi
+  `AppShell.tsx` 패턴 참고, "더보기"는 shadcn `Popover`).
+- 완료 조건: 320/375/414/768px 무-오버플로, 탭바 키보드 포커스/`aria-current`, 기존
+  golden path E2E 통과.
+
+### `T-036` — 과거 자료 조회 기능
+
+- `GET /v1/parking/history`에 `start_date`/`end_date`(YYYY-MM-DD) 추가(기존 `days` 유지,
+  `_parse_local_date_query`/`_load_snapshots_between_local_dates` 재사용, 최대 기간 캡).
+- `/history` 라우트에 shadcn `Calendar` range picker + 결과 렌더링.
+- 완료 조건: 신규 backend pytest(현재 0개) + frontend vitest 통과, 데이터 있음/없음/
+  기간초과 케이스 브라우저 확인.
+
+### `T-037` — Hallmark audit
+
+- 전체 결과물에 `hallmark audit` 실행, critical/major/minor 펀치리스트 산출(read-only).
+
+### `T-038` — Hallmark redesign
+
+- T-037의 critical/major 반영, minor는 반영하거나 근거를 `docs/journal.md`에 기록.
+- 완료 조건: 전체 테스트 재통과 + 320/375/414/768px 재검증 + Hallmark 58-gate.
 
 ## 완료 조건
 

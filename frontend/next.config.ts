@@ -15,6 +15,9 @@ const NO_STORE_HEADERS = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // 저장소는 루트의 CLAUDE.md/AGENTS.md만 AI agent entry로 둔다(drift 회피 정책,
+  // CLAUDE.md §1). Next.js 16이 자동 생성하는 frontend/AGENTS.md·CLAUDE.md는 끈다.
+  agentRules: false,
   async headers() {
     return [
       {

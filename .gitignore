@@ -21,3 +21,4 @@ backend/*.egg-info/
 frontend/*.tsbuildinfo
 frontend/test-results/
 frontend/playwright-report/
+.playwright-mcp/
