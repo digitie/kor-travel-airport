@@ -51,6 +51,20 @@
   live E2E 15개 전부 PASS(첫 회는 실시간 collector 상태 `partial_success`로 인한
   기존(비-T-035) 단언 1건이 일시적으로 실패했다가 다음 스케줄러 사이클에서 `success`로
   돌아와 재실행 시 통과 — 실제 데이터 정상, 코드 회귀 아님).
+- **후속 발견(docs PR [#23](https://github.com/digitie/kor-travel-airport/pull/23) 작업
+  중)**: docs-only PR의 CI live-e2e에서 desktop "일별 흐름" 탭 클릭과 모바일 "더보기"
+  popover가 CI에서만 재현되는 진짜 결함으로 실패했다(로컬에서는 통과). Chrome DevTools
+  Protocol로 실제 n150 사이트에 500kbps/300ms RTT 네트워크 스로틀링을 걸어 로컬에서
+  재현에 성공했다 — 라우트 전환 직후 곧바로 클릭하면 React가 그 DOM 노드의 이벤트
+  핸들러를 아직 다시 연결하지 못한 상태(hydration 타이밍)라 클릭이 조용히 무시된다
+  (같은 상황에서 클릭 전에 3초 대기를 추가하면 통과함을 확인해 가설을 검증했다). 이는
+  T-035가 만든 로직 버그가 아니라 - Popover를 라우트 변경 시 닫도록 제어형으로 바꾼
+  로직 자체는 정상 동작한다 - 클라이언트 라우팅 앱 전반의 특성이며, GitHub Actions
+  러너가 한국 서버까지 가는 네트워크 지연이 로컬보다 훨씬 커서 CI에서만 드러났다.
+  느린 연결의 실사용자도 라우트 이동 직후 첫 탭을 놓칠 수 있다는 뜻이라 UX상으로도
+  무해하지 않다 - `e2e/live-dashboard.spec.ts`에 `clickUntilEffective()`(클릭 후
+  결과가 실제로 반영됐는지 확인하고, 안 됐으면 재시도하는 `expect(...).toPass()`
+  래퍼)를 추가해 두 테스트를 이 레이스에 강건하게 만들었다.
 
 ## 2026-09-06 (T-034)
 

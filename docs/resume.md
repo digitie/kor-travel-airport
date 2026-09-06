@@ -34,9 +34,22 @@
     돈다 — 새 라우트를 추가하는 PR은 머지 전 CI에서 항상 404로 실패한다(PR #18/#20/#22
     전부 동일 패턴, backend/frontend만 통과하면 머지 진행). (3) live E2E의
     `collector-status.last_run.status`를 `"success"`로 단언하는 기존 테스트는 실제
-    운영 스케줄러가 `success`/`partial_success`를 주기적으로 오가서 가끔 일시적으로
-    실패한다 — 코드 문제가 아니라 실시간 외부 API 특성이니 다음 스케줄러 사이클
-    (3분 이내) 후 재실행해서 확인한다.
+    운영 스케줄러가 `success`/`partial_success`를 주기적으로 오가서 실패할 수 있다 —
+    코드 문제가 아니라 실시간 외부 API(KAC/인천) 특성이다. 보통 다음 스케줄러 사이클
+    (3분 이내)에 `success`로 돌아오지만, 2026-09-06 재검증 때는 13분·5사이클 연속
+    `partial_success`가 관측된 적도 있다(`raw_response_count`는 3으로 정상 — 소스
+    자체는 다 응답하지만 그 중 일부 lot이 간헐적으로 실패). 여러 번 재시도해도 계속
+    실패하면 코드 회귀가 아니라 실시간 데이터 상태이니 이 단언을 느슨하게(예:
+    `["success","partial_success"]`에 포함되는지) 바꾸는 걸 별도 task로 고려할 만하다
+    — 지금은 손대지 않았다. (4) **hydration 타이밍 레이스**: 클라이언트 라우트 전환
+    직후 곧바로 다른 요소를 클릭하면(예: 탭 전환 직후 "더보기" 클릭) 로컬의 빠른
+    연결에서는 안 드러나다가 CI 러너처럼 지연이 큰 환경에서만 클릭이 조용히
+    무시되는 경우가 있다 — Chrome DevTools Protocol
+    (`context.newCDPSession(page)` + `Network.emulateNetworkConditions`)로 실제
+    네트워크를 로컬에서 스로틀링해 재현할 수 있다. 이런 클릭은
+    `expect(async () => { await el.click(); await expect(result).toBe(...); }).toPass()`
+    로 감싸 "효과가 실제로 나타날 때까지 클릭 자체를 재시도"하게 만들어야 한다(단순
+    `.click()` 뒤 단언만 재시도하는 것으로는 해결 안 됨 — 클릭 자체가 무효였으므로).
 - 저장소 식별자가 `parking-radar` → `kor-travel-airport`로 개명됐다(PR
   [#15](https://github.com/digitie/kor-travel-airport/pull/15), ADR-007). 배포되는
   웹앱 브랜드/백업 파일명/쿠키 키는 계속 `parking-radar`다 — `CLAUDE.md` §1 참고.
