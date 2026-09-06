@@ -305,3 +305,25 @@
   (`expect(...).toPass()`로 클릭→결과 확인을 통째로 재시도)를 추가해 해소했고,
   throttling으로 3회 연속 재현·수정 확인 후 스크래치 테스트는 삭제했다. 상세는
   `docs/tasks-done.md` T-035 "후속 발견" 참고.
+- T-036(과거 자료 조회 기능, PR [#24](https://github.com/digitie/kor-travel-airport/pull/24))을
+  구현했다. 원래 계획한 `/v1/parking/history`가 프론트에서 전혀 안 쓰인다는 걸 조사로
+  발견해, 실제로 `/history`가 렌더링하는 `/v1/parking/analytics/timeseries`에
+  `start_date`/`end_date`를 추가하는 쪽으로 범위를 재조정했다. hostile
+  review(James/Popper)에서 Popper가 P0를 하나 발견했다 — `build_time_series`를 직접
+  실행해 재현: 이 함수가 버킷 배치 기준점을 요청한 end_date가 아니라 "실제 마지막
+  관측 스냅샷"으로 잡아서, 요청 범위 끝에 수집 공백(백업 복원 중 scheduler 중지,
+  업스트림 rate-limit 등)이 있으면 응답이 조용히 요청 범위보다 앞으로 밀리는데
+  응답의 start_date/end_date 필드는 원래 요청을 그대로 주장한다. 실제로 트레일링
+  갭이 있는 데이터로 회귀 테스트를 만들어 수정 전 실패·수정 후 통과를 확인했다.
+  James가 지적한 달력 타임존 버그(disabled 범위가 브라우저 로컬 타임존으로 비교돼
+  Asia/Seoul과 최대 하루 어긋남)도 반영했는데, 이번엔 반대로 James가 같이 지적한
+  `toDateKey()` 자체의 타임존 버그 주장은 5개 타임존으로 직접 재현 시도해본 결과
+  실제로는 버그가 아님을 확인하고 그 부분은 고치지 않았다 — hostile review 지적도
+  "재현해서 확인 후 반영"이 원칙이지 무조건 수용이 아님을 보여준 사례. 그 외 Popover
+  접근성 이름 누락, 한글 앱에 영어 달력, 포커스 유실, 임의 범위의 무제한 버킷 수 등도
+  전부 재현·수정했다. PR #24를 squash-merge(`b9bdf1a`)하고 n150에 배포,
+  release_sha 일치 확인. 배포 직후 외부 게이트웨이가 잠깐 504를 반환했지만 n150
+  로컬 컨테이너는 SSH로 직접 확인한 결과 둘 다 healthy였다 — 외부 게이트웨이 쪽
+  일시 장애로 판단했고 2분 뒤 재확인해 정상화됐다. live E2E 15개 중 14개 PASS,
+  나머지 1개는 T-035에서 이미 기록한 것과 같은 기존 `collector-status` 플레이크.
+  상세는 `docs/tasks-done.md` T-036 참고.
