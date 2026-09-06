@@ -15,7 +15,9 @@ export function FeesView() {
             {error}
           </Alert>
         ) : (
-          <p className="notice">공항 목록을 불러오는 중입니다.</p>
+          <p className="notice" aria-live="polite">
+            공항 목록을 불러오는 중입니다.
+          </p>
         )}
       </div>
     );

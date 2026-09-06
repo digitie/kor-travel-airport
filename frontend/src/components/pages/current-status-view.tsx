@@ -124,7 +124,11 @@ export function CurrentStatusView() {
           {error}
         </Alert>
       ) : null}
-      {loading ? <p className="notice">데이터를 불러오는 중입니다.</p> : null}
+      {loading ? (
+        <p className="notice" aria-live="polite">
+          데이터를 불러오는 중입니다.
+        </p>
+      ) : null}
 
       <div className="hidden lg:block">
         <section className="table-surface" data-testid="desktop-lot-table">

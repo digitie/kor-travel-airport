@@ -13,6 +13,7 @@ export function BackupView() {
         createBackup={api.createBackup}
         downloadBackup={api.downloadBackup}
         restoreBackup={api.restoreBackup}
+        defaultOpen
       />
     </div>
   );

@@ -317,6 +317,7 @@ select {
 .lot-table {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
 
 .lot-table th,
@@ -359,22 +360,22 @@ select {
 
 .tone-full,
 .tone-critical {
-  background: rgba(188, 58, 45, 0.12);
+  background: var(--color-tone-critical-bg);
   color: var(--red);
 }
 
 .tone-warning {
-  background: rgba(217, 162, 48, 0.14);
-  color: #8c6116;
+  background: var(--color-tone-warning-bg);
+  color: var(--color-tone-warning-ink);
 }
 
 .tone-busy {
-  background: rgba(212, 106, 31, 0.14);
+  background: var(--color-tone-busy-bg);
   color: var(--color-accent);
 }
 
 .tone-stable {
-  background: rgba(12, 139, 125, 0.12);
+  background: var(--color-tone-stable-bg);
   color: var(--teal);
 }
 
@@ -417,9 +418,7 @@ select {
 .panel-surface,
 .table-surface,
 .history-panel,
-.daily-overlay-panel,
-.mobile-disclosure,
-.mobile-disclosure-body {
+.daily-overlay-panel {
   min-width: 0;
 }
 
@@ -492,28 +491,28 @@ select {
 }
 
 .holiday-band {
-  fill: rgba(37, 99, 235, 0.09);
-  stroke: rgba(37, 99, 235, 0.18);
+  fill: var(--color-chart-holiday-fill);
+  stroke: var(--color-chart-holiday-stroke);
   stroke-width: 1;
 }
 
 .holiday-band-holiday {
-  fill: rgba(37, 99, 235, 0.09);
-  stroke: rgba(37, 99, 235, 0.18);
+  fill: var(--color-chart-holiday-fill);
+  stroke: var(--color-chart-holiday-stroke);
 }
 
 .holiday-band-saturday {
-  fill: rgba(12, 139, 125, 0.08);
-  stroke: rgba(12, 139, 125, 0.18);
+  fill: var(--color-chart-saturday-fill);
+  stroke: var(--color-chart-saturday-stroke);
 }
 
 .holiday-band-sunday {
-  fill: rgba(220, 38, 38, 0.08);
-  stroke: rgba(220, 38, 38, 0.2);
+  fill: var(--color-chart-sunday-fill);
+  stroke: var(--color-chart-sunday-stroke);
 }
 
 .holiday-band-label {
-  fill: #1d4ed8;
+  fill: var(--color-chart-holiday);
   font-size: 11px;
   font-weight: 700;
 }
@@ -580,12 +579,12 @@ select {
 
 .flight-marker-departure .flight-marker-line,
 .flight-marker-departure .flight-marker-dot {
-  stroke: #2563eb;
+  stroke: var(--color-chart-flight-departure);
 }
 
 .flight-marker-arrival .flight-marker-line,
 .flight-marker-arrival .flight-marker-dot {
-  stroke: #db2777;
+  stroke: var(--color-chart-flight-arrival);
 }
 
 .flight-hit-target {
@@ -811,13 +810,13 @@ select {
 
 .daily-date-toggle small {
   margin-top: 2px;
-  color: #1d4ed8;
+  color: var(--color-chart-holiday);
   font-size: 0.72rem;
 }
 
 .daily-date-toggle.special-day.holiday,
 .daily-date-toggle.holiday {
-  color: #1d4ed8;
+  color: var(--color-chart-holiday);
 }
 
 .daily-date-toggle.saturday,
@@ -931,31 +930,31 @@ select {
 }
 
 .daily-line-0 {
-  stroke: #0c8b7d;
+  stroke: var(--color-chart-series-0);
 }
 
 .daily-line-1 {
-  stroke: #2563eb;
+  stroke: var(--color-chart-series-1);
 }
 
 .daily-line-2 {
-  stroke: #db2777;
+  stroke: var(--color-chart-series-2);
 }
 
 .daily-line-3 {
-  stroke: #8c6116;
+  stroke: var(--color-chart-series-3);
 }
 
 .daily-line-4 {
-  stroke: #7c3aed;
+  stroke: var(--color-chart-series-4);
 }
 
 .daily-line-5 {
-  stroke: #c2410c;
+  stroke: var(--color-chart-series-5);
 }
 
 .daily-line-6 {
-  stroke: #334155;
+  stroke: var(--color-chart-series-6);
 }
 
 .daily-line-special .daily-line,
@@ -966,12 +965,12 @@ select {
 
 .daily-holiday-marker {
   fill: white;
-  stroke: #1d4ed8;
+  stroke: var(--color-chart-holiday);
   stroke-width: 2;
 }
 
 .daily-holiday-marker-holiday {
-  stroke: #1d4ed8;
+  stroke: var(--color-chart-holiday);
 }
 
 .daily-holiday-marker-saturday {
@@ -1003,12 +1002,12 @@ select {
 
 .daily-flight-marker-departure .flight-marker-line,
 .daily-flight-marker-departure .flight-marker-dot {
-  stroke: #2563eb;
+  stroke: var(--color-chart-flight-departure);
 }
 
 .daily-flight-marker-arrival .flight-marker-line,
 .daily-flight-marker-arrival .flight-marker-dot {
-  stroke: #db2777;
+  stroke: var(--color-chart-flight-arrival);
 }
 
 .daily-flight-highlight {
@@ -1110,7 +1109,12 @@ select {
 .availability-gradient {
   height: 10px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #bc3a2d 0%, #d9a230 35%, #0c8b7d 100%);
+  background: linear-gradient(
+    90deg,
+    var(--color-tone-critical-solid) 0%,
+    var(--color-tone-warning-solid) 35%,
+    var(--color-tone-stable-solid) 100%
+  );
 }
 
 .heatmap-table {
@@ -1118,6 +1122,7 @@ select {
   min-width: 100%;
   border-collapse: separate;
   border-spacing: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .heatmap-table th,
@@ -1209,6 +1214,7 @@ select {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .threshold-table th,
@@ -1293,77 +1299,14 @@ select {
   background: rgba(188, 58, 45, 0.08);
 }
 
-.mobile-disclosure {
-  grid-column: 1 / -1;
-}
 
-.mobile-disclosure summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 54px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255, 252, 247, 0.86);
-  box-shadow: var(--shadow);
-  color: var(--ink);
-  cursor: pointer;
-  list-style: none;
-}
-
-.mobile-disclosure summary::-webkit-details-marker {
-  display: none;
-}
-
-.mobile-disclosure summary::after {
-  content: "+";
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(31, 37, 48, 0.08);
-  color: var(--ink);
-  font-size: 1.15rem;
-  font-weight: 700;
-  line-height: 26px;
-  text-align: center;
-}
-
-.mobile-disclosure[open] summary::after {
-  content: "-";
-}
-
-.mobile-disclosure summary span,
-.mobile-disclosure summary small {
-  display: block;
-}
-
-.mobile-disclosure summary span {
-  font-weight: 750;
-}
-
-.mobile-disclosure summary small {
-  margin-top: 3px;
-  color: var(--muted-foreground);
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-.mobile-disclosure-body {
-  display: grid;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.responsive-desktop {
-  display: contents;
-}
-
-@media (max-width: 860px) {
-  .responsive-desktop {
-    display: none;
+/* T-038 Hallmark audit: .control-band collapses at the same 1024px (lg) breakpoint
+   AppShell/CurrentStatusView use to switch nav/table to mobile mode - previously this
+   collapsed at 980px, leaving a ~44px dead zone (981-1023px) where the header selector
+   was already single-column but the nav/table hadn't switched to mobile mode yet. */
+@media (max-width: 64rem) {
+  .control-band {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1376,10 +1319,6 @@ select {
 
   .detail-ribbon {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .control-band {
-    grid-template-columns: 1fr;
   }
 
   .button.secondary {
@@ -1664,14 +1603,12 @@ select {
   }
 
   .notice,
-  .mobile-disclosure summary,
   .history-tooltip,
   .flight-highlight-label {
     background: rgba(31, 36, 46, 0.96);
     border-color: var(--line);
   }
 
-  .mobile-disclosure summary::after,
   .pill {
     background: rgba(255, 255, 255, 0.1);
   }

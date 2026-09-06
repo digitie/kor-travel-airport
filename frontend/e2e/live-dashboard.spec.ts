@@ -70,8 +70,9 @@ test.describe("live parking-radar dashboard", () => {
     // The shared selection lives in DashboardProvider, so it must survive a route change.
     await page.getByRole("navigation", { name: "주요 메뉴" }).getByRole("link", { name: "백업" }).click();
     await expect(page).toHaveURL(/\/backup$/);
+    // T-038: /backup is a dedicated route now (post-T-035), so the panel opens by
+    // default - navigating there is already the "I asked for this" gate.
     await expect(page.getByRole("button", { name: /백업 \/ 복원/ })).toBeVisible();
-    await page.getByRole("button", { name: /백업 \/ 복원/ }).click();
     await expect(page.getByText(/별도 인증 없이 제공되는 운영 도구/)).toBeVisible();
     await expect(page.getByRole("button", { name: "새 백업 만들기" })).toBeVisible();
     if (process.env.EXERCISE_LIVE_BACKUP === "true") {

@@ -22,6 +22,10 @@ type BackupPanelProps = {
   createBackup: () => Promise<BackupFile>;
   downloadBackup: (filename: string) => Promise<Blob>;
   restoreBackup: (file: File) => Promise<BackupRestoreResponse>;
+  /** T-038 Hallmark audit: defaults to collapsed for embedded/standalone use, but
+   * /backup is now its own dedicated route (post-T-035) - a user who navigated
+   * there already asked to see this panel, so BackupView passes true. */
+  defaultOpen?: boolean;
 };
 
 type BackupListState = "idle" | "loading" | "ready" | "error";
@@ -44,8 +48,14 @@ function formatBackupTimestamp(value: string): string {
   }).format(new Date(value));
 }
 
-export function BackupPanel({ listBackups, createBackup, downloadBackup, restoreBackup }: BackupPanelProps) {
-  const [open, setOpen] = useState(false);
+export function BackupPanel({
+  listBackups,
+  createBackup,
+  downloadBackup,
+  restoreBackup,
+  defaultOpen = false,
+}: BackupPanelProps) {
+  const [open, setOpen] = useState(defaultOpen);
   const [items, setItems] = useState<BackupFile[]>([]);
   const [listState, setListState] = useState<BackupListState>("idle");
   const [busy, setBusy] = useState(false);
