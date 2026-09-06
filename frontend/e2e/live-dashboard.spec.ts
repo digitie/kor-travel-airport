@@ -27,6 +27,13 @@ test.describe("live parking-radar dashboard", () => {
     await expect(page.locator('[data-testid="desktop-lot-table"] tbody tr, [data-testid="mobile-lot-grid"] article').first()).toBeVisible({
       timeout: 20_000,
     });
+    // T-039 regression guard: at desktop viewport width, exactly one of the two lot
+    // views must render - `.first()` above passes even if both are visible, which is
+    // exactly the bug this test would otherwise miss (a plain custom CSS class silently
+    // beat a Tailwind `lg:hidden` utility, so the mobile card grid rendered underneath
+    // the desktop table at every width).
+    await expect(page.getByTestId("desktop-lot-table")).toBeVisible();
+    await expect(page.getByTestId("mobile-lot-grid")).toBeHidden();
 
     const apiHealth = await page.request.get("/api/backend/health");
     expect(apiHealth.status()).toBe(200);
