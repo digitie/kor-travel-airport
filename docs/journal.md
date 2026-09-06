@@ -249,3 +249,26 @@
   release_sha 일치와 live E2E `5 passed`(320/375/414/768px 무-오버플로 포함)까지
   확인했다. 컴포넌트 JSX는 아직 바꾸지 않았다 — T-034(shadcn 프리미티브 치환)가 다음
   단계다.
+- T-034(컴포넌트를 shadcn 프리미티브로 교체, PR
+  [#20](https://github.com/digitie/kor-travel-airport/pull/20))를 구현했다.
+  native button/table/`window.confirm()`/`.metric-card`/`.notice`를 shadcn
+  Button/Card/Table/Alert/AlertDialog로 바꾸되 기존 className·`data-testid`를 전부
+  보존해 Tailwind utility layer가 항상 unlayered legacy CSS에 밀린다는 걸 활용했다.
+  `<select>`/`ResponsiveSection`의 `<details>`/daily-flight-overlay-chart의 토글·
+  체크박스는 기존 테스트가 native DOM 구조(`getByDisplayValue`, `open` 속성,
+  `aria-pressed`)에 의존해 이번엔 일부러 안 건드렸다 — 근거를 커밋 메시지와
+  tasks-done.md에 남겼다. hostile review(James/Popper)가 이번엔 진짜 결함을 여럿
+  찾았다: James가 성공 메시지까지 shadcn Alert(항상 `role="alert"`)로 감싸 매 수동
+  수집 성공마다 assertive 알림이 뜨던 것(P1), 다운로드 버튼 `variant="link"`가 없던
+  hover 밑줄을 추가한 것(P2, cascade layer는 "겹치는 속성"만 보호한다는 걸 이번에
+  확인), AlertDialogCancel의 onClick+onOpenChange 중복 취소(P2)를 지적했다. Popper는
+  더 무겁게 봤다 — 무인증 destructive 백업/복원 API(ADR-003)의 유일한 안전장치를
+  바꾸면서 `AlertDialogAction`에 `disabled={busy}`가 빠진 것(P1)과 회귀 테스트가
+  하나도 없는 것(P1)을 지적했다. 전부 수정하고 `backup-panel.test.tsx`에 4개 테스트를
+  추가했는데, 그 중 하나(dialog 열린 동안 배경 버튼이 `inert` 처리되어 접근성 트리에서
+  완전히 사라지는지)가 Popper 본인이 "jsdom은 검증 불가"라고 적었던 것과 달리 실제로
+  jsdom에서 검증 가능함을 확인했다 — `disabled` 속성이 아니라 Base UI의 `inert`
+  처리 자체를 `queryByRole`로 직접 증명했다. PR을 머지하고 CI에서 `tsconfig.test.json`
+  기준 타입에러(`pre_restore_backup: null` vs 실제 타입 `| undefined`, 기본
+  tsconfig는 tests/를 제외해서 로컬에서 못 잡았었다)를 한 번 더 고쳤다. n150 배포,
+  release_sha `95ac97d` 일치, live E2E `5 passed`(백업 패널 노출 확인 포함) 확인했다.

@@ -9,21 +9,15 @@
 
 ## 진행 중인 작업 인덱스
 
-- [ ] `T-034` — 컴포넌트를 shadcn 프리미티브로 교체
 - [ ] `T-035` — 라우트 기반 앱 셸(pinvi 스타일 모바일 하단 탭바)
 - [ ] `T-036` — 과거 자료 조회 기능(백엔드 날짜범위 + 프론트 date picker)
 - [ ] `T-037` — Hallmark audit (read-only 펀치리스트)
 - [ ] `T-038` — Hallmark redesign (audit 지적 반영)
 
-`T-033`(shadcn/ui 기반 도입)은 완료돼 `docs/tasks-done.md`로 이동했다.
-
-### `T-034` — 컴포넌트를 shadcn 프리미티브로 교체
-
-- select/button/card/badge/table/accordion/alert/confirm-dialog/toggle을 shadcn
-  컴포넌트로 치환(차트 SVG 렌더링 로직 자체는 유지, chrome만 교체).
-- 모든 `data-testid` 보존, `history-chart.test.tsx`/`daily-flight-overlay-chart.test.tsx`/
-  `dashboard.test.tsx`의 raw className 쿼리 갱신.
-- 완료 조건: vitest 전부 통과, `npm run build`, 320/375/414/768px 무-오버플로.
+`T-033`(shadcn/ui 기반 도입), `T-034`(컴포넌트를 shadcn 프리미티브로 교체)는 완료돼
+`docs/tasks-done.md`로 이동했다. `T-034`에서는 `<select>`/`ResponsiveSection`의
+`<details>`/daily-flight-overlay-chart의 토글·체크박스는 테스트 호환성 위험 때문에
+의도적으로 native 구현을 유지했다 — `T-035`에서 라우트 구조가 바뀌면 재검토한다.
 
 ### `T-035` — 라우트 기반 앱 셸
 

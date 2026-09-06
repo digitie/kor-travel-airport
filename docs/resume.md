@@ -3,20 +3,27 @@
 ## 현재 상태
 
 - 기준일: 2026-09-06
-- 작업 브랜치: `main` (로컬/원격 모두 `67e9199`).
-- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#18 모두 **MERGED**
+- 작업 브랜치: `main` (로컬/원격 모두 `95ac97d`).
+- `digitie/kor-travel-airport`(구 `digitie/parking-radar`) PR #2~#20 모두 **MERGED**
   상태다. 이 세션에서 다룬 마지막 코드/운영 PR은
-  [#18](https://github.com/digitie/kor-travel-airport/pull/18)(shadcn/ui 기반 도입,
-  T-033)이다.
+  [#20](https://github.com/digitie/kor-travel-airport/pull/20)(컴포넌트를 shadcn
+  프리미티브로 교체, T-034)이다.
 - **진행 중인 initiative**: shadcn/ui 전환 + 과거 자료 조회 기능 + Hallmark
   재감사/재설계(`docs/tasks.md` T-033~T-038, 계획
   `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`). T-033(shadcn 기반
-  도입, Tailwind v4 + Base UI, 컴포넌트 JSX 무변경)만 완료·배포·live E2E 검증까지
-  끝났다. 다음은 T-034(컴포넌트를 shadcn 프리미티브로 치환)다. shadcn init이 프로젝트
-  기존 `--muted`/`--accent`/`--radius`를 덮어쓰고 Geist 폰트를 주입하려던 문제,
-  Tailwind Preflight가 헤딩 bold를 지우던 문제를 이미 겪고 고쳤으니 — T-034에서 새
-  컴포넌트를 추가할 때도 shadcn CLI의 자동 편집(특히 `globals.css`/`layout.tsx`)을
-  항상 diff로 재확인할 것.
+  도입)·T-034(button/card/table/alert/confirm-dialog 치환)까지 완료·배포·live E2E
+  검증 끝났다. 다음은 T-035(라우트 기반 앱 셸)다.
+  - **T-034에서 `<select>`/`ResponsiveSection`의 `<details>`/daily-flight-overlay의
+    토글·체크박스는 의도적으로 안 건드렸다** — 기존 테스트가 native DOM 구조
+    (`getByDisplayValue`, `<summary>` 클릭+`open` 속성, `aria-pressed`)에 의존해서다.
+    T-035가 라우팅을 바꾸면 `ResponsiveSection` 패턴 자체가 없어질 가능성이 높으니
+    그때 재검토.
+  - **로컬 검증 시 반드시 `npx tsc -p tsconfig.test.json --noEmit`도 같이 돌릴 것**
+    (기본 `tsc --noEmit`은 `tests/`를 제외해서 안 잡힘) — T-034에서 이걸 놓쳐 CI에서
+    한 번 걸렸다(`frontend` job이 정확히 이 명령을 실행함).
+  - shadcn CLI(`init`/`add`)가 `globals.css`/`layout.tsx`를 자동 편집할 수 있으니
+    (T-033에서 겪음: 기존 `--muted`/`--accent`/`--radius` 덮어쓰기, Geist 폰트 주입,
+    Tailwind Preflight의 헤딩 bold 제거) 새 컴포넌트 추가 때마다 diff를 재확인할 것.
 - 저장소 식별자가 `parking-radar` → `kor-travel-airport`로 개명됐다(PR
   [#15](https://github.com/digitie/kor-travel-airport/pull/15), ADR-007). 배포되는
   웹앱 브랜드/백업 파일명/쿠키 키는 계속 `parking-radar`다 — `CLAUDE.md` §1 참고.
@@ -83,10 +90,14 @@
 
 ## 다음 한 작업
 
-`T-034` — 기존 hand-rolled UI(select/button/card/badge/table/accordion/alert/
-confirm-dialog/toggle)를 shadcn 프리미티브로 치환한다. 차트(history-chart,
-daily-flight-overlay-chart)의 SVG 렌더링 로직 자체는 그대로 두고 주변 chrome만
-교체한다. 모든 `data-testid` 보존 필수. 계획 파일의 "대표 치환표" 참고.
+`T-035` — 라우트 기반 앱 셸. `/`(현황)·`/analytics`(분석)·`/history`(신규 과거조회)·
+`/fees`(요금계산)·`/backup`(백업) 라우트로 분리하고, 모바일 하단 탭바(4 primary +
+더보기, pinvi `AppShell.tsx` 패턴 참고)와 데스크톱 상단 탭을 만든다. 사용자가 추가
+요청한 사항: 데스크톱도 탭/메뉴로 상세 뷰를 분리하고, `/analytics`는 시간대별/요일별/
+공휴일/임계치/항공편 관점을 2차 탭으로 나눠 더 상세하게 만들 것(계획 파일 Phase 3
+상단의 "추가 요청" 참고). 공유 상태(공항/주차장 선택)는 `dashboard-preferences.ts`를
+재사용하는 얇은 context로. `e2e/live-dashboard.spec.ts`의 `mobile-disclosure`/`open`
+속성 의존 부분은 라우팅 전환에 맞춰 다시 써야 한다.
 
 ## 확인된 사실
 
