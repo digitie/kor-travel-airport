@@ -4,6 +4,10 @@ import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 
 import { DailyFlightOverlayChart } from "@/components/daily-flight-overlay-chart";
 import { HistoryChart } from "@/components/history-chart";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime, formatMinutesOfDay, formatNumber } from "@/lib/format";
 import type {
   Airport,
@@ -337,12 +341,12 @@ export function DashboardScreen({
         </label>
 
         <div className="action-stack">
-          <button className="button secondary" type="button" onClick={onRefresh}>
+          <Button className="button secondary" variant="secondary" type="button" onClick={onRefresh}>
             새로고침
-          </button>
+          </Button>
           {collectorStatus?.manual_collect_enabled ? (
             <>
-              <button
+              <Button
                 aria-label="즉시 수집 실행"
                 className="button"
                 data-testid="manual-collect-button"
@@ -351,7 +355,7 @@ export function DashboardScreen({
                 onClick={onManualCollect}
               >
                 {collecting ? "수집 중..." : "지금 수집"}
-              </button>
+              </Button>
               {collectorStatus.manual_collect_available_at ? (
                 <p className="action-hint">
                   다음 수동 수집 가능: {formatDateTime(collectorStatus.manual_collect_available_at)}
@@ -373,13 +377,13 @@ export function DashboardScreen({
       </section>
 
       <section className="detail-ribbon">
-        <div className="metric-card detail-card">
+        <Card className="metric-card detail-card">
           <span>현재 잔여 주차면</span>
           <strong>{formatNumber(totalAvailableSpaces)}대</strong>
           <small>{selectedParkingLotName ? "선택 주차장 기준" : "공항 합산 기준"}</small>
-        </div>
+        </Card>
 
-        <div className="metric-card detail-card">
+        <Card className="metric-card detail-card">
           <span>{focusedLot ? "현재 상태" : "가장 빠듯한 곳"}</span>
           <strong>{focusedLot ? statusLabel(focusedLot.status_level) : tightestLot?.parking_lot_name ?? "-"}</strong>
           <small>
@@ -389,9 +393,9 @@ export function DashboardScreen({
                 ? `${formatNumber(tightestLot.available_spaces)}대 남음`
                 : "데이터 없음"}
           </small>
-        </div>
+        </Card>
 
-        <div className="metric-card detail-card">
+        <Card className="metric-card detail-card">
           <span>{focusedLot ? "전체 주차면" : "가장 여유 있는 곳"}</span>
           <strong>{focusedLot ? `${formatNumber(totalSpaces)}대` : roomiestLot?.parking_lot_name ?? "-"}</strong>
           <small>
@@ -401,39 +405,50 @@ export function DashboardScreen({
                 ? `${formatNumber(roomiestLot.available_spaces)}대 남음`
                 : "데이터 없음"}
           </small>
-        </div>
+        </Card>
       </section>
 
-      {actionMessage ? <p className={`notice ${actionMessageIsError ? "error" : ""}`}>{actionMessage}</p> : null}
-      {error ? <p className="notice error">{error}</p> : null}
+      {actionMessage ? (
+        <Alert
+          className={`notice ${actionMessageIsError ? "error" : ""}`}
+          variant={actionMessageIsError ? "destructive" : "default"}
+        >
+          {actionMessage}
+        </Alert>
+      ) : null}
+      {error ? (
+        <Alert className="notice error" variant="destructive">
+          {error}
+        </Alert>
+      ) : null}
       {loading ? <p className="notice">데이터를 불러오는 중입니다.</p> : null}
 
       {isMobile === null ? (
         <div className="responsive-desktop">
           <section className="table-surface" data-testid="desktop-lot-table">
-            <table className="lot-table">
-              <thead>
-                <tr>
-                  <th>주차장</th>
-                  <th>잔여/전체</th>
-                  <th>기준 시각</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="lot-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>주차장</TableHead>
+                  <TableHead>잔여/전체</TableHead>
+                  <TableHead>기준 시각</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {visibleItems.map((item) => (
-                  <tr key={item.parking_lot_id}>
-                    <td>
+                  <TableRow key={item.parking_lot_id}>
+                    <TableCell>
                       <strong>{item.parking_lot_name}</strong>
                       <span>{item.terminal ?? "터미널 정보 없음"}</span>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {formatNumber(item.available_spaces)}/{formatNumber(item.total_spaces)}대
-                    </td>
-                    <td>{formatDateTime(item.observed_at)}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>{formatDateTime(item.observed_at)}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </section>
         </div>
       ) : isMobile ? (
@@ -460,29 +475,29 @@ export function DashboardScreen({
         </section>
       ) : (
         <section className="table-surface" data-testid="desktop-lot-table">
-          <table className="lot-table">
-            <thead>
-              <tr>
-                <th>주차장</th>
-                <th>잔여/전체</th>
-                <th>기준 시각</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="lot-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>주차장</TableHead>
+                <TableHead>잔여/전체</TableHead>
+                <TableHead>기준 시각</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {visibleItems.map((item) => (
-                <tr key={item.parking_lot_id}>
-                  <td>
+                <TableRow key={item.parking_lot_id}>
+                  <TableCell>
                     <strong>{item.parking_lot_name}</strong>
                     <span>{item.terminal ?? "터미널 정보 없음"}</span>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {formatNumber(item.available_spaces)}/{formatNumber(item.total_spaces)}대
-                  </td>
-                  <td>{formatDateTime(item.observed_at)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{formatDateTime(item.observed_at)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </section>
       )}
 
@@ -535,21 +550,21 @@ export function DashboardScreen({
               </div>
 
               <div className="heatmap-scroll" data-testid="weekday-hour-heatmap">
-                <table className="heatmap-table">
-                  <thead>
-                    <tr>
-                      <th>요일</th>
+                <Table className="heatmap-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>요일</TableHead>
                       {HOURS.map((hour) => (
-                        <th key={`heatmap-hour-${hour}`}>{String(hour).padStart(2, "0")}</th>
+                        <TableHead key={`heatmap-hour-${hour}`}>{String(hour).padStart(2, "0")}</TableHead>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {weekdayHourlyPatterns.map((pattern) => (
-                      <tr key={`heatmap-row-${pattern.weekday}`}>
-                        <th>{pattern.weekday_name}</th>
+                      <TableRow key={`heatmap-row-${pattern.weekday}`}>
+                        <TableHead>{pattern.weekday_name}</TableHead>
                         {pattern.hourly_buckets.map((bucket) => (
-                          <td
+                          <TableCell
                             key={`heatmap-${pattern.weekday}-${bucket.hour}`}
                             data-testid={`weekday-hour-cell-${pattern.weekday}-${bucket.hour}`}
                             style={buildAvailabilityHeatStyle(bucket.average_available_spaces, maxHeatValue)}
@@ -560,12 +575,12 @@ export function DashboardScreen({
                             }
                           >
                             {bucket.average_available_spaces === null ? "-" : Math.round(bucket.average_available_spaces)}
-                          </td>
+                          </TableCell>
                         ))}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </>
           )}
@@ -588,27 +603,29 @@ export function DashboardScreen({
             ) : (
               <>
                 {holidayPatterns?.error_message ? (
-                  <p className="notice error">{holidayPatterns.error_message}</p>
+                  <Alert className="notice error" variant="destructive">
+                    {holidayPatterns.error_message}
+                  </Alert>
                 ) : null}
                 <div className="heatmap-scroll" data-testid="holiday-pattern-heatmap">
-                  <table className="heatmap-table holiday-heatmap-table">
-                    <thead>
-                      <tr>
-                        <th>특수일</th>
+                  <Table className="heatmap-table holiday-heatmap-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>특수일</TableHead>
                         {HOURS.map((hour) => (
-                          <th key={`holiday-hour-${hour}`}>{String(hour).padStart(2, "0")}</th>
+                          <TableHead key={`holiday-hour-${hour}`}>{String(hour).padStart(2, "0")}</TableHead>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {holidayPatternItems.map((pattern) => (
-                        <tr key={`holiday-row-${pattern.local_date}-${pattern.name}`}>
-                          <th>
+                        <TableRow key={`holiday-row-${pattern.local_date}-${pattern.name}`}>
+                          <TableHead>
                             <strong>{formatHolidayDate(pattern.local_date, pattern.weekday_name)}</strong>
                             <small>{pattern.name}</small>
-                          </th>
+                          </TableHead>
                           {pattern.hourly_buckets.map((bucket) => (
-                            <td
+                            <TableCell
                               key={`holiday-cell-${pattern.local_date}-${bucket.hour}`}
                               data-testid={`holiday-hour-cell-${pattern.local_date}-${bucket.hour}`}
                               style={buildAvailabilityHeatStyle(bucket.average_available_spaces, maxHolidayHeatValue)}
@@ -619,12 +636,12 @@ export function DashboardScreen({
                               }
                             >
                               {bucket.average_available_spaces === null ? "-" : Math.round(bucket.average_available_spaces)}
-                            </td>
+                            </TableCell>
                           ))}
-                        </tr>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
 
               </>
@@ -643,32 +660,32 @@ export function DashboardScreen({
             </div>
             {showThresholdInsights ? (
               <div className="threshold-table-wrap" data-testid="threshold-weekday-grid">
-                <table className="threshold-table">
-                  <thead>
-                    <tr>
-                      <th>기준</th>
+                <Table className="threshold-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>기준</TableHead>
                       {WEEKDAYS.map((weekday) => (
-                        <th key={`threshold-weekday-${weekday}`}>{weekday}</th>
+                        <TableHead key={`threshold-weekday-${weekday}`}>{weekday}</TableHead>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {THRESHOLDS.map((threshold) => (
-                      <tr key={`threshold-row-${threshold}`}>
-                        <th>{formatThresholdLabel(threshold)}</th>
+                      <TableRow key={`threshold-row-${threshold}`}>
+                        <TableHead>{formatThresholdLabel(threshold)}</TableHead>
                         {WEEKDAYS.map((_, weekday) => {
                           const item = getThresholdWeekdayItem(thresholdWeekdayItems, threshold, weekday);
                           return (
-                            <td key={`threshold-cell-${threshold}-${weekday}`}>
+                            <TableCell key={`threshold-cell-${threshold}-${weekday}`}>
                               <strong>{formatMinutesOfDay(item?.typical_minutes_of_day ?? null)}</strong>
                               <small>{item && item.sample_count > 0 ? `${item.sample_count}회` : "기록 없음"}</small>
-                            </td>
+                            </TableCell>
                           );
                         })}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             ) : (
               <p className="notice">임계 달성 시각을 계산할 만큼 충분한 기록이 없습니다.</p>
@@ -681,27 +698,27 @@ export function DashboardScreen({
             </div>
             {thresholdHistoryItems.length > 0 ? (
               <div className="threshold-scroll" data-testid="threshold-history-scroll">
-                <table className="threshold-history-table">
-                  <thead>
-                    <tr>
-                      <th>날짜</th>
-                      <th>기준</th>
-                      <th>달성 시각</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="threshold-history-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>날짜</TableHead>
+                      <TableHead>기준</TableHead>
+                      <TableHead>달성 시각</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {thresholdHistoryItems.map((item: ThresholdDateHistoryItem) => (
-                      <tr key={`${item.threshold}-${item.local_date}-${item.crossed_at}`}>
-                        <td>{formatDateCell(item.local_date, item.weekday_name)}</td>
-                        <td>{formatThresholdLabel(item.threshold)}</td>
-                        <td>
+                      <TableRow key={`${item.threshold}-${item.local_date}-${item.crossed_at}`}>
+                        <TableCell>{formatDateCell(item.local_date, item.weekday_name)}</TableCell>
+                        <TableCell>{formatThresholdLabel(item.threshold)}</TableCell>
+                        <TableCell>
                           {formatMinutesOfDay(item.minutes_of_day)}
                           <small>{formatNumber(item.available_spaces)}대</small>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             ) : (
               <p className="notice">최근 기준에서 임계 달성 기록이 없습니다.</p>

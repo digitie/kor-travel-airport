@@ -1,7 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Alert } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { BackupFile, BackupRestoreResponse } from "@/lib/types";
 
 type BackupPanelProps = {
@@ -38,6 +51,8 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
     setBusy(true);
@@ -95,14 +110,30 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
     }
   }
 
-  async function handleRestore(file: File | undefined, input: HTMLInputElement) {
+  function clearRestoreInput() {
+    if (restoreInputRef.current) {
+      restoreInputRef.current.value = "";
+    }
+  }
+
+  function handleRestoreFileSelected(file: File | undefined) {
     if (!file) {
       return;
     }
-    if (!window.confirm("현재 PostgreSQL 데이터를 덮어씁니다. 복원 전에 자동 백업을 만든 뒤 계속할까요?")) {
-      input.value = "";
+    setPendingRestoreFile(file);
+  }
+
+  function cancelRestore() {
+    setPendingRestoreFile(null);
+    clearRestoreInput();
+  }
+
+  async function confirmRestore() {
+    const file = pendingRestoreFile;
+    if (!file) {
       return;
     }
+    setPendingRestoreFile(null);
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -117,7 +148,7 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
       setError(caughtError instanceof Error ? caughtError.message : "백업을 복원하지 못했습니다.");
       setBusy(false);
     } finally {
-      input.value = "";
+      clearRestoreInput();
     }
   }
 
@@ -147,24 +178,50 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
             복원은 현재 PostgreSQL 데이터를 덮어쓰며, 서버가 자동 백업을 먼저 만든 뒤 진행합니다.
           </p>
           <div className="backup-panel-actions">
-            <button type="button" className="button" onClick={() => void handleCreate()} disabled={busy}>
+            <Button type="button" className="button" onClick={() => void handleCreate()} disabled={busy}>
               {busy ? "처리 중…" : "새 백업 만들기"}
-            </button>
-            <label className="button secondary backup-upload-label">
+            </Button>
+            <label className={cn(buttonVariants({ variant: "secondary" }), "button secondary backup-upload-label")}>
               .dump 복원
               <input
+                ref={restoreInputRef}
                 type="file"
                 accept=".dump,application/octet-stream"
-                onChange={(event) => void handleRestore(event.currentTarget.files?.[0], event.currentTarget)}
+                onChange={(event) => handleRestoreFileSelected(event.currentTarget.files?.[0])}
                 disabled={busy}
               />
             </label>
-            <button type="button" className="button secondary" onClick={() => void refresh()} disabled={busy}>
+            <Button type="button" variant="secondary" className="button secondary" onClick={() => void refresh()} disabled={busy}>
               목록 새로고침
-            </button>
+            </Button>
           </div>
           {message ? <p className="backup-panel-message" aria-live="polite">{message}</p> : null}
-          {error ? <p className="backup-panel-error" role="alert">{error}</p> : null}
+          {error ? (
+            <Alert className="backup-panel-error" variant="destructive">
+              {error}
+            </Alert>
+          ) : null}
+          <AlertDialog
+            open={pendingRestoreFile !== null}
+            onOpenChange={(nextOpen) => {
+              if (!nextOpen) {
+                cancelRestore();
+              }
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>PostgreSQL 데이터를 덮어씁니다</AlertDialogTitle>
+                <AlertDialogDescription>
+                  복원 전에 자동 백업을 만든 뒤 계속합니다. {pendingRestoreFile?.name}로 복원할까요?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={cancelRestore}>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void confirmRestore()}>계속</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           {listState === "loading" ? (
             <p className="backup-panel-empty" data-testid="backup-loading-state" role="status">백업 목록을 불러오는 중입니다.</p>
           ) : listState === "ready" && items.length > 0 ? (
@@ -177,9 +234,15 @@ export function BackupPanel({ listBackups, createBackup, downloadBackup, restore
                       {formatBytes(item.size_bytes)} · {formatBackupTimestamp(item.created_at)} KST
                     </small>
                   </span>
-                  <button type="button" className="text-button" onClick={() => void handleDownload(item.filename)} disabled={busy}>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-button"
+                    onClick={() => void handleDownload(item.filename)}
+                    disabled={busy}
+                  >
                     다운로드
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

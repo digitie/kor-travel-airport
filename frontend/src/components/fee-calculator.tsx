@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 import type { Airport, FeeCalculationRequest, FeeCalculationResponse } from "@/lib/types";
 
@@ -132,12 +134,16 @@ export function FeeCalculator({ airports, initialAirportCode, onCalculate }: Fee
           <input className="input" type="datetime-local" value={exitAt} onChange={(event) => setExitAt(event.target.value)} />
         </label>
 
-        <button className="button" disabled={pending} type="submit">
+        <Button className="button" disabled={pending} type="submit">
           {pending ? "계산 중..." : "요금 계산"}
-        </button>
+        </Button>
       </form>
 
-      {error ? <p className="notice error">{error}</p> : null}
+      {error ? (
+        <Alert className="notice error" variant="destructive">
+          {error}
+        </Alert>
+      ) : null}
 
       {result ? (
         <div className="quote-box">
