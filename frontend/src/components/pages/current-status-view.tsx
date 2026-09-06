@@ -171,7 +171,11 @@ export function CurrentStatusView() {
         </section>
       </div>
 
-      <section className="lot-card-grid lg:hidden" data-testid="mobile-lot-grid">
+      {/* `lg:hidden` intentionally omitted here - it has no effect on `.lot-card-grid`
+          (a plain custom class beats any Tailwind utility regardless of breakpoint,
+          see globals.css T-039 comment). The CSS media query on `.lot-card-grid`
+          itself is what actually hides this on desktop. */}
+      <section className="lot-card-grid" data-testid="mobile-lot-grid">
         {scopeItems.map((item) => (
           <article key={item.parking_lot_id} className={`lot-card ${statusTone(item.status_level)}`}>
             <div className="lot-card-top">

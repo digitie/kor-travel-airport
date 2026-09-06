@@ -10,8 +10,36 @@
 
 ## 진행 중인 작업 인덱스
 
-현재 진행 중/예정 task가 없다. `T-033`~`T-038`(shadcn/ui 전환 + 과거 자료 조회 +
-Hallmark 재감사/재설계 initiative) 전체가 완료돼 `docs/tasks-done.md`로 이동했다.
+- [ ] `T-039` — UI 밀도 개선(컴팩트화)
+
+`T-033`~`T-038`(shadcn/ui 전환 + 과거 자료 조회 + Hallmark 재감사/재설계
+initiative) 전체가 완료돼 `docs/tasks-done.md`로 이동했다.
+
+### `T-039` — UI 밀도 개선(컴팩트화)
+
+2026-09-07 사용자 요청: 전체적으로 UI를 더 컴팩트하게 — 공항/주차장 선택 +
+새로고침을 모바일에서도 한 줄로, 분석 페이지의 비효율적인 칼럼 크기 등.
+
+- 헤더 `.control-band`(공항 선택 + 세부 주차장 + 새로고침)가 모바일에서 3행으로
+  붕괴되던 것을 한 줄로 유지하도록 변경. `<select>` 레이블은 `sr-only
+  lg:not-sr-only`로 모바일에서만 시각적으로 숨기고, 새로고침 버튼은 모바일에서
+  아이콘 전용으로 압축한다.
+- 조사 중 실제 운영 버그를 하나 발견: `current-status-view.tsx`의
+  `.lot-card-grid lg:hidden`이 데스크톱에서도 전혀 숨겨지지 않고 있었다(라이브
+  사이트에서 컴퓨티드 스타일로 확인) — `.lot-card-grid`가 `@import "tailwindcss"`
+  뒤에 이어붙인 순수 커스텀 클래스(unlayered CSS)라 `display:grid`가 항상
+  Tailwind의 `@layer utilities` 안에 있는 `lg:hidden`을 이긴다(CSS Cascade
+  Layers 스펙상 unlayered가 항상 이김, specificity/순서 무관). 데스크톱에서
+  모바일 카드 목록이 테이블 아래 그대로 렌더링되고 있었다 — `.lot-card-grid`
+  자체에 `@media (min-width: 64rem)` 규칙을 추가해 고쳤다.
+- 분석 `/analytics` → 임계치 탭의 2열 그리드(`.analytics-threshold-panels`)가
+  기본 `align-items: stretch`라 왼쪽 패널(요일별, 데이터 2행)이 오른쪽 패널
+  (날짜별, 스크롤 가능한 긴 목록) 높이에 맞춰 늘어나 아래쪽에 큰 빈 공간이
+  생기던 것을 `align-items: start`로 고쳐 각 패널이 자기 콘텐츠 높이만큼만
+  차지하도록 했다.
+- 완료 조건: 전체 테스트 재통과 + 320/375/414/768/1024px 재검증(라이브 백엔드에
+  붙인 로컬 dev 서버에서 Playwright 스크린샷으로 확인) + hostile review 통과 +
+  n150 배포 + live E2E.
 
 `T-034`에서는 `<select>`/`ResponsiveSection`의 `<details>`/
 daily-flight-overlay-chart의 토글·체크박스는 테스트 호환성 위험 때문에 의도적으로

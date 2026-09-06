@@ -9,6 +9,7 @@ import {
   History,
   LayoutDashboard,
   MoreHorizontal,
+  RefreshCw,
 } from "lucide-react";
 import { useEffect, useState, type ComponentType } from "react";
 
@@ -90,7 +91,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="control-band">
             <label className="field">
-              <span>공항 선택</span>
+              {/* 데스크톱은 레이블을 보여주고, 모바일은 한 줄(선택 2개 + 버튼) 폭을
+                  확보하려고 sr-only로 시각적으로만 숨긴다 - select 자체의 aria-label로
+                  접근성은 그대로 유지된다. */}
+              <span className="sr-only lg:not-sr-only">공항 선택</span>
               <select
                 aria-label="공항 선택"
                 className="input"
@@ -105,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </select>
             </label>
             <label className="field">
-              <span>세부 주차장</span>
+              <span className="sr-only lg:not-sr-only">세부 주차장</span>
               <select
                 aria-label="세부 주차장"
                 className="input"
@@ -123,8 +127,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </select>
             </label>
             <div className="action-stack">
-              <Button className="button secondary" variant="secondary" type="button" onClick={onRefresh}>
-                새로고침
+              <Button
+                aria-label="새로고침"
+                className="button secondary refresh-button"
+                variant="secondary"
+                type="button"
+                onClick={onRefresh}
+              >
+                <RefreshCw className="size-4" aria-hidden="true" />
+                <span className="hidden lg:inline">새로고침</span>
               </Button>
             </div>
           </div>
