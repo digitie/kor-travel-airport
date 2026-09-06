@@ -1,5 +1,67 @@
 # journal.md — 작업 일지
 
+## 2026-09-07
+
+- `T-037`: `T-033`~`T-036`으로 완성된 전체 결과물(shadcn 기반 도입, 컴포넌트 치환,
+  라우트 기반 앱 셸, 과거 자료 조회 date picker)에 read-only Hallmark audit을
+  실행했다. 0 critical / 3 major / 6 minor, 최종 판정 "close, fix the minors".
+  3 major: 숫자 데이터 테이블에 `tabular-nums` 미적용, 차트 레이어·상태 pill 색상이
+  토큰이 아닌 raw hex/rgba로 인라인된 것(gate 48 위반), 로딩 상태에 `aria-live`가
+  전혀 없는 것. 6 minor: 퇴역한 `.mobile-disclosure`/`.responsive-desktop` 패턴의
+  죽은 CSS, `.control-band`의 단일 컬럼 붕괴 구간이 Tailwind `lg:` 전환점(1024px)과
+  980px에서 어긋나는 것, `/backup` 전용 라우트에서도 패널이 기본 접힘 상태라 클릭이
+  하나 더 필요한 것, dark-mode 차트/톤 팔레트가 토큰화 안 된 것, stock shadcn
+  프리미티브 3곳의 `transition-all`, `globals.css` 전반의 desktop-first 미디어
+  쿼리 구조.
+- `T-038`: 위 3 major 전부와 6 minor 중 4개(죽은 CSS 삭제, 브레이크포인트 수정,
+  aria-live 추가, `/backup` 기본 오픈)를 반영했다. 나머지 2 minor(desktop-first
+  미디어 쿼리, shadcn 프리미티브 `transition-all`)는 각각 "기존 아키텍처 전체를
+  건드리는 별도 과제" / "업스트림 동기화와 어긋남"이라는 근거로 accepted-not-fixed로
+  남겼다.
+  - hostile review(James=frontend/UI, Popper=backend/ops/docs, 서브에이전트 2개
+    독립 실행) 1라운드에서 자체 도입 버그와 진짜 보안 회귀를 모두 잡았다:
+    - **James P1(자체 도입 버그)**: `.control-band` 브레이크포인트 수정에
+      `@media (max-width: 64rem)`을 썼는데, 이는 Tailwind `lg:`의
+      `min-width: 64rem`과 숫자가 완전히 같다 — `max-width`/`min-width`는 둘 다
+      경계값 포함이라 정확히 1024px(아이패드 가로 모드 등 실제로 흔한 폭)에서 두
+      미디어 쿼리가 동시에 참이 돼, 고치려던 바로 그 "헤더는 1컬럼인데 nav/table은
+      아직 데스크톱" 버그를 폭만 좁혀 재현했다. `max-width: 63.9375rem`(1023px)로
+      정정.
+    - **James P1(카고컬트 anti-pattern)**: 추가한 `aria-live="polite"`가(그리고
+      이 패턴을 그대로 베낀 `history-view.tsx`의 기존 인스턴스도) 이미 최종
+      내용이 채워진 채로 마운트되는 엘리먼트에 붙어 있었다 — 스크린 리더가 이런
+      live region을 안정적으로 announce한다는 보장이 없다(내용이 바뀌는 상시
+      마운트 엘리먼트여야 한다). `current-status-view.tsx`/`fees-view.tsx`/
+      `history-view.tsx` 세 곳 모두 상시 마운트 sr-only announcer + 보이는
+      알림에는 `aria-hidden`을 붙이는 구조로 재설계했다.
+    - **Popper P1(보안 회귀, 실제 반영)**: `/backup` 전용 라우트에서 패널을 기본
+      오픈으로 바꾼 것은, 인증 없는 파괴적 백업/복원 관리 UI(ADR-003 전제:
+      내부망)에서 "클릭 1번"이라는 유일한 상호작용 게이트를 제거하는 조치였다.
+      `T-035`가 `/backup`을 nav 링크로 노출했을 때 동일한 노출 증가 범주에 대해
+      같은 PR 안에서 ADR-003 addendum을 추가한 전례가 있는데, 이번 PR은 그 근거
+      추가 없이 순수 UX 개선으로만 서술했다. Hallmark가 지적한 것은 "클릭 1번
+      더 필요함"이라는 minor 취향 문제였을 뿐이라, 그 정도 이득을 위해 방어
+      계층을 하나 없애는 트레이드오프는 맞지 않다고 판단해 **완전히 되돌렸다**
+      (`BackupPanel`/`BackupView`/e2e spec/테스트 전부 `main`과 byte-identical
+      확인). 이 minor는 다시 accepted-not-fixed로 남는다.
+    - James P2 후속: 같은 rgba 계열인데 누락됐던 항공편 departure/arrival
+      테두리 색 4곳을 마저 토큰화(`--color-chart-flight-departure-border`/
+      `-arrival-border`), aria-live 재설계를 검증하는 회귀 테스트 추가.
+    - Popper P2(문서 인용 오류): PR 본문이 "docs/journal.md에 근거 기록됨"이라고
+      현재형으로 썼지만 실제로는 이 커밋에 journal.md 변경이 없었다(이 저장소
+      관례상 journal 항목은 이 완료 문서 PR에서 별도로 남긴다) — PR 설명을
+      "후속 문서 PR에서 기록 예정"으로 정정.
+  - 새로 accepted-not-fixed로 남긴 항목(다음 Hallmark 라운드 후보): dark-mode
+    차트/톤 팔레트 미토큰화(라이트모드만 이번에 반영), 980–1024px 브레이크포인트
+    경계에 대한 전용 회귀 테스트 없음(jsdom이 미디어 쿼리를 평가하지 않아
+    Playwright/실브라우저 뷰포트 테스트가 필요한데, 근본 원인(폭 중복) 수정으로
+    두 구간이 구조적으로 배타적이 됐다고 보고 이번엔 전용 테스트 없이 넘어갔다).
+  - PR [#26](https://github.com/digitie/kor-travel-airport/pull/26) squash-merge
+    (`603884f`). CI backend/frontend PASS, live-e2e는 기존 선례(PR
+    #18/#20/#22/#24)와 동일한 이유로 FAIL(머지 전 배포된 prod엔 아직 신규 코드가
+    없음) — 머지를 막지 않았다. n150 배포 후 `release_sha=603884f9…` 일치 확인,
+    live E2E `15/15 PASS`(이번엔 기존 `collector-status` 플레이크도 관측 안 됨).
+
 ## 2026-08-23
 
 - GitHub remote가 `origin`(`airport-parking-radar`)과 `parking-radar` 2개로 갈라져 있던

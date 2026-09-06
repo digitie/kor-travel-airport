@@ -4,17 +4,16 @@
 [`docs/tasks-done.md`](tasks-done.md)에 이동하고, 현재 진척과 다음 작업은
 [`docs/resume.md`](resume.md)에 기록한다. 작성 규칙은 [`docs/tasks-rule.md`](tasks-rule.md)를
 따른다. 2026-09-06에 사용자 요청으로 shadcn/ui 전환 + 과거 자료 조회 + Hallmark
-재감사/재설계 initiative(T-033~T-038)가 추가됐다. 계획 전체는
+재감사/재설계 initiative(T-033~T-038)가 추가됐고, 2026-09-07 `T-038`(마지막 phase)
+완료로 이 initiative 전체가 끝났다. 계획 전체는
 `C:\Users\digit\.claude\plans\iridescent-finding-parasol.md`에 있다.
 
 ## 진행 중인 작업 인덱스
 
-- [ ] `T-037` — Hallmark audit (read-only 펀치리스트)
-- [ ] `T-038` — Hallmark redesign (audit 지적 반영)
+현재 진행 중/예정 task가 없다. `T-033`~`T-038`(shadcn/ui 전환 + 과거 자료 조회 +
+Hallmark 재감사/재설계 initiative) 전체가 완료돼 `docs/tasks-done.md`로 이동했다.
 
-`T-033`(shadcn/ui 기반 도입), `T-034`(컴포넌트를 shadcn 프리미티브로 교체), `T-035`
-(라우트 기반 앱 셸), `T-036`(과거 자료 조회 기능)은 완료돼 `docs/tasks-done.md`로
-이동했다. `T-034`에서는 `<select>`/`ResponsiveSection`의 `<details>`/
+`T-034`에서는 `<select>`/`ResponsiveSection`의 `<details>`/
 daily-flight-overlay-chart의 토글·체크박스는 테스트 호환성 위험 때문에 의도적으로
 native 구현을 유지했다 — `T-035`에서 라우트 구조가 바뀌었지만 이 판단은 그대로
 유효하다(재검토 결과 변경 없음). `T-035`가 남긴 후속 미해결 항목(`docs/tasks-done.md`
@@ -25,16 +24,11 @@ T-035 참고): 분석 뷰의 브레이크포인트가 860px→1024px(Tailwind �
 피드백은 소실). `T-036`이 남긴 후속 미해결 항목(`docs/tasks-done.md` T-036 참고):
 라우트 간 analytics 데이터가 캐시되지 않는 문제가 `/history`에도 동일하게 있음(같은
 근본 원인, T-035와 동일), 날짜범위 선택 팝오버가 선택 완료 후 자동으로 안 닫힘(수동
-닫기만 가능).
-
-### `T-037` — Hallmark audit
-
-- 전체 결과물에 `hallmark audit` 실행, critical/major/minor 펀치리스트 산출(read-only).
-
-### `T-038` — Hallmark redesign
-
-- T-037의 critical/major 반영, minor는 반영하거나 근거를 `docs/journal.md`에 기록.
-- 완료 조건: 전체 테스트 재통과 + 320/375/414/768px 재검증 + Hallmark 58-gate.
+닫기만 가능). `T-038`이 남긴 후속 미해결 항목(`docs/tasks-done.md` T-038 참고):
+dark-mode 차트/톤 팔레트 미토큰화, `globals.css` 전반의 desktop-first 미디어 쿼리
+구조, stock shadcn 프리미티브 3곳의 `transition-all`, 980–1024px 브레이크포인트
+경계 전용 회귀 테스트 없음, `/backup`이 여전히 클릭 1번으로 열림(의도적 유지 —
+아래 참고).
 
 ## 완료 조건
 

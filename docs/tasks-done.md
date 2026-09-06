@@ -2,6 +2,55 @@
 
 완료한 task의 식별자, 핵심 변경, 검증 명령과 시각을 역시간순으로 보관한다.
 
+## 2026-09-07 (T-037, T-038)
+
+### `T-037` — Hallmark audit
+
+- `T-033`~`T-036`으로 완성된 전체 결과물(shadcn 기반 도입, 컴포넌트 치환, 라우트
+  기반 앱 셸, 과거 자료 조회 date picker)에 read-only Hallmark audit을 실행했다.
+  대상: `globals.css`/`tokens.css`, `app-shell.tsx`, 5개 라우트 뷰,
+  `fee-calculator.tsx`/`backup-panel.tsx`/`history-chart.tsx`/
+  `daily-flight-overlay-chart.tsx`, shadcn UI 프리미티브 전체.
+- 0 critical / 3 major / 6 minor, 최종 판정 "close, fix the minors". 상세 내역은
+  `docs/journal.md` 2026-09-07 참고. 코드는 건드리지 않았다 — 반영은 `T-038`.
+
+### `T-038` — Hallmark redesign
+
+- `T-037`의 3 major 전부(숫자 테이블 `tabular-nums`, 차트/상태-pill 색상 토큰화,
+  로딩 상태 `aria-live`)와 6 minor 중 4개(죽은 CSS 삭제, 브레이크포인트 수정,
+  `/backup` 기본 오픈)를 반영했다. 나머지 2 minor(desktop-first 미디어 쿼리,
+  shadcn 프리미티브 `transition-all`)는 accepted-not-fixed.
+- hostile review(James=frontend/UI, Popper=backend/ops, 서브에이전트 2개 독립
+  실행) 1라운드에서 자체 도입 버그 2건과 보안 회귀 1건을 잡아 전부 재현·수정했다:
+  - 브레이크포인트 수정이 처음엔 `max-width: 64rem`을 써서 Tailwind `lg:`의
+    `min-width: 64rem`과 정확히 1024px에서 동시에 참이 되는 새 버그를 만들었다
+    (James P1) → `max-width: 63.9375rem`으로 정정.
+  - 추가한 `aria-live="polite"`가 최종 내용이 이미 채워진 채로 마운트되는
+    엘리먼트에 붙어 있어 스크린 리더가 안정적으로 announce한다는 보장이 없었다
+    (James P1, `history-view.tsx`의 기존 동일 패턴도 같은 결함으로 확인) →
+    `current-status-view.tsx`/`fees-view.tsx`/`history-view.tsx` 세 곳 모두
+    상시 마운트 sr-only announcer 구조로 재설계.
+  - `/backup` 기본 오픈은 인증 없는 파괴적 백업/복원 UI(ADR-003 전제: 내부망)의
+    유일한 상호작용 게이트를 제거하는 노출 증가였는데, `T-035`의 동일 범주
+    선례(같은 PR 안 ADR-003 addendum)를 따르지 않고 순수 UX 개선으로만
+    서술했다(Popper P1) → **완전히 되돌렸다**(`BackupPanel`/`BackupView`/e2e
+    spec/테스트 모두 `main`과 byte-identical 확인). 이 minor는 다시
+    accepted-not-fixed로 남는다 — Hallmark가 지적한 것은 "클릭 1번 더 필요함"
+    이라는 minor 취향 문제였을 뿐이라, 그 이득을 위해 방어 계층을 없애는
+    트레이드오프는 맞지 않다고 판단했다.
+  - P2 후속: 항공편 departure/arrival 테두리 색 4곳 추가 토큰화, aria-live
+    재설계 검증 회귀 테스트 추가, PR 설명의 문서 인용 오류(존재하지 않는
+    journal.md 근거를 현재형으로 인용) 정정.
+- 새로 accepted-not-fixed로 남긴 항목: dark-mode 차트/톤 팔레트 미토큰화(라이트
+  모드만 이번에 반영), 980–1024px 브레이크포인트 경계 전용 회귀 테스트 없음
+  (jsdom이 미디어 쿼리를 평가하지 않음 — 근본 원인 수정으로 두 구간이 구조적으로
+  배타적이 됐다고 보고 넘어감).
+- PR [#26](https://github.com/digitie/kor-travel-airport/pull/26) squash-merge
+  (`603884f`). CI backend/frontend PASS, live-e2e는 PR #18/#20/#22/#24와 동일한
+  이유로 FAIL(머지 전 배포된 prod엔 아직 신규 코드가 없음) — 머지를 막지 않았다.
+  n150 배포 후 `release_sha=603884f9adec43d160373ca33b90f4a351d3c5a0` 일치 확인,
+  live E2E `15/15 PASS`(기존 `collector-status` 플레이크도 이번엔 관측 안 됨).
+
 ## 2026-09-06 (T-036)
 
 ### `T-036` — 과거 자료 조회 기능
