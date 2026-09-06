@@ -70,6 +70,7 @@ function buildCollectorStatus(overrides: Partial<CollectorStatusResponse> = {}):
     supported_airport_codes: ["GMP"],
     latest_snapshot_observed_at: "2026-04-26T00:00:00.000Z",
     latest_snapshot_collected_at: "2026-04-26T00:10:00.000Z",
+    earliest_snapshot_observed_at: "2026-04-19T00:00:00.000Z",
     manual_collect_available_at: null,
     manual_collect_blocked: false,
     upstream_rate_limited: false,

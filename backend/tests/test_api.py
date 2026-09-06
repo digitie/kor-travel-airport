@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 from zoneinfo import ZoneInfo
@@ -243,6 +243,93 @@ def test_default_time_series_uses_precomputed_cache(client) -> None:
     payload = response.json()
     assert payload["generated_at"].startswith("2030-01-01T00:00:00")
     assert payload["items"] == []
+
+
+def test_time_series_explicit_date_range_returns_data(client) -> None:
+    today = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    start = today - timedelta(days=2)
+
+    response = client.get(
+        "/v1/parking/analytics/timeseries",
+        params={"airport_code": "GMP", "start_date": start.isoformat(), "end_date": today.isoformat()},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["start_date"] == start.isoformat()
+    assert payload["end_date"] == today.isoformat()
+    assert payload["days"] == 3
+    assert payload["future_hours"] == 0
+    assert payload["items"]
+    assert max(point["lot_observations"] for point in payload["items"]) >= 1
+
+
+def test_time_series_explicit_date_range_with_no_data_returns_empty_items(client) -> None:
+    today = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    start = today + timedelta(days=30)
+    end = today + timedelta(days=32)
+
+    response = client.get(
+        "/v1/parking/analytics/timeseries",
+        params={"airport_code": "GMP", "start_date": start.isoformat(), "end_date": end.isoformat()},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"] == []
+
+
+def test_time_series_rejects_reversed_date_range(client) -> None:
+    today = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    response = client.get(
+        "/v1/parking/analytics/timeseries",
+        params={
+            "airport_code": "GMP",
+            "start_date": today.isoformat(),
+            "end_date": (today - timedelta(days=1)).isoformat(),
+        },
+    )
+    assert response.status_code == 400
+    assert "end_date" in response.json()["detail"]
+
+
+def test_time_series_requires_both_dates_together(client) -> None:
+    today = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    response = client.get(
+        "/v1/parking/analytics/timeseries",
+        params={"airport_code": "GMP", "start_date": today.isoformat()},
+    )
+    assert response.status_code == 400
+    assert "함께 지정" in response.json()["detail"]
+
+
+def test_time_series_rejects_range_exceeding_cap(client) -> None:
+    end = date(2026, 6, 1)
+    start = end - timedelta(days=120)
+    response = client.get(
+        "/v1/parking/analytics/timeseries",
+        params={"airport_code": "GMP", "start_date": start.isoformat(), "end_date": end.isoformat()},
+    )
+    assert response.status_code == 400
+    assert "90일" in response.json()["detail"]
+
+
+def test_time_series_rejects_invalid_date_format(client) -> None:
+    response = client.get(
+        "/v1/parking/analytics/timeseries",
+        params={"airport_code": "GMP", "start_date": "2026/06/01", "end_date": "2026-06-02"},
+    )
+    assert response.status_code == 400
+    assert "YYYY-MM-DD" in response.json()["detail"]
+
+
+def test_collector_status_reports_earliest_snapshot(client) -> None:
+    response = client.get("/v1/admin/collector-status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert_is_utc_iso(payload["earliest_snapshot_observed_at"])
+    assert_is_utc_iso(payload["latest_snapshot_observed_at"])
+    assert payload["earliest_snapshot_observed_at"] <= payload["latest_snapshot_observed_at"]
 
 
 def test_flight_status_returns_sample_markers(client) -> None:

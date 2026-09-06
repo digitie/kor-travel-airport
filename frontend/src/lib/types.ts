@@ -72,6 +72,7 @@ export type CollectorStatusResponse = {
   supported_airport_codes: string[];
   latest_snapshot_observed_at: string | null;
   latest_snapshot_collected_at: string | null;
+  earliest_snapshot_observed_at: string | null;
   manual_collect_available_at: string | null;
   manual_collect_blocked: boolean;
    upstream_rate_limited: boolean;
@@ -95,6 +96,8 @@ export type ParkingTimeSeriesResponse = {
   days: number;
   interval_minutes: number;
   future_hours?: number;
+  start_date?: string | null;
+  end_date?: string | null;
   items: TimeSeriesPoint[];
 };
 

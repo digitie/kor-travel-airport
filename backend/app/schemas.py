@@ -72,6 +72,8 @@ class ParkingTimeSeriesResponse(BaseModel):
     days: int
     interval_minutes: int
     future_hours: int = 0
+    start_date: str | None = None
+    end_date: str | None = None
     items: list[TimeSeriesPoint]
 
 
@@ -281,6 +283,7 @@ class CollectorStatusResponse(BaseModel):
     supported_airport_codes: list[str]
     latest_snapshot_observed_at: datetime | None = None
     latest_snapshot_collected_at: datetime | None = None
+    earliest_snapshot_observed_at: datetime | None = None
     manual_collect_available_at: datetime | None = None
     manual_collect_blocked: bool = False
     upstream_rate_limited: bool = False

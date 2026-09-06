@@ -105,6 +105,11 @@ from app.services.sample_data import seed_sample_database
 
 logger = logging.getLogger(__name__)
 
+# T-036: 과거 자료 조회의 명시적 start_date/end_date 범위 상한(일). 관측 데이터는
+# 삭제 정책 없이 전체 보존되므로 상한이 없으면 임의로 큰 범위가 무거운 시계열
+# 버킷 계산(interval_minutes=10 기준 1년이면 5만 버킷 이상)을 유발할 수 있다.
+MAX_TIMESERIES_RANGE_DAYS = 90
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or get_settings()
@@ -413,7 +418,47 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         interval_minutes: int = Query(default=DEFAULT_TIMESERIES_INTERVAL_MINUTES, ge=10, le=60),
         future_hours: int = Query(default=0, ge=0, le=12),
         session: AsyncSession = Depends(get_db),
+        start_date: str | None = Query(default=None),
+        end_date: str | None = Query(default=None),
     ) -> ParkingTimeSeriesResponse:
+        # T-036: 명시적 과거 날짜범위 조회. days와 상호배타적이며 지정 시 이쪽이 우선한다.
+        if start_date or end_date:
+            if not (start_date and end_date):
+                raise HTTPException(status_code=400, detail="start_date와 end_date는 함께 지정해야 합니다.")
+            resolved_start = _parse_local_date_query(start_date, "start_date")
+            resolved_end = _parse_local_date_query(end_date, "end_date")
+            if resolved_end < resolved_start:
+                raise HTTPException(status_code=400, detail="end_date는 start_date보다 빠를 수 없습니다.")
+            span_days = (resolved_end - resolved_start).days + 1
+            if span_days > MAX_TIMESERIES_RANGE_DAYS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"조회 기간은 최대 {MAX_TIMESERIES_RANGE_DAYS}일까지 가능합니다.",
+                )
+            snapshots = await _load_snapshots_between_local_dates(
+                session, airport_code, parking_lot_id, resolved_start, resolved_end
+            )
+            return ParkingTimeSeriesResponse(
+                generated_at=now_utc(),
+                airport_code=airport_code.upper() if airport_code else None,
+                parking_lot_id=parking_lot_id,
+                days=span_days,
+                interval_minutes=interval_minutes,
+                future_hours=0,
+                start_date=resolved_start.isoformat(),
+                end_date=resolved_end.isoformat(),
+                items=[
+                    TimeSeriesPoint(**point)
+                    for point in build_time_series(
+                        snapshots,
+                        days=span_days,
+                        interval_minutes=interval_minutes,
+                        future_hours=0,
+                        tz_name=resolved_settings.app_timezone,
+                    )
+                ],
+            )
+
         if (
             airport_code
             and days == DEFAULT_TIMESERIES_DAYS
@@ -756,6 +801,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         latest_snapshot = await _load_latest_snapshot_metadata(session)
         latest_observed_at = latest_snapshot["observed_at"]
         latest_collected_at = latest_snapshot["collected_at"]
+        earliest_observed_at = latest_snapshot["earliest_observed_at"]
         manual_collect_available_at = None
         manual_collect_blocked = False
         rate_limit_state = await service.get_upstream_rate_limit_state(session)
@@ -779,6 +825,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             supported_airport_codes=resolved_settings.supported_airport_codes,
             latest_snapshot_observed_at=serialize_utc(latest_observed_at) if latest_observed_at else None,
             latest_snapshot_collected_at=serialize_utc(latest_collected_at) if latest_collected_at else None,
+            earliest_snapshot_observed_at=serialize_utc(earliest_observed_at) if earliest_observed_at else None,
             manual_collect_available_at=manual_collect_available_at,
             manual_collect_blocked=manual_collect_blocked,
             upstream_rate_limited=rate_limit_state.is_blocked,
@@ -939,6 +986,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 DEFAULT_TIMESERIES_INTERVAL_MINUTES,
                 DEFAULT_TIMESERIES_FUTURE_HOURS,
                 session,
+                None,
+                None,
             ),
         )
 
@@ -1141,9 +1190,11 @@ async def _load_collection_run_statuses(
 async def _load_latest_snapshot_metadata(session: AsyncSession) -> dict[str, object | None]:
     latest_observed_at = await session.scalar(select(func.max(ParkingSnapshot.observed_at)))
     latest_collected_at = await session.scalar(select(func.max(ParkingSnapshot.collected_at)))
+    earliest_observed_at = await session.scalar(select(func.min(ParkingSnapshot.observed_at)))
     return {
         "observed_at": latest_observed_at,
         "collected_at": latest_collected_at,
+        "earliest_observed_at": earliest_observed_at,
     }
 
 

@@ -13,6 +13,14 @@ export function parseApiDate(value: string): Date {
   return new Date(normalizeApiDate(value));
 }
 
+/** Formats a JS Date's local calendar date (as picked in a browser-local date picker) as YYYY-MM-DD. */
+export function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function formatDateTime(value: string): string {
   const { month, day, hour, minute } = getSeoulDateParts(value);
   return `${String(month).padStart(2, "0")}.${String(day).padStart(2, "0")} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
