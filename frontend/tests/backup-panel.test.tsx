@@ -70,7 +70,7 @@ describe("BackupPanel", () => {
     const restoreBackup = vi.fn(async () => ({
       status: "restored" as const,
       restored_from: { filename: "uploaded.dump", size_bytes: 1, created_at: "2026-08-22T00:00:00Z" },
-      pre_restore_backup: null,
+      pre_restore_backup: undefined,
     }));
     const user = userEvent.setup();
 
@@ -109,7 +109,7 @@ describe("BackupPanel", () => {
     const restoreBackup = vi.fn(async () => ({
       status: "restored" as const,
       restored_from: { filename: "uploaded.dump", size_bytes: 1, created_at: "2026-08-22T00:00:00Z" },
-      pre_restore_backup: null,
+      pre_restore_backup: undefined,
     }));
     const user = userEvent.setup();
 
