@@ -691,11 +691,11 @@ select {
 }
 
 .flight-chip.departure {
-  border-color: rgba(37, 99, 235, 0.22);
+  border-color: var(--color-chart-flight-departure-border);
 }
 
 .flight-chip.arrival {
-  border-color: rgba(219, 39, 119, 0.22);
+  border-color: var(--color-chart-flight-arrival-border);
 }
 
 .flight-chip.active,
@@ -898,11 +898,11 @@ select {
 }
 
 .daily-flight-marker-button-departure {
-  border-color: rgba(37, 99, 235, 0.22);
+  border-color: var(--color-chart-flight-departure-border);
 }
 
 .daily-flight-marker-button-arrival {
-  border-color: rgba(219, 39, 119, 0.22);
+  border-color: var(--color-chart-flight-arrival-border);
 }
 
 .daily-flight-marker-button.active,
@@ -1300,11 +1300,15 @@ select {
 }
 
 
-/* T-038 Hallmark audit: .control-band collapses at the same 1024px (lg) breakpoint
+/* T-038 Hallmark audit: .control-band collapses right below the 1024px (lg) breakpoint
    AppShell/CurrentStatusView use to switch nav/table to mobile mode - previously this
    collapsed at 980px, leaving a ~44px dead zone (981-1023px) where the header selector
-   was already single-column but the nav/table hadn't switched to mobile mode yet. */
-@media (max-width: 64rem) {
+   was already single-column but the nav/table hadn't switched to mobile mode yet.
+   63.9375rem (1023px), not 64rem (1024px): Tailwind's `lg:` is a min-width: 64rem query,
+   and max-width/min-width are both boundary-inclusive - using the same 64rem value here
+   would make both queries true at exactly 1024px, reproducing the same mismatch this
+   fix is meant to close (just narrowed to one width instead of a 44px range). */
+@media (max-width: 63.9375rem) {
   .control-band {
     grid-template-columns: 1fr;
   }

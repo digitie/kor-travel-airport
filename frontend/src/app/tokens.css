@@ -47,6 +47,8 @@
   --color-chart-sunday-stroke: rgba(220, 38, 38, 0.2);
   --color-chart-flight-departure: #2563eb;
   --color-chart-flight-arrival: #db2777;
+  --color-chart-flight-departure-border: rgba(37, 99, 235, 0.22);
+  --color-chart-flight-arrival-border: rgba(219, 39, 119, 0.22);
   --color-chart-series-0: #0c8b7d;
   --color-chart-series-1: #2563eb;
   --color-chart-series-2: #db2777;

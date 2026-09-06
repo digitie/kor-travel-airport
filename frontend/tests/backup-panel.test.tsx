@@ -9,7 +9,6 @@ function renderPanel(
   listBackups: () => Promise<{ items: never[] }>,
   overrides: Partial<{
     restoreBackup: (file: File) => Promise<import("@/lib/types").BackupRestoreResponse>;
-    defaultOpen: boolean;
   }> = {}
 ) {
   return render(
@@ -25,7 +24,6 @@ function renderPanel(
           pre_restore_backup: { filename: "pre.dump", size_bytes: 1, created_at: "2026-08-22T00:00:00Z" },
         }))
       }
-      defaultOpen={overrides.defaultOpen}
     />
   );
 }
@@ -35,13 +33,6 @@ function makeDumpFile(name = "uploaded.dump") {
 }
 
 describe("BackupPanel", () => {
-  test("defaultOpen renders the body immediately, with no trigger click needed", async () => {
-    renderPanel(async () => emptyBackupList, { defaultOpen: true });
-
-    expect(screen.getByRole("button", { name: /백업 \/ 복원/ })).toHaveAttribute("aria-expanded", "true");
-    await screen.findByTestId("backup-empty-state");
-  });
-
   test("does not show an empty state until the backup list succeeds", async () => {
     let resolveList: ((value: typeof emptyBackupList) => void) | undefined;
     const listBackups = vi.fn(
